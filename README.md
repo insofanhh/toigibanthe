@@ -1,0 +1,114 @@
+# Tôi gì, bạn đó!
+
+Ứng dụng đặt món từ bếp cá nhân, ưu tiên mobile: user, chef, admin. Next.js + MySQL/TiDB + WebSocket + Vercel Blob. Không dùng Supabase.
+
+## Chạy trên máy hiện tại
+
+Đã khởi tạo database MySQL 8 riêng ở `127.0.0.1:3307`, dữ liệu trong `.local/mysql-data`; không thay đổi database Laragon cổng 3306. `.env.local` chứa cấu hình local và mật khẩu sinh ngẫu nhiên, được gitignore.
+
+```powershell
+npm run dev
+```
+
+Terminal thứ hai:
+
+```powershell
+npm run realtime
+```
+
+Mở `http://127.0.0.1:3000`. WebSocket local ở cổng 3001. Khi khởi động lại máy, chạy MySQL local trước bằng `scripts/start-local-db.ps1` hoặc dùng MySQL của bạn và cập nhật `DATABASE_URL`.
+
+Tài khoản demo:
+
+| Vai trò | Email                  | Trang  |
+| ------- | ---------------------- | ------ |
+| User    | user@toigibando.local  | /me    |
+| Chef    | chef@toigibando.local  | /chef  |
+| Admin   | admin@toigibando.local | /admin |
+
+Mật khẩu demo là giá trị `SEED_PASSWORD` trong `.env.local`. Dữ liệu demo gồm 4 bếp, 16 món, banner, sale và voucher. Thực đơn có ngày cụ thể, hết ngày cần chef tạo/mở lại. Tài khoản ngân hàng demo để trống; chef nhập ngân hàng hợp lệ trước khi nhận đơn. Ảnh demo dùng Unsplash; ảnh upload mới đi qua Vercel Blob.
+
+Bếp mẫu nằm ở Quận 3, TP.HCM. GPS ở ngoài bán kính giao sẽ không thấy món mẫu.
+
+## Cài trên môi trường mới
+
+Node.js >=20.19, MySQL 8.0+, database UTF-8. Tạo `.env.local` từ `.env.example` và điền `DATABASE_URL`, `AUTH_SECRET`, `SITE_URL`, `WS_ALLOWED_ORIGINS`, `CRON_SECRET`. URL phải encode các ký tự đặc biệt trong username/password.
+
+```powershell
+npm ci
+npm run db:migrate
+```
+
+Chỉ seed môi trường development: đặt `SEED_PASSWORD` trước rồi chạy `npm run db:seed`. Không dùng seed demo trên production. `scripts/setup-local.mjs` chỉ dành cho database riêng cổng 3307, không chạy lại trên môi trường đang dùng vì sẽ thay mật khẩu/config.
+
+## Các tích hợp
+
+| Biến                              | Cách dùng                                                                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| DATABASE_URL                      | MySQL/TiDB connection URL                                                                         |
+| DATABASE_SSL                      | `true` trên TiDB production, kiểm chứng chứng chỉ TLS                                             |
+| AUTH_SECRET                       | Ít nhất 32 ký tự ngẫu nhiên; dùng chung web/realtime                                              |
+| SITE_URL                          | Origin HTTPS production hoặc URL local                                                            |
+| NEXT_PUBLIC_WS_URL                | `ws://127.0.0.1:3001` local; để trống trên Vercel Services để dùng `/realtime/socket` cùng domain |
+| WS_ALLOWED_ORIGINS                | Các origin được phép mở socket, phân cách dấu phẩy                                                |
+| WS_PORT                           | Cổng server Node local/host riêng                                                                 |
+| GOONG_API_KEY                     | REST key, chỉ server                                                                              |
+| NEXT_PUBLIC_GOONG_MAP_KEY         | Map key công khai, giới hạn domain trong Goong                                                    |
+| VIETQR_CLIENT_ID / VIETQR_API_KEY | Tạo QR cho đơn từ snapshot server                                                                 |
+| BLOB_PUBLIC_READ_WRITE_TOKEN      | Token Blob store public: ảnh món/banner                                                           |
+| BLOB_PRIVATE_READ_WRITE_TOKEN     | Token Blob store private: tài liệu chef                                                           |
+| CRON_SECRET                       | Bảo vệ `/api/cron` bằng Authorization Bearer                                                      |
+
+Tạo hai Blob store public/private. Tài liệu private không trả trực tiếp URL blob cho client; `/api/files/:id` kiểm tra chủ sở hữu/admin. Upload tối đa 3 MB, JPG/PNG/WebP; hồ sơ cho phép PDF. Token không có prefix `NEXT_PUBLIC`.
+
+Goong dùng [Directions V2](https://help.goong.io/kb/rest-api-v2/directions-rest-api-v2/directions-v2/). Bán kính giao dùng khoảng cách địa lý; khoảng cách/phí đường đi dùng Goong. Khi chưa có key, UI cho nhập tọa độ và phí cố định; không giả khoảng cách đường đi. Xe ở giữa tuyến là minh họa trạng thái Đang giao, chưa phải GPS người giao.
+
+QR dùng VietQR.IO. Chưa có key thì hiển thị thông tin chuyển khoản thủ công. Chef kiểm tra tiền thực nhận, ứng dụng không tự xác nhận thanh toán. Đơn hết hạn/hủy sau chuyển cần đối soát và hoàn tiền thủ công.
+
+## Vercel và TiDB production
+
+`vercel.json` khai báo hai service: Next.js `web`, Node `realtime`; `/realtime/*` tới WebSocket, các route còn lại tới web. Cấu hình theo [Vercel Services beta](https://vercel.com/docs/services) và [hướng dẫn Node WebSocket](https://vercel.com/kb/guide/real-time-presence-hono-react).
+
+1. Tạo TiDB cluster/database riêng, lấy MySQL connection URL, đặt `DATABASE_SSL=true`; chạy migrations với tài khoản có quyền tạo schema. Chạy integration trên staging TiDB trước khi dùng dữ liệu thật.
+2. Import repo vào Vercel, đặt web và database gần nhau nếu cấu hình tài khoản cho phép; dùng Node 20.19+.
+3. Điền tất cả env cho web và realtime. Đặt `SITE_URL`, `WS_ALLOWED_ORIGINS` theo domain thật; để trống `NEXT_PUBLIC_WS_URL` nếu dùng cùng domain.
+4. Tạo Blob stores, Goong/VietQR keys; kiểm tra upload, đọc hồ sơ private, QR ngân hàng và directions thực.
+5. Cron mỗi phút trong config cần gói hỗ trợ tần suất đó. Cron xử lý đơn hết hạn/broadcast khi không có socket đang mở. Runtime realtime cũng xử lý theo batch khi đang hoạt động; database khóa để chống chạy trùng.
+6. Tạo user quản trị production riêng qua cơ chế provision nội bộ. Hoàn thiện chính sách/hỗ trợ, backup và cảnh báo; không seed demo.
+
+WebSocket dùng outbox MySQL để mỗi instance nhận sự kiện, auth bằng JWT ngắn hạn gắn session; reconnect tải lại thông báo từ database. Socket có thể bị nền tảng đóng/khởi động lại; client tự kết nối lại. Chưa có Push khi trang đóng.
+
+Nếu cần Node host riêng cho realtime, dùng `services/realtime/Dockerfile`, cấu hình WSS/TLS của host và `NEXT_PUBLIC_WS_URL`; web vẫn ở Vercel.
+
+Đã kiểm chứng MySQL local; chưa có TiDB cluster, tài khoản deploy hay service keys để xác nhận production. Migrations dùng SQL MySQL thông thường, tọa độ DOUBLE, không phụ thuộc PostGIS/RLS hay Supabase.
+
+## Kiểm tra
+
+```powershell
+npm run typecheck
+npm test
+npm run build
+```
+
+Integration cần app và WebSocket đang chạy local:
+
+```powershell
+npm run test:integration
+```
+
+Tests tạo dữ liệu riêng rồi dọn theo ID: đăng nhập/session, suất cuối đồng thời, idempotency, báo giá và tổng thay đổi, phân quyền hồ sơ/đơn/admin, thanh toán thủ công, giao/hoàn thành/review, bán kính/cutoff, socket hợp lệ/sai.
+
+## Cấu trúc
+
+Chuyển trang dùng React ViewTransition có sẵn trong Next.js: Slide Out 200 ms, Slide In 280 ms, đổi chiều theo tab hoặc liên kết quay lại. Header/thanh dưới giữ vị trí; tôn trọng `prefers-reduced-motion`. Trình duyệt chưa có View Transitions dùng CSS Slide In dự phòng. Mã dùng chung tại `src/components/page-motion.tsx`, hiệu ứng tại `src/app/globals.css`.
+
+- `src/app`: Next routes, metadata, CSS, API.
+- `src/components`: giao diện user, dashboard, providers, bản đồ.
+- `src/lib`: auth, MySQL, catalog, orders, báo giá, quản trị và jobs.
+- `database`: SQL migrations.
+- `services/realtime`: WebSocket server và Dockerfile.
+- `scripts`: migrate/seed và setup local.
+- `tests`: domain và integration.
+- `docs/PRODUCT_PLAN.md`: phạm vi thực hiện và phần mở rộng.
+
+Chưa triển khai OTP/Google, reset mật khẩu email, Push nền, GPS người giao, webhook ngân hàng, quyết toán phí, thống kê theo kỳ và menu copy. Danh sách dashboard hiện giới hạn; cần phân trang và đo tải với dữ liệu production. Manifest hỗ trợ thêm màn hình chính; chưa có service worker/offline checkout. Chính sách vận hành cần chủ sản phẩm hoàn thiện trước công khai.

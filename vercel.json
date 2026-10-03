@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": ".",
+      "framework": "nextjs",
+      "buildCommand": "npm run build",
+      "devCommand": "npm run dev"
+    },
+    "realtime": {
+      "root": ".",
+      "framework": "node",
+      "entrypoint": "services/realtime/server.ts",
+      "devCommand": "npm run realtime"
+    }
+  },
+  "rewrites": [
+    { "source": "/realtime/(.*)", "destination": { "service": "realtime" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ],
+  "crons": [{ "path": "/api/cron", "schedule": "* * * * *" }]
+}

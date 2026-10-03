@@ -1,0 +1,238 @@
+"use client";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
+import type { Actor, Dish, Location } from "@/lib/domain";
+export async function request<T = any>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const response = await fetch("/api/" + path, {
+    ...options,
+    headers: {
+      ...(options.body instanceof FormData
+        ? {}
+        : { "content-type": "application/json" }),
+      ...options.headers,
+    },
+    cache: "no-store",
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Không thể xử lý yêu cầu.");
+  return data;
+}
+export const post = (path: string, body: unknown, method = "POST") =>
+  request(path, { method, body: JSON.stringify(body) });
+export type CartLine = { dish: Dish; quantity: number };
+type Context = {
+  user: Actor | null;
+  chef: {
+    id: string;
+    name: string;
+    status: string;
+    rejection_reason?: string;
+  } | null;
+  authReady: boolean;
+  location: Location | null;
+  cart: CartLine[];
+  unread: number;
+  revision: number;
+  toast: (message: string) => void;
+  refresh: () => void;
+  refreshAuth: () => Promise<void>;
+  setLocation: (value: Location) => void;
+  add: (dish: Dish) => void;
+  setQuantity: (id: string, n: number) => void;
+  clearCart: () => void;
+  locationOpen: boolean;
+  setLocationOpen: (open: boolean) => void;
+};
+const AppContext = createContext<Context>(null!);
+export const useApp = () => useContext(AppContext);
+export function Providers({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<Actor | null>(null),
+    [chef, setChef] = useState<Context["chef"]>(null),
+    [authReady, setAuthReady] = useState(false),
+    [location, setLocationState] = useState<Location | null>(null),
+    [cart, setCart] = useState<CartLine[]>([]),
+    [unread, setUnread] = useState(0),
+    [revision, setRevision] = useState(0),
+    [message, setMessage] = useState(""),
+    [locationOpen, setLocationOpen] = useState(false),
+    [ready, setReady] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useCallback((text: string) => {
+    setMessage(text);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setMessage(""), 4500);
+  }, []);
+  const refresh = useCallback(() => setRevision((x) => x + 1), []);
+  const refreshAuth = useCallback(async () => {
+    try {
+      const data = await request("auth/me");
+      setUser(data.user);
+      setChef(data.chef);
+    } catch {
+      setUser(null);
+    } finally {
+      setAuthReady(true);
+    }
+  }, []);
+  useEffect(() => {
+    void refreshAuth();
+    try {
+      const l = localStorage.getItem("tgbd-location"),
+        c = localStorage.getItem("tgbd-cart");
+      if (l) setLocationState(JSON.parse(l));
+      if (c) setCart(JSON.parse(c));
+    } catch {
+      localStorage.removeItem("tgbd-cart");
+    }
+    setReady(true);
+  }, [refreshAuth]);
+  useEffect(() => {
+    if (ready) localStorage.setItem("tgbd-cart", JSON.stringify(cart));
+  }, [cart, ready]);
+  useEffect(() => {
+    if (!user) {
+      setUnread(0);
+      return;
+    }
+    request("notifications")
+      .then((r) =>
+        setUnread(
+          r.notifications.filter((n: { is_read: number }) => !n.is_read).length,
+        ),
+      )
+      .catch(() => {});
+  }, [user, revision]);
+  useEffect(() => {
+    if (!user) return;
+    let stopped = false,
+      ws: WebSocket | null = null,
+      retry: ReturnType<typeof setTimeout> | null = null,
+      attempt = 0;
+    const connect = async () => {
+      try {
+        const { ticket } = await request("realtime/ticket");
+        if (stopped) return;
+        const configured = process.env.NEXT_PUBLIC_WS_URL;
+        const url = configured
+          ? new URL(configured)
+          : new URL("/realtime/socket", window.location.origin);
+        if (url.pathname === "/") url.pathname = "/socket";
+        if (url.protocol === "https:") url.protocol = "wss:";
+        if (url.protocol === "http:") url.protocol = "ws:";
+        url.searchParams.set("ticket", ticket);
+        ws = new WebSocket(url);
+        ws.onopen = () => {
+          attempt = 0;
+          refresh();
+        };
+        ws.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.type === "notification") {
+              toast(data.title);
+              refresh();
+            }
+          } catch {}
+        };
+        ws.onclose = () => {
+          if (!stopped)
+            retry = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
+        };
+        ws.onerror = () => ws?.close();
+      } catch {
+        if (!stopped) retry = setTimeout(connect, 10000);
+      }
+    };
+    void connect();
+    const focus = () => refresh();
+    window.addEventListener("focus", focus);
+    return () => {
+      stopped = true;
+      ws?.close();
+      if (retry) clearTimeout(retry);
+      window.removeEventListener("focus", focus);
+    };
+  }, [user, refresh, toast]);
+  const setLocation = (value: Location) => {
+    setLocationState(value);
+    localStorage.setItem("tgbd-location", JSON.stringify(value));
+    refresh();
+  };
+  const add = (dish: Dish) => {
+    setCart((old) => {
+      if (
+        old.length &&
+        (old[0].dish.chefId !== dish.chefId ||
+          old[0].dish.meal !== dish.meal ||
+          old[0].dish.cutoffAt !== dish.cutoffAt)
+      ) {
+        toast(
+          "Giỏ hiện có món của bếp hoặc bữa khác. Hãy hoàn tất hoặc xóa giỏ trước.",
+        );
+        return old;
+      }
+      const exists = old.find((x) => x.dish.menuId === dish.menuId);
+      if (exists && exists.quantity >= dish.stock) {
+        toast("Món không còn đủ suất.");
+        return old;
+      }
+      toast("Đã thêm vào giỏ");
+      return exists
+        ? old.map((x) =>
+            x.dish.menuId === dish.menuId
+              ? { ...x, quantity: x.quantity + 1 }
+              : x,
+          )
+        : [...old, { dish, quantity: 1 }];
+    });
+  };
+  const setQuantity = (id: string, n: number) =>
+    setCart((old) =>
+      n <= 0
+        ? old.filter((x) => x.dish.menuId !== id)
+        : old.map((x) =>
+            x.dish.menuId === id
+              ? { ...x, quantity: Math.min(n, x.dish.stock) }
+              : x,
+          ),
+    );
+  return (
+    <AppContext.Provider
+      value={{
+        user,
+        chef,
+        authReady,
+        location,
+        cart,
+        unread,
+        revision,
+        toast,
+        refresh,
+        refreshAuth,
+        setLocation,
+        add,
+        setQuantity,
+        clearCart: () => setCart([]),
+        locationOpen,
+        setLocationOpen,
+      }}
+    >
+      {children}
+      {message && (
+        <div className="toast" role="status">
+          {message}
+        </div>
+      )}
+    </AppContext.Provider>
+  );
+}
