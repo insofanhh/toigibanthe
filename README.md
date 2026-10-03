@@ -39,7 +39,7 @@ npm ci
 npm run db:migrate
 ```
 
-Chỉ seed môi trường development: đặt `SEED_PASSWORD` trước rồi chạy `npm run db:seed`. Không dùng seed demo trên production. `scripts/setup-local.mjs` chỉ dành cho database riêng cổng 3307, không chạy lại trên môi trường đang dùng vì sẽ thay mật khẩu/config.
+Seed trực tiếp môi trường development: đặt `SEED_PASSWORD` trước rồi chạy `npm run db:seed`. Để dùng dữ liệu mẫu trên production phục vụ dùng thử, xuất SQL theo hướng dẫn bên dưới. `scripts/setup-local.mjs` chỉ dành cho database riêng cổng 3307, không chạy lại trên môi trường đang dùng vì sẽ thay mật khẩu/config.
 
 ## Các tích hợp
 
@@ -76,9 +76,38 @@ Service `realtime` đặt `buildCommand: "npm run typecheck"` để kiểm tra k
 3. Điền tất cả env cho web và realtime. Đặt `SITE_URL`, `WS_ALLOWED_ORIGINS` theo domain thật; để trống `NEXT_PUBLIC_WS_URL` nếu dùng cùng domain.
 4. Tạo Blob stores, Goong/VietQR keys; kiểm tra upload, đọc hồ sơ private, QR ngân hàng và directions thực.
 5. Cấu hình không khai báo Vercel Cron để tránh giới hạn cron mỗi ngày của Hobby. Thiết lập scheduler bên ngoài theo hướng dẫn dưới để xử lý đơn hết hạn/broadcast khi không có socket đang mở. Runtime realtime cũng xử lý theo batch khi đang hoạt động; database khóa để chống chạy trùng.
-6. Tạo user quản trị production riêng qua cơ chế provision nội bộ. Hoàn thiện chính sách/hỗ trợ, backup và cảnh báo; không seed demo.
+6. Tạo user quản trị production riêng qua cơ chế provision nội bộ. Hoàn thiện chính sách/hỗ trợ, backup và cảnh báo trước khi nhận đơn thật.
 
 WebSocket dùng outbox MySQL để mỗi instance nhận sự kiện, auth bằng JWT ngắn hạn gắn session; reconnect tải lại thông báo từ database. Socket có thể bị nền tảng đóng/khởi động lại; client tự kết nối lại. Chưa có Push khi trang đóng.
+
+### Dữ liệu khởi tạo production
+
+`database/003_initial_settings.sql` tạo 4 bữa và cấu hình phí giao ban đầu. Chạy bằng migration hoặc dán nội dung vào TiDB SQL Editor sau `USE toigibanthe;`. Có thể chạy lại; các giá trị đã có được giữ nguyên. Giờ đóng bữa và phí giao có thể chỉnh trong admin.
+
+Đăng ký tài khoản của bạn trên web production để app tạo mật khẩu bcrypt. Trong TiDB SQL Editor, cấp quyền quản trị cho đúng email đã đăng ký:
+
+```sql
+USE toigibanthe;
+UPDATE users SET role='admin' WHERE email='EMAIL_CUA_BAN' AND active=TRUE;
+SELECT id,email,role FROM users WHERE email='EMAIL_CUA_BAN';
+```
+
+Sau đó đăng nhập bằng email/mật khẩu đã đăng ký và vào `/admin`. Tài khoản `.local` chỉ tồn tại ở MySQL local nếu chưa seed vào TiDB. Không nhập mật khẩu thô vào cột `password_hash`.
+
+### Seed dữ liệu mẫu vào TiDB production để dùng thử
+
+```powershell
+npm run db:seed:export
+```
+
+Lệnh này xuất `.local/production-demo.sql` và `.local/production-demo.credentials.txt`, không kết nối database. Mật khẩu riêng được sinh ngẫu nhiên và băm bcrypt; không dùng mật khẩu local. Cả hai file được Git bỏ qua. Để xuất một bộ mới, dùng tên file khác: `npm run db:seed:export -- .local/production-demo-2.sql`.
+
+1. Trên TiDB SQL Editor, thay nội dung hiện tại bằng toàn bộ file SQL vừa xuất. File bắt đầu bằng `USE toigibanthe;`. Chọn toàn bộ SQL rồi Run.
+2. Kiểm tra truy vấn cuối trả 6 tài khoản và 16 sản phẩm. `INSERT IGNORE` giữ lại dữ liệu đã có; chạy lại không thay mật khẩu tài khoản đã tồn tại.
+3. Lấy mật khẩu từ file credentials và đăng nhập trên web. Admin: `admin@toigibando.local`, user: `user@toigibando.local`, các chef: `chef@toigibando.local`, `nam@toigibando.local`, `ha@toigibando.local`, `linh@toigibando.local`.
+4. Seed có 4 bếp ở Quận 3, TP.HCM, 16 món, banner, sale và voucher. Thực đơn/khuyến mãi được tính ở lúc chạy SQL theo giờ Việt Nam; bữa hết giờ vẫn bị ẩn. Ngày tiếp theo chef cần mở bếp và tạo thực đơn mới. GPS ngoài bán kính 5 km sẽ không thấy món của các bếp mẫu.
+
+Các bếp mẫu không có thông tin ngân hàng để nhận thanh toán. Dùng tài khoản và dữ liệu thật khi chuyển sang vận hành nhận đơn thật. Nếu `DATABASE_URL` đã trỏ đúng `/toigibanthe` trên deployment hiện tại, nhập seed xong chỉ cần tải lại trang.
 
 ### Scheduler bên ngoài cho Vercel Hobby
 

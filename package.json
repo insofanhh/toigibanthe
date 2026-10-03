@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "db:seed:export": "tsx scripts/export-demo-seed.ts",
     "realtime": "tsx --env-file=.env.local services/realtime/server.ts",
     "test": "tsx --test tests/domain.test.ts",
     "test:integration": "tsx --env-file=.env.local tests/integration.ts"
