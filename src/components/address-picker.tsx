@@ -526,7 +526,7 @@ export function AddressPicker({ onClose }: { onClose?: () => void }) {
                 onChange={(e) => setIsDefault(e.target.checked)}
                 disabled={busy === "save"}
               />
-              Đặt làm địa chỉ mặc định
+              <span>Đặt làm địa chỉ mặc định</span>
             </label>
           </div>
         )}

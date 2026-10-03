@@ -1873,11 +1873,23 @@ hr {
 .address-default-option {
   display: flex;
   align-items: center;
-  gap: 9px;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 44px;
   font-size: 13px;
+  cursor: pointer;
 }
-.address-default-option input {
+.address-default-option > input[type="checkbox"] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
   accent-color: var(--green);
+}
+.address-default-option > span {
+  flex: 1;
+  min-width: 0;
 }
 .address-manual {
   margin: 12px 0;
