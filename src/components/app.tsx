@@ -52,6 +52,7 @@ import {
   Mail,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
+import { AddressPicker } from "./address-picker";
 import {
   money,
   MEAL_NAMES,
@@ -604,40 +605,13 @@ function ChefCards({ chefs }: { chefs: Feed["chefs"] }) {
   );
 }
 function Home({ initialFeed }: { initialFeed: Feed | null }) {
-  const { location, revision, setLocationOpen, setLocation } = useApp(),
+  const { location, revision, setLocationOpen } = useApp(),
     { data, error, loading, reload } = useLoad<Feed>(
       feedPath(location),
       [revision],
       initialFeed,
     ),
     router = useRouter();
-  useEffect(() => {
-    if (
-      localStorage.getItem("tgbd-location") ||
-      sessionStorage.getItem("tgbd-geo-asked")
-    )
-      return;
-    sessionStorage.setItem("tgbd-geo-asked", "1");
-    if (navigator.geolocation)
-      navigator.geolocation.getCurrentPosition(
-        async (p) => {
-          let address = "Vị trí hiện tại";
-          try {
-            const result = await request(
-              `location?lat=${p.coords.latitude}&lng=${p.coords.longitude}`,
-            );
-            address = result.results?.[0]?.formatted_address || address;
-          } catch {}
-          setLocation({
-            address,
-            lat: p.coords.latitude,
-            lng: p.coords.longitude,
-          });
-        },
-        () => {},
-        { timeout: 7000, maximumAge: 60000 },
-      );
-  }, [setLocation]);
   const recommended = data
     ? [...data.dishes]
         .sort(
@@ -2191,119 +2165,12 @@ function Vouchers() {
   );
 }
 function Addresses() {
-  const {
-      user,
-      revision,
-      location,
-      setLocationOpen,
-      setLocation,
-      refresh,
-      toast,
-    } = useApp(),
-    { data } = useLoad(user ? "addresses" : null, [revision]),
-    [form, setForm] = useState(false);
+  const { user } = useApp();
   if (!user) return <NeedLogin />;
   return (
     <>
-      <PageTitle title="Địa chỉ" back>
-        <Button
-          secondary
-          onClick={() => {
-            setForm(!form);
-            if (!location) setLocationOpen(true);
-          }}
-        >
-          <Plus size={16} /> Thêm địa chỉ
-        </Button>
-      </PageTitle>
-      {form && (
-        <form
-          className="panel form narrow"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!location) return;
-            const f = new FormData(e.currentTarget);
-            try {
-              await post("addresses", {
-                ...location,
-                label: f.get("label"),
-                recipient: f.get("recipient"),
-                phone: f.get("phone"),
-                isDefault: true,
-              });
-              setForm(false);
-              refresh();
-              toast("Đã lưu địa chỉ.");
-            } catch (e) {
-              toast((e as Error).message);
-            }
-          }}
-        >
-          <button
-            type="button"
-            className="address-select"
-            onClick={() => setLocationOpen(true)}
-          >
-            {location?.address || "Chọn vị trí"}
-          </button>
-          <Field label="Tên địa chỉ">
-            <input name="label" placeholder="Nhà, công ty…" required />
-          </Field>
-          <Field label="Người nhận">
-            <input name="recipient" defaultValue={user.name} required />
-          </Field>
-          <Field label="Điện thoại">
-            <input
-              name="phone"
-              defaultValue={user.phone}
-              inputMode="tel"
-              required
-            />
-          </Field>
-          <Button type="submit" disabled={!location}>
-            Lưu địa chỉ
-          </Button>
-        </form>
-      )}
-      {data?.addresses.length ? (
-        data.addresses.map((a: any) => (
-          <div className="panel address-card" key={a.id}>
-            <MapPin size={21} />
-            <div>
-              <h3>{a.label}</h3>
-              <p>{a.address}</p>
-              <small>
-                {a.recipient} · {a.phone}
-              </small>
-            </div>
-            <button
-              className="text-button"
-              onClick={() => {
-                setLocation({ address: a.address, lat: a.lat, lng: a.lng });
-                toast("Đã chọn địa chỉ giao.");
-              }}
-            >
-              Chọn
-            </button>
-            <button
-              className="icon-button"
-              aria-label="Xóa địa chỉ"
-              onClick={async () => {
-                await request("addresses/" + a.id, { method: "DELETE" });
-                refresh();
-              }}
-            >
-              <X size={17} />
-            </button>
-          </div>
-        ))
-      ) : (
-        <Empty
-          icon={MapPin}
-          title="Chưa lưu địa chỉ"
-          body="Lưu địa chỉ để đặt món nhanh hơn."
-        />
-      )}
+      <PageTitle title="Địa chỉ" back />
+      <AddressPicker />
     </>
   );
 }
@@ -2363,190 +2230,57 @@ function Information({ privacy }: { privacy: boolean }) {
   );
 }
 function LocationSheet() {
-  const { locationOpen, setLocationOpen, location, setLocation, toast } =
-      useApp(),
-    [query, setQuery] = useState(""),
-    [suggestions, setSuggestions] = useState<any[]>([]),
-    [address, setAddress] = useState(""),
-    [lat, setLat] = useState(""),
-    [lng, setLng] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+  const { locationOpen, setLocationOpen } = useApp();
+  const dialog = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!locationOpen) return;
-    const found = sessionStorage.getItem("tgbd-detected");
-    const selected = location || (found ? JSON.parse(found) : null);
-    setAddress(selected?.address || "");
-    setLat(selected ? String(selected.lat) : "");
-    setLng(selected ? String(selected.lng) : "");
-    setError("");
-  }, [locationOpen, location]);
-  useEffect(() => {
-    if (query.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-    let active = true;
-    const timer = setTimeout(
-      () =>
-        request("location?mode=search&q=" + encodeURIComponent(query))
-          .then((r) => {
-            if (active) setSuggestions(r.predictions || []);
-          })
-          .catch((e) => {
-            if (active) setError(e.message);
-          }),
-      350,
-    );
-    return () => {
-      active = false;
-      clearTimeout(timer);
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog.current?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLocationOpen(false);
+      if (event.key !== "Tab") return;
+      const nodes = Array.from(
+        dialog.current?.querySelectorAll<HTMLElement>(
+          "button:not(:disabled), input:not(:disabled), a[href], summary",
+        ) || [],
+      ).filter((node) => node.getClientRects().length > 0);
+      if (!nodes?.length) return;
+      const first = nodes[0],
+        last = nodes[nodes.length - 1];
+      if (
+        event.shiftKey &&
+        (document.activeElement === first ||
+          document.activeElement === dialog.current)
+      ) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-  }, [query]);
+    document.addEventListener("keydown", keydown);
+    return () => {
+      document.body.style.overflow = overflow;
+      document.removeEventListener("keydown", keydown);
+      previous?.focus();
+    };
+  }, [locationOpen, setLocationOpen]);
   if (!locationOpen) return null;
-  async function detect() {
-    setBusy(true);
-    setError("");
-    navigator.geolocation?.getCurrentPosition(
-      async (p) => {
-        setLat(String(p.coords.latitude));
-        setLng(String(p.coords.longitude));
-        try {
-          const result = await request(
-            `location?lat=${p.coords.latitude}&lng=${p.coords.longitude}`,
-          );
-          setAddress(result.results?.[0]?.formatted_address || "");
-        } catch (e) {
-          setError((e as Error).message);
-        } finally {
-          setBusy(false);
-        }
-      },
-      () => {
-        setError("Không lấy được vị trí. Bạn có thể nhập địa chỉ và tọa độ.");
-        setBusy(false);
-      },
-      { timeout: 10000 },
-    );
-  }
   return (
     <div className="modal-overlay" onClick={() => setLocationOpen(false)}>
       <section
-        className="sheet"
+        ref={dialog}
+        tabIndex={-1}
+        className="sheet location-sheet"
         role="dialog"
         aria-modal="true"
         aria-label="Chọn địa chỉ giao"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sheet-header">
-          <h2>Giao đến</h2>
-          <button
-            className="icon-button"
-            onClick={() => setLocationOpen(false)}
-            aria-label="Đóng"
-          >
-            <X size={22} />
-          </button>
-        </div>
-        <button
-          className="location-detect"
-          onClick={() => void detect()}
-          disabled={busy}
-        >
-          <LocateFixed size={19} />
-          {busy ? "Đang xác định vị trí…" : "Dùng vị trí hiện tại"}
-        </button>
-        <div className="search-box">
-          <Search size={18} />
-          <input
-            placeholder="Tìm địa chỉ"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        {suggestions.map((s) => (
-          <button
-            key={s.place_id}
-            className="location-result"
-            onClick={async () => {
-              try {
-                const result = await request(
-                  "location?mode=detail&id=" + encodeURIComponent(s.place_id),
-                );
-                const place = result.result || result.results?.[0];
-                setAddress(s.description);
-                setLat(String(place.geometry.location.lat));
-                setLng(String(place.geometry.location.lng));
-                setSuggestions([]);
-                setQuery("");
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
-          >
-            <MapPin size={17} />
-            {s.description}
-          </button>
-        ))}
-        {error && <Notice>{error}</Notice>}
-        <form
-          className="form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const la = Number(lat),
-              lo = Number(lng);
-            if (
-              !address ||
-              !lat ||
-              !lng ||
-              !Number.isFinite(la) ||
-              !Number.isFinite(lo) ||
-              Math.abs(la) > 90 ||
-              Math.abs(lo) > 180
-            ) {
-              toast("Nhập địa chỉ và tọa độ hợp lệ.");
-              return;
-            }
-            setLocation({ address, lat: la, lng: lo });
-            setLocationOpen(false);
-            toast("Đã cập nhật địa chỉ giao.");
-          }}
-        >
-          <Field label="Địa chỉ giao">
-            <input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              required
-              minLength={10}
-              placeholder="Số nhà, tên đường, phường…"
-            />
-          </Field>
-          <details>
-            <summary>Nhập tọa độ thủ công</summary>
-            <p className="muted small">
-              Dùng khi chưa cấu hình Goong hoặc cần điều chỉnh vị trí.
-            </p>
-            <div className="form-row">
-              <Field label="Vĩ độ">
-                <input
-                  value={lat}
-                  onChange={(e) => setLat(e.target.value)}
-                  inputMode="decimal"
-                  placeholder="10.7817"
-                />
-              </Field>
-              <Field label="Kinh độ">
-                <input
-                  value={lng}
-                  onChange={(e) => setLng(e.target.value)}
-                  inputMode="decimal"
-                  placeholder="106.6809"
-                />
-              </Field>
-            </div>
-          </details>
-          <Button type="submit">Giao đến địa chỉ này</Button>
-        </form>
+        <AddressPicker onClose={() => setLocationOpen(false)} />
       </section>
     </div>
   );

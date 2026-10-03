@@ -3,6 +3,13 @@ export const point = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
 });
+export const addressSchema = point.extend({
+  label: z.string().trim().min(1).max(50),
+  address: z.string().trim().min(10).max(500),
+  recipient: z.string().trim().min(2).max(100),
+  phone: z.string().trim().min(10).max(20),
+  isDefault: z.boolean(),
+});
 export const loginSchema = z.object({
   email: z.email(),
   password: z.string().min(1).max(128),

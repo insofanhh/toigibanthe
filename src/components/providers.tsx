@@ -9,6 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import type { Actor, Dish, Location } from "@/lib/domain";
+import {
+  currentPosition,
+  isUnresolvedLocation,
+  reverseLocation,
+} from "@/lib/location-client";
 export async function request<T = any>(
   path: string,
   options: RequestInit = {},
@@ -163,11 +168,67 @@ export function Providers({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", focus);
     };
   }, [user, refresh, toast]);
-  const setLocation = (value: Location) => {
-    setLocationState(value);
-    localStorage.setItem("tgbd-location", JSON.stringify(value));
-    refresh();
-  };
+  const setLocation = useCallback(
+    (value: Location) => {
+      setLocationState(value);
+      localStorage.setItem("tgbd-location", JSON.stringify(value));
+      refresh();
+    },
+    [refresh],
+  );
+  useEffect(() => {
+    if (!ready || !authReady) return;
+    const original = localStorage.getItem("tgbd-location");
+    let existing: Location | null = null;
+    try {
+      existing = original ? JSON.parse(original) : null;
+    } catch {}
+    if (existing && !isUnresolvedLocation(existing.address)) return;
+    let active = true;
+    const stillCurrent = () =>
+      active && localStorage.getItem("tgbd-location") === original;
+    void (async () => {
+      try {
+        // A saved delivery address takes precedence over automatic GPS detection.
+        if (user) {
+          const data = await request("addresses");
+          if (!stillCurrent()) return;
+          const saved =
+            data.addresses.find((a: { is_default: number }) => a.is_default) ||
+            data.addresses[0];
+          if (saved) {
+            setLocation({
+              address: saved.address,
+              lat: Number(saved.lat),
+              lng: Number(saved.lng),
+            });
+            return;
+          }
+        }
+        if (!existing && sessionStorage.getItem("tgbd-geo-asked")) return;
+        sessionStorage.setItem("tgbd-geo-asked", "1");
+        const coords = existing || (await currentPosition()).coords;
+        const lat = "lat" in coords ? coords.lat : coords.latitude;
+        const lng = "lng" in coords ? coords.lng : coords.longitude;
+        let resolved: Location;
+        try {
+          resolved = await reverseLocation(lat, lng);
+        } catch {
+          resolved = {
+            lat,
+            lng,
+            address: `Tọa độ: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+          };
+        }
+        if (stillCurrent()) setLocation(resolved);
+      } catch {
+        /* The address picker remains available if GPS is denied. */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [ready, authReady, user, setLocation]);
   const add = (dish: Dish) => {
     setCart((old) => {
       if (

@@ -19,6 +19,7 @@ import {
   checkoutSchema,
   loginSchema,
   signupSchema,
+  addressSchema,
   point,
 } from "@/lib/validation";
 import {
@@ -188,7 +189,12 @@ async function dispatch(req: Request) {
     const mode = url.searchParams.get("mode");
     if (mode === "search")
       return goong("place/autocomplete", {
-        input: z.string().min(3).max(100).parse(url.searchParams.get("q")),
+        input: z
+          .string()
+          .trim()
+          .min(3)
+          .max(500)
+          .parse(url.searchParams.get("q")),
       });
     if (mode === "detail")
       return goong("place/detail", {
@@ -263,39 +269,59 @@ async function dispatch(req: Request) {
           [user.id],
         ),
       };
-    if (method === "POST") {
-      const b = point
-        .extend({
-          label: z.string().min(1).max(50),
-          address: z.string().min(10).max(500),
-          recipient: z.string().min(2).max(100),
-          phone: z.string().min(10).max(20),
-          isDefault: z.boolean(),
-        })
-        .parse(await req.json());
-      const addressId = randomUUID();
+    if (method === "POST" || method === "PATCH") {
+      const b = addressSchema.parse(await req.json());
+      const addressId =
+        method === "PATCH" ? z.uuid().parse(action) : randomUUID();
       await transaction(async (db) => {
+        // Serialize default changes for this user, including concurrent new addresses.
+        await rows("SELECT id FROM users WHERE id=? FOR UPDATE", [user.id], db);
+        if (method === "PATCH") {
+          const owned = await rows(
+            "SELECT id FROM addresses WHERE id=? AND user_id=? FOR UPDATE",
+            [addressId, user.id],
+            db,
+          );
+          if (!owned.length) throw new AppError("Không tìm thấy địa chỉ.", 404);
+        }
         if (b.isDefault)
           await exec(
             "UPDATE addresses SET is_default=FALSE WHERE user_id=?",
             [user.id],
             db,
           );
-        await exec(
-          "INSERT INTO addresses VALUES (?,?,?,?,?,?,?,?,?)",
-          [
-            addressId,
-            user.id,
-            b.label,
-            b.address,
-            b.lat,
-            b.lng,
-            b.recipient,
-            b.phone,
-            b.isDefault,
-          ],
-          db,
-        );
+        if (method === "PATCH") {
+          await exec(
+            "UPDATE addresses SET label=?,address=?,lat=?,lng=?,recipient=?,phone=?,is_default=? WHERE id=? AND user_id=?",
+            [
+              b.label,
+              b.address,
+              b.lat,
+              b.lng,
+              b.recipient,
+              b.phone,
+              b.isDefault,
+              addressId,
+              user.id,
+            ],
+            db,
+          );
+        } else
+          await exec(
+            "INSERT INTO addresses VALUES (?,?,?,?,?,?,?,?,?)",
+            [
+              addressId,
+              user.id,
+              b.label,
+              b.address,
+              b.lat,
+              b.lng,
+              b.recipient,
+              b.phone,
+              b.isDefault,
+            ],
+            db,
+          );
       });
       return { id: addressId };
     }
