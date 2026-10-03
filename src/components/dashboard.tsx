@@ -23,6 +23,8 @@ import {
   Check,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
+import { KitchenLocationPicker } from "./kitchen-location-picker";
+import type { ResolvedLocation } from "@/lib/location-client";
 import {
   useLoad,
   Button,
@@ -87,10 +89,8 @@ function FileUpload({ kind = "image", onUploaded }: UploadProps) {
   );
 }
 export function ChefApplication() {
-  const { user, location, setLocationOpen, refreshAuth, toast } = useApp(),
-    { data, reload } = useLoad(user ? "chef/application" : null),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+  const { user, refreshAuth, toast } = useApp(),
+    { data, reload } = useLoad(user ? "chef/application" : null);
   if (!user) return <NeedLogin />;
   const c = data?.chef;
   if (c && ["pending", "approved", "suspended"].includes(c.status))
@@ -120,10 +120,43 @@ export function ChefApplication() {
         </div>
       </>
     );
+  if (!data) return <div className="loading">Đang tải hồ sơ bếp…</div>;
+  return (
+    <ChefApplicationForm
+      key={c?.id || user.id}
+      initial={c}
+      onSave={async () => {
+        await refreshAuth();
+        reload();
+      }}
+    />
+  );
+}
+function ChefApplicationForm({
+  initial: c,
+  onSave,
+}: {
+  initial: any;
+  onSave: () => Promise<void>;
+}) {
+  const { toast } = useApp();
+  const [location, setKitchenLocation] = useState<ResolvedLocation | null>(
+    c
+      ? {
+          address: c.address,
+          area: c.area,
+          lat: Number(c.lat),
+          lng: Number(c.lng),
+        }
+      : null,
+  );
+  const [locationBusy, setLocationBusy] = useState(false);
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!location && !c) {
-      setLocationOpen(true);
+    if (!location || locationBusy) {
+      setError("Hãy chọn vị trí bếp từ kết quả tìm kiếm hoặc bản đồ.");
       return;
     }
     const f = new FormData(e.currentTarget);
@@ -133,14 +166,11 @@ export function ChefApplication() {
       await post("chef/application", {
         name: f.get("name"),
         bio: f.get("bio"),
-        address: f.get("address"),
-        area: f.get("area"),
-        lat: location?.lat || c.lat,
-        lng: location?.lng || c.lng,
+        ...location,
+        area: location.area || f.get("area"),
         radiusKm: Number(f.get("radius")),
       });
-      await refreshAuth();
-      reload();
+      await onSave();
       toast("Đã gửi hồ sơ bếp.");
     } catch (e) {
       setError((e as Error).message);
@@ -174,25 +204,21 @@ export function ChefApplication() {
             minLength={10}
           />
         </Field>
-        <button
-          className="address-select"
-          type="button"
-          onClick={() => setLocationOpen(true)}
-        >
-          Chọn vị trí bếp {location ? "✓" : ""}
-        </button>
-        <Field label="Địa chỉ bếp">
-          <input
-            key={location?.address}
-            name="address"
-            defaultValue={location?.address || c?.address || ""}
-            required
-            minLength={10}
-          />
-        </Field>
+        <KitchenLocationPicker
+          value={location}
+          onChange={setKitchenLocation}
+          onBusyChange={setLocationBusy}
+          disabled={busy}
+        />
         <div className="form-row">
           <Field label="Khu vực / phường">
-            <input name="area" defaultValue={c?.area || ""} required />
+            <input
+              key={location?.area}
+              name="area"
+              defaultValue={location?.area || c?.area || ""}
+              readOnly={!!location?.area}
+              required
+            />
           </Field>
           <Field label="Bán kính giao (km)">
             <input
@@ -212,7 +238,7 @@ export function ChefApplication() {
           và mở bếp cho từng ngày để bắt đầu nhận đơn.
         </Notice>
         {error && <Notice error>{error}</Notice>}
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || locationBusy || !location}>
           {busy ? (
             <LoaderCircle className="spin" size={17} />
           ) : (
@@ -523,56 +549,7 @@ export function ChefDashboard() {
       {tab === "settings" && (
         <>
           <BankSettings chef={c} onSave={reload} />
-          <form
-            className="panel form narrow"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              void run("chef/settings", {
-                lat: Number(f.get("lat")),
-                lng: Number(f.get("lng")),
-                radiusKm: Number(f.get("radius")),
-                bio: f.get("bio"),
-              });
-            }}
-          >
-            <h2>Thông tin và vùng giao</h2>
-            <Field label="Giới thiệu">
-              <textarea name="bio" defaultValue={c.bio} />
-            </Field>
-            <Field label="Bán kính giao (km)">
-              <input
-                name="radius"
-                defaultValue={c.radius_km}
-                type="number"
-                min=".5"
-                max="20"
-                step=".5"
-                required
-              />
-            </Field>
-            <div className="form-row">
-              <Field label="Vĩ độ bếp">
-                <input
-                  name="lat"
-                  defaultValue={c.lat}
-                  type="number"
-                  step="any"
-                  required
-                />
-              </Field>
-              <Field label="Kinh độ bếp">
-                <input
-                  name="lng"
-                  defaultValue={c.lng}
-                  type="number"
-                  step="any"
-                  required
-                />
-              </Field>
-            </div>
-            <Button type="submit">Lưu cài đặt</Button>
-          </form>
+          <KitchenSettings key={c.id} chef={c} onSave={reload} />
           <div className="panel form narrow">
             <h2>Hồ sơ riêng tư</h2>
             <FileUpload kind="document" onUploaded={() => reload()} />
@@ -591,6 +568,82 @@ export function ChefDashboard() {
         </>
       )}
     </>
+  );
+}
+function KitchenSettings({ chef, onSave }: { chef: any; onSave: () => void }) {
+  const { toast, refresh } = useApp();
+  const [location, setKitchenLocation] = useState<ResolvedLocation | null>({
+    address: chef.address,
+    area: chef.area,
+    lat: Number(chef.lat),
+    lng: Number(chef.lng),
+  });
+  const [locationBusy, setLocationBusy] = useState(false);
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  return (
+    <form
+      className="panel form narrow"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (!location || locationBusy || busy) return;
+        const fields = new FormData(event.currentTarget);
+        setBusy(true);
+        setError("");
+        try {
+          await post("chef/settings", {
+            ...location,
+            area: location.area || fields.get("area"),
+            radiusKm: Number(fields.get("radius")),
+            bio: fields.get("bio"),
+          });
+          onSave();
+          refresh();
+          toast("Đã lưu vị trí và vùng giao của bếp.");
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <h2>Thông tin và vùng giao</h2>
+      <Field label="Giới thiệu">
+        <textarea name="bio" defaultValue={chef.bio} disabled={busy} />
+      </Field>
+      <Field label="Bán kính giao (km)">
+        <input
+          name="radius"
+          defaultValue={chef.radius_km}
+          type="number"
+          min="0.5"
+          max="20"
+          step="0.5"
+          required
+          disabled={busy}
+        />
+      </Field>
+      <KitchenLocationPicker
+        value={location}
+        onChange={setKitchenLocation}
+        onBusyChange={setLocationBusy}
+        disabled={busy}
+      />
+      <Field label="Khu vực / phường">
+        <input
+          key={location?.area}
+          name="area"
+          defaultValue={location?.area || ""}
+          readOnly={!!location?.area}
+          required
+          disabled={busy}
+        />
+      </Field>
+      {error && <Notice error>{error}</Notice>}
+      <Button type="submit" disabled={busy || locationBusy || !location}>
+        {busy ? "Đang lưu…" : "Lưu cài đặt"}
+      </Button>
+    </form>
   );
 }
 function SectionTitle({ title }: { title: string }) {

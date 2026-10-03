@@ -1575,6 +1575,40 @@ hr {
   border-radius: 10px;
   overflow: hidden;
 }
+.kitchen-location-picker {
+  min-width: 0;
+}
+.kitchen-address-search {
+  width: 100%;
+  min-width: 0;
+}
+.kitchen-address-search input {
+  min-width: 0;
+}
+.kitchen-location-picker .location-detect {
+  font-size: 12px;
+  margin: 8px 0;
+}
+.kitchen-location-picker .location-result {
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 0;
+}
+.kitchen-location-picker .location-result > svg {
+  color: var(--green);
+}
+.kitchen-location-map {
+  width: 100%;
+  height: 270px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+.kitchen-location-map .mapboxgl-canvas,
+.kitchen-location-map .goong-map-canvas {
+  border-radius: 12px;
+}
 .truck-marker {
   background: white;
   color: var(--green);

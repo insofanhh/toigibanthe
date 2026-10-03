@@ -20,6 +20,7 @@ import {
   loginSchema,
   signupSchema,
   addressSchema,
+  kitchenSettingsSchema,
   point,
 } from "@/lib/validation";
 import {
@@ -533,19 +534,11 @@ async function dispatch(req: Request) {
       return saveBank(user, await req.json());
     if (action === "settings" && method === "POST") {
       const c = await ownedChef(user),
-        b = point
-          .extend({
-            radiusKm: z.number().min(0.5).max(20),
-            bio: z.string().max(1000),
-          })
-          .parse(await req.json());
-      await exec("UPDATE chefs SET lat=?,lng=?,radius_km=?,bio=? WHERE id=?", [
-        b.lat,
-        b.lng,
-        b.radiusKm,
-        b.bio,
-        c.id,
-      ]);
+        b = kitchenSettingsSchema.parse(await req.json());
+      await exec(
+        "UPDATE chefs SET address=?,area=?,lat=?,lng=?,radius_km=?,bio=? WHERE id=?",
+        [b.address, b.area, b.lat, b.lng, b.radiusKm, b.bio, c.id],
+      );
       return { ok: true };
     }
     if (action === "products" && (method === "POST" || method === "PATCH"))

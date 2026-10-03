@@ -1,4 +1,12 @@
 import type { Location } from "./domain";
+export type ResolvedLocation = Location & { area?: string };
+export function goongArea(place: {
+  compound?: { commune?: string; province?: string };
+}) {
+  return [place.compound?.commune, place.compound?.province]
+    .filter(Boolean)
+    .join(", ");
+}
 
 export const isUnresolvedLocation = (address: string) =>
   address === "Vị trí hiện tại" || address.startsWith("Tọa độ:");
@@ -6,19 +14,20 @@ export const isUnresolvedLocation = (address: string) =>
 export async function reverseLocation(
   lat: number,
   lng: number,
-): Promise<Location> {
+): Promise<ResolvedLocation> {
   const response = await fetch(`/api/location?lat=${lat}&lng=${lng}`, {
     cache: "no-store",
   });
   const data = await response.json();
   if (!response.ok)
     throw new Error(data.error || "Không tìm được địa chỉ từ vị trí này.");
-  const address = data.results?.find((r: { formatted_address?: string }) =>
+  const place = data.results?.find((r: { formatted_address?: string }) =>
     r.formatted_address?.trim(),
-  )?.formatted_address;
+  );
+  const address = place?.formatted_address;
   if (!address)
     throw new Error("Không tìm được địa chỉ. Hãy tìm và chọn địa chỉ giao.");
-  return { address, lat, lng };
+  return { address, lat, lng, area: goongArea(place) || undefined };
 }
 
 export function currentPosition(): Promise<GeolocationPosition> {

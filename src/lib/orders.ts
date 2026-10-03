@@ -221,6 +221,14 @@ export async function createOrder(user: Actor, input: Checkout) {
       const c = chefs[0];
       if (c.status !== "approved" || !c.owner_active)
         throw new AppError("Bếp hiện không nhận đơn.");
+      if (
+        Number(c.lat) !== Number(chef.lat) ||
+        Number(c.lng) !== Number(chef.lng)
+      )
+        throw new AppError(
+          "Vị trí bếp vừa thay đổi. Hãy xem lại phí giao và đặt lại đơn.",
+          409,
+        );
       if (!c.bank_bin || !c.account_no || !c.account_name)
         throw new AppError(
           "Bếp chưa cấu hình tài khoản nhận tiền. Vui lòng chọn bếp khác.",

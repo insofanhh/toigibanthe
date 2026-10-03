@@ -49,6 +49,12 @@ export const chefSchema = point.extend({
   area: z.string().min(2).max(150),
   radiusKm: z.number().min(0.5).max(20),
 });
+export const kitchenSettingsSchema = point.extend({
+  address: z.string().trim().min(10).max(500),
+  area: z.string().trim().min(2).max(150),
+  radiusKm: z.number().min(0.5).max(20),
+  bio: z.string().max(1000),
+});
 export const productSchema = z.object({
   name: z.string().trim().min(2).max(150),
   description: z.string().trim().min(5).max(1000),
