@@ -69,7 +69,7 @@ QR dùng VietQR.IO. Chưa có key thì hiển thị thông tin chuyển khoản 
 
 `vercel.json` khai báo hai service: Next.js `web`, Node `realtime`; `/realtime/*` tới WebSocket, các route còn lại tới web. Cấu hình theo [Vercel Services beta](https://vercel.com/docs/services) và [hướng dẫn Node WebSocket](https://vercel.com/kb/guide/real-time-presence-hono-react).
 
-Service `realtime` đặt `buildCommand: ""` để Vercel biên dịch entrypoint TypeScript bằng Node builder. Cần giữ cấu hình này: hai service dùng chung root, nếu realtime chạy lại script `build` của package thì `next build` lần hai sẽ ghi đè `.next` và làm mất manifest của service web khi phát hành.
+Service `realtime` đặt `buildCommand: "npm run typecheck"` để kiểm tra kiểu trước khi Vercel biên dịch entrypoint TypeScript bằng Node builder. Cần giữ cấu hình này: hai service dùng chung root, nếu realtime chạy lại script `build` của package thì `next build` lần hai sẽ ghi đè `.next` và làm mất manifest của service web khi phát hành. Services yêu cầu build command có ít nhất một ký tự.
 
 1. Tạo TiDB cluster/database riêng, lấy MySQL connection URL, đặt `DATABASE_SSL=true`; chạy migrations với tài khoản có quyền tạo schema. Chạy integration trên staging TiDB trước khi dùng dữ liệu thật.
 2. Import repo vào Vercel, chọn Framework Preset **Services**. Đặt web và database gần nhau nếu cấu hình tài khoản cho phép; dùng Node 20.19+.

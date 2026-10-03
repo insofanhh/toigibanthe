@@ -11,7 +11,7 @@
       "root": ".",
       "framework": "node",
       "entrypoint": "services/realtime/server.ts",
-      "buildCommand": "",
+      "buildCommand": "npm run typecheck",
       "devCommand": "npm run realtime"
     }
   },
