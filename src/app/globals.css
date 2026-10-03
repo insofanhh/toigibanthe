@@ -212,18 +212,6 @@ hr {
   white-space: nowrap;
   font-size: 13px;
 }
-.header-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 22px;
-  align-items: center;
-}
-.header-link {
-  font-size: 12px;
-  display: flex;
-  gap: 7px;
-  align-items: center;
-}
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -1977,9 +1965,6 @@ hr {
   .header-inner {
     gap: 25px;
   }
-  .header-link {
-    display: none;
-  }
   .dish-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -2025,7 +2010,7 @@ hr {
     min-height: 110px;
     padding: 13px 18px 14px;
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr);
     gap: 13px 10px;
   }
   .brand {
@@ -2039,14 +2024,6 @@ hr {
   }
   .brand-symbol svg {
     width: 21px;
-  }
-  .header-actions {
-    grid-row: 1;
-    grid-column: 2;
-  }
-  .header-actions > .icon-button {
-    width: 31px;
-    height: 31px;
   }
   .delivery-header {
     grid-row: 2;

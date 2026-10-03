@@ -280,7 +280,7 @@ function Nav() {
   );
 }
 function Header() {
-  const { location, user, chef, setLocationOpen } = useApp();
+  const { location, setLocationOpen } = useApp();
   return (
     <header className="header">
       <div className="header-inner">
@@ -301,21 +301,6 @@ function Header() {
           </span>
           <ChevronDown size={15} />
         </button>
-        <div className="header-actions">
-          {user?.role === "admin" && (
-            <Link className="header-link" href="/admin">
-              Quản trị
-            </Link>
-          )}
-          {(chef?.status === "approved" || user?.role === "chef") && (
-            <Link className="header-link" href="/chef">
-              <ChefHat size={17} /> Bếp của tôi
-            </Link>
-          )}
-          <Link href="/me" className="icon-button" aria-label="Tài khoản">
-            <UserRound size={21} />
-          </Link>
-        </div>
       </div>
     </header>
   );
