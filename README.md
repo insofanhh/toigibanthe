@@ -61,6 +61,16 @@ Seed trực tiếp môi trường development: đặt `SEED_PASSWORD` trước r
 
 Tạo hai Blob store public/private. Tài liệu private không trả trực tiếp URL blob cho client; `/api/files/:id` kiểm tra chủ sở hữu/admin. Upload tối đa 3 MB, JPG/PNG/WebP; hồ sơ cho phép PDF. Token không có prefix `NEXT_PUBLIC`.
 
+### Cấu hình ảnh trên production
+
+1. Vercel → project `toigibanthe` → Storage → Create Storage → Blob. Tạo store Public cho ảnh món, avatar và banner; kết nối với project ở Production/Preview.
+2. Lấy read-write token của store Public, lưu vào biến server `BLOB_PUBLIC_READ_WRITE_TOKEN` trong Environment Variables. App dùng tên này, không dùng tên mặc định `BLOB_READ_WRITE_TOKEN`.
+3. Tạo store Private riêng cho hồ sơ xác minh chef, lưu token vào `BLOB_PRIVATE_READ_WRITE_TOKEN`. Dùng token đúng store Public/Private.
+4. Redeploy để deployment nhận các biến mới.
+5. Chef → Quản lý sản phẩm → sửa món → chọn ảnh → đợi tải lên → lưu món. Admin có thể dùng upload ảnh trong mục Banner. Việc tạo Blob store không tự thay URL ảnh mẫu đã lưu trong TiDB.
+
+Ảnh seed nằm trên Unsplash. Hiện `next.config.ts` dùng `images.unoptimized: true` để trình duyệt tải trực tiếp từ CDN, vì `/_next/image` trong deployment Services trả HTML thay vì ảnh. Next Image vẫn giữ lazy loading và kích thước bố cục; không tạo ảnh thu nhỏ qua Vercel Image Optimization. Nên upload ảnh JPG/WebP đã nén với dung lượng khoảng 200–500 KB để tải nhanh trên mobile.
+
 Goong dùng [Directions V2](https://help.goong.io/kb/rest-api-v2/directions-rest-api-v2/directions-v2/). Bán kính giao dùng khoảng cách địa lý; khoảng cách/phí đường đi dùng Goong. Khi chưa có key, UI cho nhập tọa độ và phí cố định; không giả khoảng cách đường đi. Xe ở giữa tuyến là minh họa trạng thái Đang giao, chưa phải GPS người giao.
 
 QR dùng VietQR.IO. Chưa có key thì hiển thị thông tin chuyển khoản thủ công. Chef kiểm tra tiền thực nhận, ứng dụng không tự xác nhận thanh toán. Đơn hết hạn/hủy sau chuyển cần đối soát và hoàn tiền thủ công.

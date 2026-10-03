@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
   images: {
+    // Services routing currently sends /_next/image to the web page handler.
+    // Serve images from their CDN URLs until the optimizer route is available.
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
