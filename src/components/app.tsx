@@ -385,7 +385,7 @@ export function App({ initialFeed = null }: { initialFeed?: Feed | null }) {
     );
   return (
     <>
-      <Header />
+      {path === "/" && <Header />}
       <main
         className={`main ${path === "/admin" || path === "/chef" ? "dashboard-main" : ""}`}
       >
