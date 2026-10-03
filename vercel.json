@@ -17,6 +17,5 @@
   "rewrites": [
     { "source": "/realtime/(.*)", "destination": { "service": "realtime" } },
     { "source": "/(.*)", "destination": { "service": "web" } }
-  ],
-  "crons": [{ "path": "/api/cron", "schedule": "* * * * *" }]
+  ]
 }

@@ -73,10 +73,23 @@ QR dùng VietQR.IO. Chưa có key thì hiển thị thông tin chuyển khoản 
 2. Import repo vào Vercel, đặt web và database gần nhau nếu cấu hình tài khoản cho phép; dùng Node 20.19+.
 3. Điền tất cả env cho web và realtime. Đặt `SITE_URL`, `WS_ALLOWED_ORIGINS` theo domain thật; để trống `NEXT_PUBLIC_WS_URL` nếu dùng cùng domain.
 4. Tạo Blob stores, Goong/VietQR keys; kiểm tra upload, đọc hồ sơ private, QR ngân hàng và directions thực.
-5. Cron mỗi phút trong config cần gói hỗ trợ tần suất đó. Cron xử lý đơn hết hạn/broadcast khi không có socket đang mở. Runtime realtime cũng xử lý theo batch khi đang hoạt động; database khóa để chống chạy trùng.
+5. Cấu hình không khai báo Vercel Cron để tránh giới hạn cron mỗi ngày của Hobby. Thiết lập scheduler bên ngoài theo hướng dẫn dưới để xử lý đơn hết hạn/broadcast khi không có socket đang mở. Runtime realtime cũng xử lý theo batch khi đang hoạt động; database khóa để chống chạy trùng.
 6. Tạo user quản trị production riêng qua cơ chế provision nội bộ. Hoàn thiện chính sách/hỗ trợ, backup và cảnh báo; không seed demo.
 
 WebSocket dùng outbox MySQL để mỗi instance nhận sự kiện, auth bằng JWT ngắn hạn gắn session; reconnect tải lại thông báo từ database. Socket có thể bị nền tảng đóng/khởi động lại; client tự kết nối lại. Chưa có Push khi trang đóng.
+
+### Scheduler bên ngoài cho Vercel Hobby
+
+Endpoint `/api/cron` vẫn yêu cầu secret, dù không dùng Vercel Cron. Sau khi deploy:
+
+1. Tạo job tại [cron-job.org](https://cron-job.org/en/) (hỗ trợ miễn phí lịch mỗi phút).
+2. URL: `https://DOMAIN-CUA-BAN/api/cron`, phương thức `GET`, lịch mỗi phút.
+3. Trong phần header tùy chỉnh, thêm `Authorization` với giá trị `Bearer GIA-TRI-CRON_SECRET`; dùng đúng secret đã đặt trong Vercel Production, không đưa secret vào URL.
+4. Chạy thử job và kiểm tra HTTP 200, JSON `ok: true`. Sai hoặc thiếu secret trả 401. Kiểm tra lịch sử thực thi sau khi đóng các tab app.
+
+Dùng domain production ổn định, không dùng URL preview. Nếu Deployment Protection chặn request, cấu hình header automation bypass theo [tài liệu Vercel](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation). Hướng dẫn header scheduler: [cron-job.org](https://docs.cron-job.org/creating-cron-jobs.html).
+
+Chưa thiết lập scheduler thì xử lý đơn hết hạn và broadcast có thể bị trì hoãn khi service realtime không hoạt động. Thông báo realtime cho các client đang kết nối vẫn đi qua WebSocket. Request từ scheduler vẫn tính vào quota Vercel và TiDB.
 
 Nếu cần Node host riêng cho realtime, dùng `services/realtime/Dockerfile`, cấu hình WSS/TLS của host và `NEXT_PUBLIC_WS_URL`; web vẫn ở Vercel.
 

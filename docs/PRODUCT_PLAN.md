@@ -10,19 +10,19 @@ MySQL lưu toàn bộ dữ liệu nghiệp vụ, tài khoản, phiên đăng nh�
 
 ## Công nghệ đã triển khai
 
-| Thành phần | Công nghệ |
-| --- | --- |
-| Web/API | Next.js App Router, React, TypeScript, Node.js |
-| UI | CSS responsive, Lucide, font thiết bị, hạn chế font đậm |
-| Database | MySQL 8, mysql2, SQL migrations, transaction; TLS cho TiDB |
-| Auth | bcrypt, session ngẫu nhiên lưu hash trong MySQL, cookie HttpOnly |
-| Realtime | Node HTTP server + ws, JWT ngắn hạn, outbox MySQL |
-| Ảnh | Vercel Blob public, Next Image |
-| Hồ sơ | Vercel Blob private, API đọc kiểm tra quyền chủ hồ sơ/admin |
-| Bản đồ | Goong REST V2, Goong JS tải khi cần |
-| Thanh toán | VietQR.IO; chef xác nhận tiền thủ công |
-| State | React Context/hooks; giỏ và địa chỉ lưu trên thiết bị |
-| Deployment | Vercel Services: web và realtime; cron có secret |
+| Thành phần | Công nghệ                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| Web/API    | Next.js App Router, React, TypeScript, Node.js                                                                      |
+| UI         | CSS responsive, Lucide, font thiết bị, hạn chế font đậm                                                             |
+| Database   | MySQL 8, mysql2, SQL migrations, transaction; TLS cho TiDB                                                          |
+| Auth       | bcrypt, session ngẫu nhiên lưu hash trong MySQL, cookie HttpOnly                                                    |
+| Realtime   | Node HTTP server + ws, JWT ngắn hạn, outbox MySQL                                                                   |
+| Ảnh        | Vercel Blob public, Next Image                                                                                      |
+| Hồ sơ      | Vercel Blob private, API đọc kiểm tra quyền chủ hồ sơ/admin                                                         |
+| Bản đồ     | Goong REST V2, Goong JS tải khi cần                                                                                 |
+| Thanh toán | VietQR.IO; chef xác nhận tiền thủ công                                                                              |
+| State      | React Context/hooks; giỏ và địa chỉ lưu trên thiết bị                                                               |
+| Deployment | Vercel Services: web và realtime; scheduler ngoài gọi `/api/cron` có secret, không yêu cầu cron mỗi phút của Vercel |
 
 ```mermaid
 flowchart TD
