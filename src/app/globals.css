@@ -1617,6 +1617,32 @@ hr {
 }
 .notification-groups strong {
   font-size: 13px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.notification-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: #f0f3ef;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.notification-group-count[data-unread="true"] {
+  background: var(--orange);
+  color: white;
+}
+.notification-count-hint {
+  margin: -12px 0 18px;
+  font-size: 11px;
+  color: var(--muted);
 }
 .notification-groups small {
   font-weight: 300;

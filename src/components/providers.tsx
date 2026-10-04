@@ -145,7 +145,9 @@ export function Providers({ children }: { children: ReactNode }) {
     request("notifications", { signal: controller.signal })
       .then((r) =>
         setUnread(
-          r.notifications.filter((n: { is_read: number }) => !n.is_read).length,
+          r.unreadCounts?.total ??
+            r.notifications.filter((n: { is_read: number }) => !n.is_read)
+              .length,
         ),
       )
       .catch(() => {});

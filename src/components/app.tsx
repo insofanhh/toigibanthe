@@ -1308,19 +1308,36 @@ export function OrderCard({
   );
 }
 function Notifications() {
-  const { user, revision, refresh } = useApp(),
+  const { user, revision, refresh, toast } = useApp(),
     { data, error } = useLoad(user ? "notifications" : null, [revision]),
-    [tab, setTab] = useState("news");
+    [tab, setTab] = useState("news"),
+    [marking, setMarking] = useState(false);
   if (!user) return <NeedLogin />;
   const list = data?.notifications || [];
+  const counts = data?.unreadCounts || {
+    news: list.filter(
+      (n: any) => !n.is_read && !["order", "promotion"].includes(n.category),
+    ).length,
+    order: list.filter((n: any) => !n.is_read && n.category === "order").length,
+    promotion: list.filter((n: any) => !n.is_read && n.category === "promotion")
+      .length,
+  };
   return (
     <>
       <PageTitle title="Thông báo">
         <button
           className="text-button"
+          disabled={marking || !data}
           onClick={async () => {
-            await post("notifications", {});
-            refresh();
+            setMarking(true);
+            try {
+              await post("notifications", {});
+              refresh();
+            } catch (e) {
+              toast((e as Error).message);
+            } finally {
+              setMarking(false);
+            }
           }}
         >
           Đánh dấu đã đọc
@@ -1330,24 +1347,53 @@ function Notifications() {
         <button
           onClick={() => setTab("news")}
           className={tab === "news" ? "selected" : ""}
+          aria-label={`Tin tức${data ? `, ${counts.news} thông báo chưa đọc` : ""}`}
+          aria-pressed={tab === "news"}
         >
           <span className="group-icon">
             <Mail size={22} />
           </span>
-          <strong>Tin tức</strong>
+          <strong>
+            Tin tức{" "}
+            {data && (
+              <span
+                className="notification-group-count"
+                data-unread={counts.news > 0}
+              >
+                {counts.news}
+              </span>
+            )}
+          </strong>
           <small>Thông báo từ hệ thống</small>
         </button>
         <button
           onClick={() => setTab("order")}
           className={tab === "order" ? "selected" : ""}
+          aria-label={`Đơn hàng${data ? `, ${counts.order} thông báo chưa đọc` : ""}`}
+          aria-pressed={tab === "order"}
         >
           <span className="group-icon">
             <ShoppingBag size={22} />
           </span>
-          <strong>Đơn hàng</strong>
+          <strong>
+            Đơn hàng{" "}
+            {data && (
+              <span
+                className="notification-group-count"
+                data-unread={counts.order > 0}
+              >
+                {counts.order}
+              </span>
+            )}
+          </strong>
           <small>Trạng thái đơn của bạn</small>
         </button>
       </div>
+      {data && (
+        <p className="notification-count-hint">
+          Số hiển thị là thông báo chưa đọc.
+        </p>
+      )}
       {error && <Notice error>{error}</Notice>}
       {!data ? (
         error ? null : (
@@ -1357,12 +1403,14 @@ function Notifications() {
         <NotificationList
           list={list.filter((n: any) =>
             tab === "news"
-              ? ["news", "system"].includes(n.category)
+              ? !["order", "promotion"].includes(n.category)
               : n.category === "order",
           )}
         />
       )}
-      <Section title="Khuyến mãi">
+      <Section
+        title={`Khuyến mãi${data ? ` (${counts.promotion} chưa đọc)` : ""}`}
+      >
         {data && (
           <NotificationList
             list={list.filter((n: any) => n.category === "promotion")}

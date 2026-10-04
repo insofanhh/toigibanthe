@@ -42,7 +42,7 @@ import {
   adminChefDetail,
   audit,
 } from "@/lib/manage";
-import { notify } from "@/lib/notifications";
+import { notify, unreadNotificationCounts } from "@/lib/notifications";
 import {
   listPaymentRequests,
   submitPaymentRequest,
@@ -274,6 +274,7 @@ async function dispatch(req: Request) {
           "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 100",
           [user.id],
         ),
+        unreadCounts: await unreadNotificationCounts(user.id),
       };
     if (method === "POST") {
       await exec("UPDATE notifications SET is_read=TRUE WHERE user_id=?", [

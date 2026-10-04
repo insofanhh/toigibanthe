@@ -1403,6 +1403,43 @@ try {
   console.log(
     "PASS: snapshot ngân hàng/automatic cho đơn mới, mã 10 ký tự, đổi key vô hiệu key cũ",
   );
+  await api("notifications", {}, 3);
+  for (const [category, count, read] of [
+    ["order", 105, false],
+    ["news", 1, false],
+    ["system", 1, false],
+    ["promotion", 2, false],
+    ["news", 4, true],
+  ] as const) {
+    for (let i = 0; i < count; i++)
+      await exec("INSERT INTO notifications VALUES (?,?,?,?,?,?,?,?)", [
+        randomUUID(),
+        users[3].id,
+        category,
+        "Thông báo kiểm thử",
+        "Fixture",
+        "/notifications",
+        read,
+        sqlDate(),
+      ]);
+  }
+  const notifications = await api("notifications", undefined, 3);
+  assert.equal(notifications.status, 200);
+  assert.equal(notifications.data.notifications.length, 100);
+  assert.deepEqual(notifications.data.unreadCounts, {
+    news: 2,
+    order: 105,
+    promotion: 2,
+    total: 109,
+  });
+  await api("notifications", {}, 3);
+  assert.deepEqual(
+    (await api("notifications", undefined, 3)).data.unreadCounts,
+    { news: 0, order: 0, promotion: 0, total: 0 },
+  );
+  console.log(
+    "PASS: số chưa đọc theo nhóm và tổng khớp kể cả hơn 100 thông báo; bỏ thông báo đã đọc và cập nhật về 0 khi đánh dấu đã đọc",
+  );
 } finally {
   // Also remove fixture notifications delivered to pre-existing local administrators.
   for (const id of orders) {
