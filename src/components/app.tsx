@@ -1420,7 +1420,7 @@ function Orders() {
           ))}
         </Section>
       )}
-      {feed?.dishes.length && (
+      {feed && feed.dishes.length > 0 && (
         <Section title="Có thể bạn đang đói!" href="/nearby">
           <div className="dish-scroll">
             {feed.dishes.map((d) => (
