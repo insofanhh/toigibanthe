@@ -590,6 +590,171 @@ try {
     (await read(cancelledRequest.id)).payment_status,
     "REFUNDED_MANUAL",
   );
+
+  const beforeAcceptance = await order({
+    status: "PAID",
+    payment: "PAID_AUTO",
+  });
+  assert.equal(
+    (await api(`orders/${beforeAcceptance.id}/exception`, refundRequest, 1))
+      .status,
+    409,
+  );
+  await exec("UPDATE users SET phone='0909999999' WHERE id=?", [users[1].id]);
+  const cancellation = {
+    action: "CANCELLED",
+    note: "Khách hủy trước khi bếp nhận đơn.",
+  };
+  const cancellations = await Promise.all([
+    api(`orders/${beforeAcceptance.id}/action`, cancellation, 1),
+    api(`orders/${beforeAcceptance.id}/action`, cancellation, 1),
+  ]);
+  assert.deepEqual(cancellations.map((r) => r.status).sort(), [200, 400]);
+  assert.ok(cancellations.some((r) => r.data.refundRequested === true));
+  assert.equal((await read(beforeAcceptance.id)).status, "CANCELLED");
+  assert.equal(
+    (await read(beforeAcceptance.id)).payment_status,
+    "REFUND_PENDING",
+  );
+  const autoRequests = (await api(`orders/${beforeAcceptance.id}`)).data
+    .paymentRequests;
+  assert.equal(autoRequests.length, 1);
+  assert.equal(autoRequests[0].kind, "REFUND");
+  assert.equal(autoRequests[0].status, "OPEN");
+  assert.equal(autoRequests[0].contact_phone, "0909999999");
+  assert.equal(autoRequests[0].amount, 50000);
+  assert.ok(autoRequests[0].note.includes(cancellation.note));
+  const chefRefundNotices = (
+    await api("notifications")
+  ).data.notifications.filter(
+    (n: any) =>
+      n.title === "Yêu cầu hoàn tiền" &&
+      n.href === `/orders/${beforeAcceptance.id}`,
+  );
+  assert.equal(chefRefundNotices.length, 1);
+  assert.equal(
+    (await api(`orders/${beforeAcceptance.id}/exception`, refundRequest, 1))
+      .status,
+    409,
+  );
+  assert.equal(
+    (
+      await api(`orders/${beforeAcceptance.id}/exception-resolution`, {
+        ...resolution,
+        requestId: autoRequests[0].id,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await api(
+        `admin/exceptions/${autoRequests[0].id}`,
+        { action: "APPROVE", note: "Bằng chứng hoàn tiền cho đơn hủy hợp lệ." },
+        3,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await read(beforeAcceptance.id)).payment_status,
+    "REFUNDED_MANUAL",
+  );
+
+  await exec("UPDATE users SET phone='invalid' WHERE id=?", [users[1].id]);
+  const partialCancellation = await order();
+  assert.equal(
+    (await api(`orders/${partialCancellation.id}/exception`, refundRequest, 1))
+      .status,
+    409,
+  );
+  assert.equal(
+    (
+      await webhook(
+        payload(partialCancellation.code, { transferAmount: 20000 }),
+      )
+    ).data.result,
+    "PARTIAL",
+  );
+  assert.equal(
+    (await api(`orders/${partialCancellation.id}/action`, cancellation, 1))
+      .status,
+    200,
+  );
+  const partialRequest = (await api(`orders/${partialCancellation.id}`)).data
+    .paymentRequests[0];
+  assert.equal(partialRequest.amount, 20000);
+  assert.equal(partialRequest.contact_phone, "0901234567");
+  const unpaidCancellation = await order();
+  const unpaidResult = await api(
+    `orders/${unpaidCancellation.id}/action`,
+    cancellation,
+    1,
+  );
+  assert.equal(unpaidResult.status, 200);
+  assert.equal(unpaidResult.data.refundRequested, false);
+  assert.equal(
+    (await api(`orders/${unpaidCancellation.id}`)).data.paymentRequests.length,
+    0,
+  );
+  const chefReject = await order({ status: "PAID", payment: "PAID_AUTO" });
+  assert.equal(
+    (
+      await api(`orders/${chefReject.id}/action`, {
+        action: "REJECTED",
+        note: "Bếp không thể nhận đơn.",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await api(`orders/${chefReject.id}`)).data.paymentRequests[0].kind,
+    "REFUND",
+  );
+  const legacyPaid = await order({ status: "PAID", payment: "PAID_AUTO" }),
+    legacyPaidRequestId = randomUUID();
+  await exec("INSERT INTO payment_exceptions VALUES (?,?,?,?,?,?,?,?)", [
+    legacyPaidRequestId,
+    legacyPaid.id,
+    users[1].id,
+    "WRONG_REFERENCE",
+    1000,
+    "Yêu cầu đối soát đã có trước bản cập nhật.",
+    "REVIEW",
+    sqlDate(),
+  ]);
+  await exec(
+    "INSERT INTO payment_request_details (exception_id,order_id,contact_phone,evidence_asset_id,resolution_type) VALUES (?,?,?,?,?)",
+    [legacyPaidRequestId, legacyPaid.id, "0901234567", proofId, "RESOLVED"],
+  );
+  assert.equal(
+    (await api(`orders/${legacyPaid.id}/action`, cancellation, 1)).status,
+    200,
+  );
+  const reused = (await api(`orders/${legacyPaid.id}`)).data.paymentRequests;
+  assert.equal(reused.length, 1);
+  assert.equal(reused[0].id, legacyPaidRequestId);
+  assert.equal(reused[0].kind, "REFUND");
+  assert.equal(reused[0].status, "OPEN");
+  assert.equal(reused[0].amount, 50000);
+  assert.equal(reused[0].evidence_asset_id, null);
+  assert.equal(
+    (
+      await api(
+        `admin/exceptions/${legacyPaidRequestId}`,
+        {
+          action: "APPROVE",
+          note: "Không duyệt bằng chứng cũ cho khoản hoàn mới.",
+        },
+        3,
+      )
+    ).status,
+    409,
+  );
+  await exec("UPDATE users SET phone='' WHERE id=?", [users[1].id]);
+  console.log(
+    "PASS: đơn chưa nhận không gửi đối soát riêng; hủy đơn đã trả tiền tạo một yêu cầu hoàn tiền cùng giao dịch; thông báo chef, sđt/số tiền đúng; bằng chứng và admin duyệt dùng luồng chung",
+  );
   await exec("DELETE FROM assets WHERE id IN (?,?,?)", [
     proofId,
     wrongProofId,

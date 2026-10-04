@@ -1832,10 +1832,14 @@ function OrderDetail({ id }: { id: string }) {
   async function act(action: string, note = "") {
     setBusy(true);
     try {
-      await post("orders/" + id + "/action", { action, note });
+      const result = await post("orders/" + id + "/action", { action, note });
       refresh();
       reload();
-      toast("Đã cập nhật đơn.");
+      toast(
+        result.refundRequested
+          ? "Đã gửi yêu cầu hoàn tiền cho bếp."
+          : "Đã cập nhật đơn.",
+      );
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -2080,15 +2084,18 @@ function OrderDetail({ id }: { id: string }) {
                 Tôi đã nhận món
               </Button>
             )}
-            {!chef && !data.paymentRequests?.length && (
-              <CustomerPaymentRequestForm
-                key={id}
-                orderId={id}
-                onChange={reload}
-              />
-            )}
+            {!chef &&
+              !["PLACED", "PAID"].includes(o.status) &&
+              !data.paymentRequests?.length && (
+                <CustomerPaymentRequestForm
+                  key={id}
+                  orderId={id}
+                  onChange={reload}
+                />
+              )}
           </div>
-          {(chef || data.paymentRequests?.length > 0) && (
+          {((chef && !["PLACED", "PAID"].includes(o.status)) ||
+            data.paymentRequests?.length > 0) && (
             <PaymentRequestList
               orderId={id}
               values={data.paymentRequests || []}

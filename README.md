@@ -158,6 +158,7 @@ Nếu cần Node host riêng cho realtime, dùng `services/realtime/Dockerfile`,
 ## Đối soát / hoàn tiền
 
 - Mỗi đơn chỉ có một yêu cầu của khách, kể cả gửi đồng thời. Số điện thoại liên hệ bắt buộc và được điền sẵn từ hồ sơ cá nhân.
+- Khi đơn đang chờ thanh toán/chờ bếp nhận, ẩn mục gửi đối soát riêng. Hủy/từ chối đơn đã nhận tiền sẽ tạo yêu cầu hoàn tiền và thông báo chef trong cùng giao dịch với hủy đơn; số liên hệ lấy từ hồ sơ khách hoặc số điện thoại giao hàng. Nếu đã có yêu cầu cũ, dùng lại yêu cầu đó và chờ bằng chứng hoàn tiền mới.
 - Chef gọi khách, ghi nội dung giải quyết và tải ảnh/PDF bằng chứng tối đa 3 MB. Tệp dùng Blob private và `BLOB_PRIVATE_READ_WRITE_TOKEN`; chỉ chủ tệp, khách của đơn và admin được xem.
 - Trạng thái: `OPEN` (Chờ xử lý) → `REVIEW` (Chờ hệ thống) → `RESOLVED`/`REFUNDED` (Đã xử lý). Admin duyệt bằng chứng tại `/admin?tab=payments`, hoặc yêu cầu bổ sung để trả về `OPEN`. Khách vẫn không được tạo yêu cầu thứ hai.
 - Migration `database/006_payment_requests.sql` thêm bảng chi tiết, ràng buộc duy nhất theo đơn và giữ nguyên các bản ghi trùng trong lịch sử. App cũng tự khởi tạo/backfill bảng này khi đọc hoặc gửi yêu cầu lần đầu trên MySQL/TiDB.

@@ -15,6 +15,10 @@ import { notify } from "./notifications";
 import { direction } from "./goong";
 import { ensureSePaySchema } from "./sepay-schema";
 import { automaticPayment } from "./sepay-config";
+import {
+  ensurePaymentRequestSchema,
+  createCancellationRefundRequest,
+} from "./payment-request-store";
 export type Checkout = {
   items: { menuId: string; quantity: number }[];
   address: string;
@@ -502,6 +506,8 @@ export async function transition(
   note = "",
 ) {
   await ensureSePaySchema();
+  if (action === "CANCELLED" || action === "REJECTED")
+    await ensurePaymentRequestSchema();
   return transaction(async (db) => {
     const o = await getOrder(id, user, db, true),
       isChef = o.chef_user_id === user.id,
@@ -531,7 +537,8 @@ export async function transition(
       );
       return { ok: true };
     }
-    let target = action;
+    let target = action,
+      refundRequested = false;
     if (target === "ACCEPTED") {
       if (!isChef && !isAdmin)
         throw new AppError("Chỉ bếp phụ trách được xác nhận tiền.", 403);
@@ -569,12 +576,15 @@ export async function transition(
         ["PAID_MANUAL", "PAID_AUTO", "PARTIAL", "PAYMENT_REVIEW"].includes(
           o.payment_status,
         )
-      )
+      ) {
         await exec(
           'UPDATE orders SET payment_status="REFUND_PENDING" WHERE id=?',
           [id],
           db,
         );
+        await createCancellationRefundRequest(db, o, note, user.id);
+        refundRequested = true;
+      }
     } else if (target === "COMPLETED") {
       if (!isUser && !isAdmin)
         throw new AppError("Khách xác nhận đã nhận món.", 403);
@@ -601,11 +611,13 @@ export async function transition(
       db,
       o.user_id,
       "order",
-      "Đơn hàng cập nhật",
-      `Đơn ${o.code} đã cập nhật trạng thái.`,
+      refundRequested ? "Yêu cầu hoàn tiền đã gửi" : "Đơn hàng cập nhật",
+      refundRequested
+        ? `Đơn ${o.code} đã hủy / từ chối. Yêu cầu hoàn tiền đã gửi tới bếp.`
+        : `Đơn ${o.code} đã cập nhật trạng thái.`,
       `/orders/${id}`,
     );
-    if (isUser)
+    if (isUser && !refundRequested)
       await notify(
         db,
         o.chef_user_id,
@@ -614,6 +626,6 @@ export async function transition(
         `Đơn ${o.code} đã cập nhật.`,
         `/chef?order=${id}`,
       );
-    return { ok: true };
+    return { ok: true, refundRequested };
   });
 }
