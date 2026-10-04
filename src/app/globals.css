@@ -809,6 +809,9 @@ hr {
 }
 .back {
   display: flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
   align-items: center;
   gap: 5px;
   font-size: 11px;

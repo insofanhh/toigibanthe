@@ -231,13 +231,21 @@ export function PageTitle({
   back?: boolean;
   children?: ReactNode;
 }) {
+  const router = useRouter();
   return (
     <div className="page-title">
       <div>
         {back && (
-          <Link className="back" href="/">
-            <ArrowLeft size={17} /> Trang chủ
-          </Link>
+          <button
+            type="button"
+            className="back"
+            onClick={() => {
+              if (window.history.length > 1) router.back();
+              else router.replace("/", { transitionTypes: ["page-back"] });
+            }}
+          >
+            <ArrowLeft size={17} /> Trở về
+          </button>
         )}
         <h1>{title}</h1>
         {subtitle && <p>{subtitle}</p>}
