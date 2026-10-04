@@ -123,7 +123,7 @@ function payload(code: string, fields: Record<string, unknown> = {}) {
 async function webhook(
   p: unknown,
   secret: string | null = key,
-  chef = ids.chef,
+  chef: string = ids.chef,
 ) {
   const r = await fetch(base + "/api/webhooks/sepay/" + chef, {
     method: "POST",
