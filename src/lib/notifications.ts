@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { exec, rows, sqlDate, transaction, type DB } from "./db";
 import { AppError } from "./http";
+import { queueNotificationPush } from "./push";
 export async function readNotification(userId: string, notificationId: string) {
   await transaction(async (db) => {
     const [notification] = await rows(
@@ -72,4 +73,5 @@ export async function notify(
     ],
     db,
   );
+  await queueNotificationPush(db, userId, id, category);
 }

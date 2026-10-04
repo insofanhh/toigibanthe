@@ -11,6 +11,7 @@ import {
 import type { Actor, Dish, Location } from "@/lib/domain";
 import { ClientLoadCache } from "@/lib/client-load-cache";
 import { trackEvent } from "@/lib/analytics-client";
+import { clearDevicePush, syncPushIdentity } from "@/lib/push-client";
 import {
   currentPosition,
   isUnresolvedLocation,
@@ -156,7 +157,12 @@ export function Providers({ children }: { children: ReactNode }) {
     setUnread(0);
     setAuthError("");
     setAuthReady(true);
+    await clearDevicePush().catch(() => {});
   }, [loadCache]);
+  useEffect(() => {
+    if (authReady && !authError)
+      void syncPushIdentity(user?.id || null).catch(() => {});
+  }, [authReady, authError, user?.id]);
   useEffect(() => {
     void refreshAuth();
     try {

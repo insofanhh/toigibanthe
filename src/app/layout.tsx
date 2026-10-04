@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description: "Đặt món từ các bếp cá nhân trong khu vực của bạn.",
   applicationName: "Tôi gì, bạn đó!",
   manifest: "/manifest.webmanifest",
+  icons: { apple: "/apple-touch-icon.png" },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

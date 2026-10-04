@@ -4,6 +4,7 @@ import { compare, hash } from "bcryptjs";
 import { exec, rows, sqlDate, transaction } from "./db";
 import { AppError } from "./http";
 import type { Actor } from "./domain";
+import { revokeSessionPush } from "./push";
 export const COOKIE = "tgbd_session";
 export const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -93,7 +94,9 @@ export async function signUp(name: string, email: string, password: string) {
 export async function signOut() {
   const jar = await cookies(),
     token = jar.get(COOKIE)?.value;
-  if (token)
+  if (token) {
+    await revokeSessionPush(digest(token));
     await exec("DELETE FROM sessions WHERE token_hash=?", [digest(token)]);
+  }
   jar.delete(COOKIE);
 }

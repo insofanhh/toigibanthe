@@ -4,6 +4,16 @@ import { SignJWT } from "jose";
 import { z } from "zod";
 import { put, get } from "@vercel/blob";
 import { api, AppError } from "@/lib/http";
+import { dispatchPushAfterResponse } from "@/lib/push-dispatch";
+import { ensurePushSchema } from "@/lib/push-schema";
+import {
+  pushConfig,
+  savePushSubscription,
+  pushDeviceStatus,
+  removePushSubscription,
+  queuePushTest,
+  processPushQueue,
+} from "@/lib/push";
 import {
   actor,
   requireRole,
@@ -171,6 +181,26 @@ async function dispatch(req: Request) {
     if (action === "logout" && method === "POST") {
       await signOut();
       return { ok: true };
+    }
+  }
+  if (section === "push") {
+    const user = (await actor())!;
+    if (action === "config" && method === "GET") {
+      const { configured, publicKey } = pushConfig();
+      return { configured, publicKey };
+    }
+    if (method === "POST") {
+      const sessionHash = digest((await cookies()).get(COOKIE)!.value);
+      const input = await req.json();
+      if (input?.userId !== user.id)
+        throw new AppError("Tài khoản đã thay đổi. Hãy tải lại trang.", 409);
+      if (action === "subscribe")
+        return savePushSubscription(user, sessionHash, input);
+      if (action === "status")
+        return pushDeviceStatus(user.id, sessionHash, input);
+      if (action === "unsubscribe")
+        return removePushSubscription(user.id, sessionHash, input);
+      if (action === "test") return queuePushTest(user.id, sessionHash, input);
     }
   }
   if (section === "catalog" && method === "GET") {
@@ -1068,6 +1098,7 @@ async function dispatch(req: Request) {
       throw new AppError("Không có quyền.", 401);
     await expireOrders();
     await processBroadcasts();
+    await processPushQueue();
     await exec("DELETE FROM sessions WHERE expires_at<?", [sqlDate()]);
     await exec(
       "DELETE FROM outbox_receipts WHERE created_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY)",
@@ -1076,7 +1107,21 @@ async function dispatch(req: Request) {
   }
   throw new AppError("Không tìm thấy chức năng.", 404);
 }
-export const GET = api(dispatch),
-  POST = api(dispatch),
-  PATCH = api(dispatch),
-  DELETE = api(dispatch);
+const handle = api(async (req) => {
+  // Initialize before business transactions acquire pool connections.
+  if (pushConfig().configured) await ensurePushSchema();
+  const result = await dispatch(req);
+  const path = new URL(req.url).pathname;
+  if (
+    (["POST", "PATCH", "DELETE"].includes(req.method) &&
+      !path.startsWith("/api/analytics/") &&
+      path !== "/api/push/status") ||
+    (req.method === "GET" && path.startsWith("/api/orders"))
+  )
+    dispatchPushAfterResponse(path.startsWith("/api/admin/"));
+  return result;
+});
+export const GET = handle,
+  POST = handle,
+  PATCH = handle,
+  DELETE = handle;

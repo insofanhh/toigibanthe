@@ -5,6 +5,8 @@ import { rows, exec, sqlDate, pool } from "../../src/lib/db";
 import { expireOrders } from "../../src/lib/orders";
 import { randomUUID } from "node:crypto";
 import { processBroadcasts } from "../../src/lib/jobs";
+import { processPushQueue, pushConfig } from "../../src/lib/push";
+import { ensurePushSchema } from "../../src/lib/push-schema";
 const secret = process.env.AUTH_SECRET;
 if (!secret || secret.length < 32)
   throw new Error("AUTH_SECRET phải có ít nhất 32 ký tự.");
@@ -136,8 +138,10 @@ const jobs = setInterval(async () => {
   if (jobsBusy) return;
   jobsBusy = true;
   try {
+    if (pushConfig().configured) await ensurePushSchema();
     await expireOrders();
     await processBroadcasts();
+    await processPushQueue();
   } catch (e) {
     console.error("Job retry", e instanceof Error ? e.message : "error");
   } finally {

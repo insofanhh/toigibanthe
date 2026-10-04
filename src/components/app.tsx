@@ -64,6 +64,7 @@ import { OrderReorder, HistoryReorder } from "./order-reorder";
 import { OrderProgress } from "./order-progress";
 import { DishReviews } from "./dish-reviews";
 import { ChefReviews } from "./chef-reviews";
+import { PushSettings } from "./push-settings";
 import {
   CustomerPaymentRequestForm,
   PaymentRequestList,
@@ -1363,15 +1364,40 @@ export function OrderCard({
 }
 function Notifications() {
   const params = useSearchParams();
+  const router = useRouter();
+  const pushOpened = useRef("");
   const tab = params.get("tab") === "order" ? "order" : "news";
   function setTab(value: "news" | "order") {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", value);
     window.history.replaceState(null, "", url.pathname + url.search);
   }
-  const { user, revision, refresh, toast } = useApp(),
+  const { user, revision, refresh, toast, markNotificationRead } = useApp(),
     { data, error } = useLoad(user ? "notifications" : null, [revision]),
     [marking, setMarking] = useState(false);
+  useEffect(() => {
+    const id = params.get("open");
+    if (!id || !user || !data || pushOpened.current === id) return;
+    pushOpened.current = id;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("open");
+    window.history.replaceState(null, "", url.pathname + url.search);
+    const notification = data.notifications.find((n: any) => n.id === id);
+    if (!notification) return;
+    void markNotificationRead(id)
+      .then(() => {
+        // Keep the selected group in history so Back returns to the correct tab.
+        const href = notification.href;
+        if (
+          typeof href === "string" &&
+          href.startsWith("/") &&
+          !href.startsWith("//") &&
+          !/[\\\u0000-\u001f]/.test(href)
+        )
+          router.push(href, { transitionTypes: ["page-forward"] });
+      })
+      .catch((e) => toast(e.message));
+  }, [params, user, data, markNotificationRead, router, toast]);
   if (!user) return <NeedLogin />;
   const list = data?.notifications || [];
   const counts = data?.unreadCounts || {
@@ -1403,6 +1429,10 @@ function Notifications() {
           Đánh dấu đã đọc
         </button>
       </PageTitle>
+      <Link href="/me/settings" className="text-button push-settings-link">
+        <Bell size={15} />
+        Cài đặt thông báo trên thiết bị
+      </Link>
       <div className="notification-groups">
         <button
           onClick={() => setTab("news")}
@@ -1646,6 +1676,7 @@ function ProfileSettings() {
           Lưu thông tin
         </Button>
       </form>
+      <PushSettings />
     </>
   );
 }

@@ -20,7 +20,10 @@
     "test:orders": "tsx --env-file=.env.local tests/admin-orders.integration.ts",
     "test:integration": "tsx --env-file=.env.local tests/integration.ts",
     "test:location": "tsx --env-file=.env.local tests/kitchen-location.integration.ts",
-    "test:sepay": "tsx --env-file=.env.local tests/sepay.integration.ts"
+    "test:sepay": "tsx --env-file=.env.local tests/sepay.integration.ts",
+    "push:keys": "tsx scripts/push-keys.ts",
+    "test:push": "tsx --env-file=.env.local tests/push.integration.ts",
+    "test:push:worker": "node --test tests/push-worker.test.cjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
@@ -31,6 +34,7 @@
     "next": "16.3.8",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "web-push": "^3.6.7",
     "ws": "^8.18.3",
     "zod": "^4.1.0"
   },
@@ -38,6 +42,7 @@
     "@types/node": "^22.18.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.1",
     "prettier": "^3.9.9",
     "tsx": "^4.20.5",
