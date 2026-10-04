@@ -2856,6 +2856,29 @@ hr {
   color: var(--muted);
   margin: 4px 0;
 }
+.admin-chef .chef-profile-status {
+  margin-top: 6px;
+}
+.chef-profile-status[data-chef-status="pending"] {
+  background: #fef3c7;
+  color: #92400e;
+}
+.chef-profile-status[data-chef-status="approved"] {
+  background: #dcfce7;
+  color: #166534;
+}
+.chef-profile-status[data-chef-status="needs_changes"] {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.chef-profile-status[data-chef-status="suspended"] {
+  background: #ffedd5;
+  color: #9a3412;
+}
+.chef-profile-status[data-chef-status="rejected"] {
+  background: #fee2e2;
+  color: #b91c1c;
+}
 .admin-chef .actions {
   margin-left: auto;
   display: flex;

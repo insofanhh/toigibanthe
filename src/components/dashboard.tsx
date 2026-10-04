@@ -747,6 +747,20 @@ function SectionTitle({ title }: { title: string }) {
     </div>
   );
 }
+function ChefProfileStatus({ status }: { status: string }) {
+  const labels: Record<string, string> = {
+    pending: "Chờ duyệt",
+    approved: "Đã duyệt",
+    needs_changes: "Cần bổ sung",
+    rejected: "Từ chối",
+    suspended: "Tạm ngưng",
+  };
+  return (
+    <span className="status chef-profile-status" data-chef-status={status}>
+      {labels[status] || status}
+    </span>
+  );
+}
 function AdminChefDetails({
   id,
   onClose,
@@ -767,6 +781,7 @@ function AdminChefDetails({
           Đóng hồ sơ
         </button>
       </div>
+      <ChefProfileStatus status={c.status} />
       <p>
         {c.owner_name} · {c.email} · {c.phone || "Chưa có số điện thoại"}
       </p>
@@ -1324,6 +1339,7 @@ export function AdminDashboard() {
                 <div className="panel admin-chef" key={c.id}>
                   <div>
                     <h3>{c.name}</h3>
+                    <ChefProfileStatus status={c.status} />
                     <p>
                       {c.owner_name} · {c.email}
                     </p>
@@ -1388,51 +1404,49 @@ export function AdminDashboard() {
                     <p>
                       {c.area} · {c.completed_orders} đơn hoàn thành
                     </p>
-                    <p>
-                      {c.status === "approved"
-                        ? "Đã duyệt"
-                        : c.status === "suspended"
-                          ? "Tạm ngưng"
-                          : c.status === "needs_changes"
-                            ? "Cần bổ sung"
-                            : "Từ chối"}
-                    </p>
+                    <ChefProfileStatus status={c.status} />
                   </div>
-                  <div className="actions">
-                    <Button secondary onClick={() => setDetailChef(c.id)}>
-                      Hồ sơ
-                    </Button>
-                    <Button
-                      secondary
-                      onClick={() => {
-                        setChefFilter(c.id);
-                        setTab("products");
-                      }}
-                    >
-                      Sản phẩm
-                    </Button>
-                    <Button
-                      secondary
-                      onClick={() => {
-                        setChefFilter(c.id);
-                        setTab("orders");
-                      }}
-                    >
-                      Đơn & doanh số
-                    </Button>
-                    <Button
-                      secondary
-                      onClick={() =>
-                        void run("admin/chefs/" + c.id, {
-                          status:
-                            c.status === "suspended" ? "approved" : "suspended",
-                          reason: "Quản trị cập nhật trạng thái bếp.",
-                        })
-                      }
-                    >
-                      {c.status === "suspended" ? "Cho hoạt động" : "Tạm ngưng"}
-                    </Button>
-                  </div>
+                  {["approved", "suspended"].includes(c.status) && (
+                    <div className="actions">
+                      <Button secondary onClick={() => setDetailChef(c.id)}>
+                        Hồ sơ
+                      </Button>
+                      <Button
+                        secondary
+                        onClick={() => {
+                          setChefFilter(c.id);
+                          setTab("products");
+                        }}
+                      >
+                        Sản phẩm
+                      </Button>
+                      <Button
+                        secondary
+                        onClick={() => {
+                          setChefFilter(c.id);
+                          setTab("orders");
+                        }}
+                      >
+                        Đơn & doanh số
+                      </Button>
+                      <Button
+                        secondary
+                        onClick={() =>
+                          void run("admin/chefs/" + c.id, {
+                            status:
+                              c.status === "suspended"
+                                ? "approved"
+                                : "suspended",
+                            reason: "Quản trị cập nhật trạng thái bếp.",
+                          })
+                        }
+                      >
+                        {c.status === "suspended"
+                          ? "Cho hoạt động"
+                          : "Tạm ngưng"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
           </>
