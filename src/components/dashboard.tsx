@@ -549,7 +549,13 @@ export function ChefDashboard() {
       )}
       {tab === "settings" && (
         <>
-          <BankSettings chef={c} onSave={reload} />
+          <BankSettings
+            chef={c}
+            onSave={() => {
+              reload();
+              refresh();
+            }}
+          />
           <SePaySettings />
           <KitchenSettings key={c.id} chef={c} onSave={reload} />
           <div className="panel form narrow">

@@ -17,8 +17,8 @@ const results: Record<string, string> = {
   RECEIVED: "Đã tiếp nhận",
 };
 export function SePaySettings() {
-  const { data, error, reload } = useLoad("chef/sepay"),
-    { toast } = useApp();
+  const { toast, revision } = useApp(),
+    { data, error, reload, loading } = useLoad("chef/sepay", [revision]);
   const [key, setKey] = useState(""),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
@@ -80,6 +80,60 @@ export function SePaySettings() {
     <section className="panel form narrow sepay-settings">
       <h2>Thanh toán tự động · SePay</h2>
       {error && <Notice error>{error}</Notice>}
+      {data?.bankConnection && (
+        <div className="form">
+          <h3>Kiểm tra nhận webhook</h3>
+          <p className="bank-note">
+            {data.bankConnection.bankSaved
+              ? `Tài khoản trên QR: ${data.bankConnection.bankName} · ••••${data.bankConnection.receiverLast4}`
+              : "Lưu tài khoản ngân hàng của bếp trước khi cấu hình SePay."}
+          </p>
+          {data.bankConnection.bankSaved && (
+            <Notice>
+              {data.bankConnection.matchingWebhookAt ? (
+                <>
+                  Webhook gần nhất khớp tài khoản QR:{" "}
+                  {new Date(
+                    data.bankConnection.matchingWebhookAt.replace(" ", "T") +
+                      "Z",
+                  ).toLocaleString("vi-VN")}
+                  .
+                </>
+              ) : (
+                <>
+                  App chưa nhận webhook khớp tài khoản trên QR. Bật cấu hình tại
+                  đây chưa xác nhận ngân hàng đã đồng bộ với SePay.
+                </>
+              )}
+              {data.bankConnection.latestWebhook &&
+                !data.bankConnection.latestWebhook.matchesCurrentAccount && (
+                  <p>
+                    Webhook gần nhất báo tiền vào{" "}
+                    {data.bankConnection.latestWebhook.bankName} · ••••
+                    {data.bankConnection.latestWebhook.receiverLast4}, khác số
+                    tài khoản trên QR. Đối chiếu tài khoản đã liên kết và được
+                    chọn trong webhook SePay; nếu dùng số tài khoản đẹp/alias,
+                    kiểm tra số ngân hàng báo về.
+                  </p>
+                )}
+            </Notice>
+          )}
+          <p className="bank-note">
+            Nếu khách đã chuyển nhưng SePay chưa có giao dịch, kiểm tra đồng bộ
+            ngân hàng trong SePay trước. Nếu SePay đã có giao dịch, kiểm tra
+            lịch sử gửi webhook. SePay gửi thông báo tiền vào tới app; QR không
+            tạo giao dịch trong SePay.
+          </p>
+          <Button
+            secondary
+            type="button"
+            onClick={reload}
+            disabled={busy || loading}
+          >
+            {loading ? "Đang kiểm tra…" : "Kiểm tra kết nối"}
+          </Button>
+        </div>
+      )}
       {data && (
         <form
           className="form"

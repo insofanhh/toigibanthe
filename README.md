@@ -86,6 +86,8 @@ Schema bổ sung tại `database/004_sepay.sql` và `database/005_sepay_details.
 
 Webhook khớp chef, mã đơn, BIN ngân hàng, số tài khoản snapshot, thời gian và số tiền; chống trùng transaction ID/reference bằng unique indexes trong transaction. Tiền thiếu được cộng dồn, tiền thừa cần đối soát; tiền tới sau hạn/hủy đưa vào chờ hoàn tiền, không mở lại đơn. Đơn hoàn thành nhận thêm tiền tạo yêu cầu đối soát nhưng không đổi trạng thái thanh toán cũ. Chưa hỗ trợ tài khoản ảo VA. Hoàn tiền vẫn do bếp xử lý ngoài ứng dụng. Đơn tạo trước khi bật SePay giữ cách xác nhận cũ; admin có thể đối soát thủ công khi cần. Key mới phải cập nhật đồng thời ở SePay. WebSocket đẩy thông báo, màn hình đơn chờ kiểm tra thêm mỗi 10 giây khi đang mở.
 
+Trong cài đặt bếp, **Kiểm tra kết nối** hiển thị số tài khoản trên QR, lần nhận webhook khớp tài khoản và tài khoản mà webhook gần nhất báo về. Đây là bằng chứng app đã nhận webhook, không xác nhận trạng thái đồng bộ ngân hàng của SePay. Nếu giao dịch chưa có trong danh sách SePay, cần kiểm tra kết nối ngân hàng trước; QR chỉ tạo thông tin chuyển khoản, không tạo một giao dịch ngân hàng. Với TPBank API, đối chiếu đúng số tài khoản chính đã liên kết theo [hướng dẫn SePay](https://docs.sepay.vn/ket-noi-tpbank.html), nhất là khi có nhiều tài khoản hoặc số đẹp/alias. App không dựa vào tài khoản gửi của khách để khớp đơn.
+
 Tài liệu: [Webhook SePay](https://docs.sepay.vn/tich-hop-webhooks.html), [QR renderer SePay](https://docs.sepay.vn/tao-qr-code-vietqr-dong.html).
 
 ### Webhook 200 nhưng đơn chưa thanh toán

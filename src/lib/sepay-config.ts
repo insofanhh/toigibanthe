@@ -19,27 +19,60 @@ export async function automaticPayment(chefId: string, db?: DB) {
 }
 export async function sepayConfig(chefId: string, origin: string) {
   await ensureSePaySchema();
-  const setting = (
-    await rows<any>(
+  const [settings, kitchens, receipts] = await Promise.all([
+    rows<{
+      enabled: number;
+      configured: number;
+      last_received_at: string | null;
+    }>(
       "SELECT enabled,key_hash IS NOT NULL configured,last_received_at FROM sepay_integrations WHERE chef_id=?",
       [chefId],
-    )
-  )[0];
+    ),
+    rows<{
+      bank_bin: string | null;
+      account_no: string | null;
+      receiver_seen_at: string | null;
+    }>(
+      "SELECT c.bank_bin,c.account_no,(SELECT MAX(t.created_at) FROM sepay_transactions t WHERE t.chef_id=c.id AND t.bank_bin=c.bank_bin AND t.account_number=c.account_no) receiver_seen_at FROM chefs c WHERE c.id=?",
+      [chefId],
+    ),
+    rows<{
+      bank_bin: string;
+      receiver_last4: string;
+      created_at: string;
+      matches_current_account: number;
+    }>(
+      'SELECT t.transaction_id,t.order_id,t.amount,t.content,t.result,t.created_at,t.transaction_date,t.bank_bin,RIGHT(t.account_number,4) receiver_last4,(t.bank_bin=c.bank_bin AND t.account_number=c.account_no) matches_current_account,d.payment_code,d.description,COALESCE(d.failure_reason,CASE WHEN t.result="UNMATCHED" AND (c.bank_bin<>t.bank_bin OR c.account_no<>t.account_number) THEN "ACCOUNT_NOT_CONFIGURED" ELSE NULL END) failure_reason,o.code order_code,o.total order_total FROM sepay_transactions t JOIN chefs c ON c.id=t.chef_id LEFT JOIN sepay_transaction_details d ON d.chef_id=t.chef_id AND d.transaction_id=t.transaction_id LEFT JOIN orders o ON o.id=t.order_id WHERE t.chef_id=? ORDER BY t.created_at DESC LIMIT 10',
+      [chefId],
+    ),
+  ]);
+  const setting = settings[0],
+    kitchen = kitchens[0],
+    latest = receipts[0];
+  const bankName = (bin: string | null) =>
+    sepayBanks.find((bank) => bank.bin === bin)?.shortName || bin || "";
   return {
     enabled: Boolean(setting?.enabled),
     configured: Boolean(setting?.configured),
     lastReceivedAt: setting?.last_received_at || null,
     webhookUrl: `${origin}/api/webhooks/sepay/${chefId}`,
-    transactions: (
-      await rows<{ bank_bin: string }>(
-        'SELECT t.transaction_id,t.order_id,t.amount,t.content,t.result,t.created_at,t.transaction_date,t.bank_bin,RIGHT(t.account_number,4) receiver_last4,d.payment_code,d.description,COALESCE(d.failure_reason,CASE WHEN t.result="UNMATCHED" AND (c.bank_bin<>t.bank_bin OR c.account_no<>t.account_number) THEN "ACCOUNT_NOT_CONFIGURED" ELSE NULL END) failure_reason,o.code order_code,o.total order_total FROM sepay_transactions t JOIN chefs c ON c.id=t.chef_id LEFT JOIN sepay_transaction_details d ON d.chef_id=t.chef_id AND d.transaction_id=t.transaction_id LEFT JOIN orders o ON o.id=t.order_id WHERE t.chef_id=? ORDER BY t.created_at DESC LIMIT 10',
-        [chefId],
-      )
-    ).map((t) => ({
+    bankConnection: {
+      bankSaved: Boolean(kitchen?.bank_bin && kitchen.account_no),
+      bankName: bankName(kitchen?.bank_bin || null),
+      receiverLast4: kitchen?.account_no?.slice(-4) || "",
+      matchingWebhookAt: kitchen?.receiver_seen_at || null,
+      latestWebhook: latest
+        ? {
+            bankName: bankName(latest.bank_bin),
+            receiverLast4: latest.receiver_last4,
+            matchesCurrentAccount: Boolean(latest.matches_current_account),
+            receivedAt: latest.created_at,
+          }
+        : null,
+    },
+    transactions: receipts.map((t) => ({
       ...t,
-      bank_name:
-        sepayBanks.find((bank) => bank.bin === t.bank_bin)?.shortName ||
-        t.bank_bin,
+      bank_name: bankName(t.bank_bin),
     })),
   };
 }
