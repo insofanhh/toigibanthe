@@ -180,41 +180,54 @@ export async function saveProduct(user: Actor, input: unknown, id?: string) {
     host.endsWith(".public.blob.vercel-storage.com")
   ))
     throw new AppError("Hãy chọn ảnh đã tải lên Vercel Blob.");
-  if (id) {
-    const result = await exec(
-      "UPDATE products SET name=?,description=?,ingredients=?,price=?,image_url=?,prep_minutes=?,active=? WHERE id=? AND chef_id=?",
-      [
-        data.name,
-        data.description,
-        data.ingredients,
-        data.price,
-        data.imageUrl,
-        data.prepMinutes,
-        data.active,
-        id,
-        c.id,
-      ],
+  const updating = !!id,
+    productId = id || randomUUID();
+  return transaction(async (db) => {
+    if (updating) {
+      const result = await exec(
+        "UPDATE products SET name=?,description=?,ingredients=?,price=?,image_url=?,prep_minutes=?,active=? WHERE id=? AND chef_id=?",
+        [
+          data.name,
+          data.description,
+          data.ingredients,
+          data.price,
+          data.imageUrl,
+          data.prepMinutes,
+          data.active,
+          productId,
+          c.id,
+        ],
+        db,
+      );
+      if (!result.affectedRows) throw new AppError("Không tìm thấy món.", 404);
+    } else {
+      await exec(
+        "INSERT INTO products (id,chef_id,name,description,ingredients,price,image_url,prep_minutes,active,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+          productId,
+          c.id,
+          data.name,
+          data.description,
+          data.ingredients,
+          data.price,
+          data.imageUrl,
+          data.prepMinutes,
+          data.active,
+          sqlDate(),
+        ],
+        db,
+      );
+    }
+    await audit(
+      db,
+      user,
+      updating ? "product.updated" : "product.created",
+      productId,
+      { name: data.name, price: data.price, active: data.active },
     );
-    if (!result.affectedRows) throw new AppError("Không tìm thấy món.", 404);
-  } else {
-    id = randomUUID();
-    await exec(
-      "INSERT INTO products (id,chef_id,name,description,ingredients,price,image_url,prep_minutes,active,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-      [
-        id,
-        c.id,
-        data.name,
-        data.description,
-        data.ingredients,
-        data.price,
-        data.imageUrl,
-        data.prepMinutes,
-        data.active,
-        sqlDate(),
-      ],
-    );
-  }
-  return { id };
+    await analyticsLive(db, productId);
+    return { id: productId };
+  });
 }
 export async function saveBank(user: Actor, input: unknown) {
   const data = bankSchema.parse(input),

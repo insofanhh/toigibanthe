@@ -237,6 +237,10 @@ try {
     "admin/chef-analytics/operations",
     "admin/chef-analytics/list",
     "admin/chef-analytics/detail/" + ids.chef + "?panel=profile",
+    ...["summary", "trends", "operations", "list", "supply"].map(
+      (s) => "admin/product-analytics/" + s,
+    ),
+    "admin/product-analytics/detail/" + ids.product + "?panel=overview",
   ]) {
     assert.equal((await api(path, undefined, 1)).status, 403);
     assert.equal((await api(path, undefined, 3)).status, 200);
@@ -250,6 +254,30 @@ try {
     400,
   );
   assert.equal((await api("admin/chef-analytics/settings", {}, 1)).status, 403);
+  assert.equal(
+    (await api("admin/product-analytics/list?sort=toString", undefined, 3))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await api("admin/product-analytics/settings", { minReviews: 0 }, 3))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await api("admin/product-analytics/settings", {}, 1)).status,
+    403,
+  );
+  assert.equal(
+    (
+      await api(
+        "admin/products/" + ids.product,
+        { active: false, reason: "  " },
+        3,
+      )
+    ).status,
+    400,
+  );
   assert.equal(
     (
       await api(

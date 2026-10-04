@@ -80,6 +80,12 @@ import {
   clearChefReports,
 } from "@/lib/admin-chefs";
 import {
+  adminProductAnalytics,
+  adminProductDetail,
+  saveProductThresholds,
+  clearProductReports,
+} from "@/lib/admin-products";
+import {
   generateWebhookKey,
   sepayConfig,
   saveSePayConfig,
@@ -609,6 +615,17 @@ async function dispatch(req: Request) {
   }
   if (section === "admin") {
     const user = await requireRole("admin");
+    if (action === "product-analytics" && method === "GET") {
+      if (id === "detail")
+        return adminProductDetail(path[3] || "", url.searchParams);
+      return adminProductAnalytics(id || "summary", url.searchParams);
+    }
+    if (
+      action === "product-analytics" &&
+      id === "settings" &&
+      method === "POST"
+    )
+      return saveProductThresholds(user, await req.json());
     if (action === "chef-analytics" && method === "GET") {
       if (id === "detail")
         return adminChefDetailReport(path[3] || "", url.searchParams);
@@ -711,7 +728,10 @@ async function dispatch(req: Request) {
     }
     if (action === "products" && method === "POST") {
       const b = z
-        .object({ active: z.boolean(), reason: z.string().min(3).max(500) })
+        .object({
+          active: z.boolean(),
+          reason: z.string().trim().min(3).max(500),
+        })
         .parse(await req.json());
       await transaction(async (db) => {
         const p = (
@@ -736,7 +756,10 @@ async function dispatch(req: Request) {
           "/chef?tab=products",
         );
         await audit(db, user, "product.active", id!, b);
+        await analyticsLive(db, id!);
       });
+      clearProductReports();
+      clearChefReports();
       return { ok: true };
     }
     if (action === "meals" && method === "POST") {

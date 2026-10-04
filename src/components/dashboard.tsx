@@ -47,6 +47,10 @@ const AdminChefs = dynamic(
   () => import("./admin-chefs").then((m) => m.AdminChefs),
   { loading: () => <div className="loading">Đang tải bếp…</div> },
 );
+const AdminProducts = dynamic(
+  () => import("./admin-products").then((m) => m.AdminProducts),
+  { loading: () => <div className="loading">Đang tải món…</div> },
+);
 import {
   useLoad,
   Button,
@@ -1052,7 +1056,8 @@ export function AdminDashboard() {
     adminRouter = useRouter(),
     [tab, setTab] = useState(params.get("tab") || "overview"),
     { data, error, reload } = useLoad(
-      user?.role === "admin" && !["overview", "users", "chefs"].includes(tab)
+      user?.role === "admin" &&
+        !["overview", "users", "chefs", "products"].includes(tab)
         ? "admin"
         : null,
       [revision],
@@ -1075,6 +1080,7 @@ export function AdminDashboard() {
   function navigateAdmin(next: string, chef?: string, orderFilter?: string) {
     const p = new URLSearchParams(params.toString());
     p.set("tab", next);
+    if (next !== "products") p.delete("product");
     p.delete("chef");
     if (["chefs", "orders", "products", "payments"].includes(next) && chef)
       p.set("chef", chef);
@@ -1191,7 +1197,8 @@ export function AdminDashboard() {
           title={items.find(([id]) => id === tab)?.[1] || "Quản trị"}
           subtitle="Quản trị hệ thống"
         />
-        {!["overview", "users", "chefs"].includes(tab) && (error || !data) ? (
+        {!["overview", "users", "chefs", "products"].includes(tab) &&
+        (error || !data) ? (
           error ? (
             <Notice error>{error}</Notice>
           ) : (
@@ -1202,7 +1209,8 @@ export function AdminDashboard() {
             {tab === "overview" && <AdminOverview onNavigate={navigateAdmin} />}
             {tab === "users" && <AdminUsers />}
             {tab === "chefs" && <AdminChefs onNavigate={navigateAdmin} />}
-            {(tab === "orders" || tab === "products") && (
+            {tab === "products" && <AdminProducts onNavigate={navigateAdmin} />}
+            {tab === "orders" && (
               <div className="filter-row">
                 <select
                   value={chefFilter}
@@ -1289,34 +1297,6 @@ export function AdminDashboard() {
                   )}
               </>
             )}
-            {tab === "products" &&
-              data.products
-                .filter((p: any) => !chefFilter || p.chef_id === chefFilter)
-                .map((p: any) => (
-                  <div className="panel dashboard-product" key={p.id}>
-                    <img src={p.image_url} alt={p.name} />
-                    <div>
-                      <h3>{p.name}</h3>
-                      <p>
-                        {p.chef_name} · {money(p.price)} ·{" "}
-                        {p.active ? "Đang dùng" : "Đã ẩn"}
-                      </p>
-                    </div>
-                    <Button
-                      secondary
-                      onClick={() => {
-                        const reason = prompt("Lý do cập nhật trạng thái món:");
-                        if (reason)
-                          void run("admin/products/" + p.id, {
-                            active: !p.active,
-                            reason,
-                          });
-                      }}
-                    >
-                      {p.active ? "Ẩn món" : "Cho hiển thị"}
-                    </Button>
-                  </div>
-                ))}
             {tab === "settings" && (
               <>
                 <SectionTitle title="Giờ hết nhận theo bữa" />

@@ -62,6 +62,18 @@
 - Không thêm bảng/dịch vụ/biến môi trường. Xem định nghĩa, giới hạn lịch sử và lộ trình bổ sung tại `docs/admin-chefs-plan.md`.
 - `npm run test:chefs`: hơn 100 bếp, phân trang đầy đủ, readiness/qua nửa đêm, hồ sơ nộp lại, cohort duyệt, doanh số/giảm giá/phí giao, trung vị lẻ/chẵn, actor từ chối/hủy, đối soát cũ/trùng/tuổi giai đoạn, review sorting/sample, sáu tab và validation. Chỉ cho MySQL local và tự dọn fixture. Kiểm tra quyền API tích hợp trong `test:sepay`.
 
+## Phân tích Sản phẩm
+
+- `GET /api/admin/product-analytics/{summary,trends,operations,list,supply}` và `/api/admin/product-analytics/detail/:id?panel=overview|menu|orders|reviews|history`. Tất cả API yêu cầu admin đang hoạt động. `POST /api/admin/product-analytics/settings` lưu ngưỡng vào platform_settings, có audit/realtime. Ẩn/hiện món dùng API hiện có, bắt buộc lý do sau trim.
+- Tám KPI; so kỳ trước cho món đã bán, số phần, doanh số và món mới; biểu đồ sức bán/top 10; cảnh báo có bộ lọc nhóm trước giới hạn 30. Bộ lọc ngày/chef/khu vực bếp/bữa/tìm kiếm có phạm vi rõ. Trạng thái/nhóm/thứ tự/trang chỉ thay danh sách. URL tham số `p*` giữ trạng thái khi xem chi tiết/quay lại.
+- SQL tổng hợp toàn bộ phạm vi, lọc/sắp xếp/phân trang danh sách trên server sau truy vấn; 20 món/trang, ID phá hòa. Menu/đơn/review/audit chi tiết dùng COUNT/LIMIT SQL. Facts cache 20 giây, operations/supply đọc mới, tự kiểm tra mỗi phút khi tab visible. Version request và cache client giữ UI khi refresh. Cần tối ưu lọc SQL/tổng hợp định kỳ khi dữ liệu lớn; hiện chưa có kiểm tra tải ở quy mô lớn.
+- Voucher được chia trên toàn đơn bằng DECIMAL và phân bổ phần dư VND ổn định trước lọc sản phẩm. Gộp dòng cùng product/order trước đếm đơn/khách/review. Giá snapshot tại checkout, không trừ sale hai lần; doanh số COMPLETED không gồm phí giao hoặc suy ra tiền hoàn theo món. Đơn cũ thiếu completion event dùng updated_at có cảnh báo.
+- Lịch sử thiếu product vẫn giữ doanh số, có nhóm riêng và không có thao tác ẩn/hiện. Rating là đánh giá **đơn có món**, kèm số mẫu/user/món/thời gian và sorting. Review từ cùng đơn chỉ đếm một lần cho mỗi món. Đối soát cấp đơn có canonical request và tuổi giai đoạn, không cộng tiền hoàn toàn đơn vào từng món.
+- Ready kiểm tra product/chef/chủ/ngân hàng/session/menu/suất/cutoff, gồm bữa qua nửa đêm ngày dịch vụ trước. Suất khả dụng có thể đã trừ phần giữ cho đơn chưa trả tiền, chưa phải tỷ lệ bán hết. Nguồn cung theo vị trí bếp không bảo đảm giao được mọi địa chỉ khách; checkout tiếp tục kiểm tra bán kính.
+- Phiên xem/thêm giỏ là số phiên độc lập; lượt thích là hiện trạng. Có thời điểm bắt đầu ghi nhận và số đơn có analytics context; chưa có impression/checkout item snapshot nên chưa tính funnel món. Audit chef tạo/sửa món bắt đầu từ lần cập nhật này, không tái tạo lịch sử giá hoặc tồn kho.
+- Không thêm dịch vụ/bảng/biến môi trường. Xem định nghĩa và đợt sau tại `docs/admin-products-plan.md`.
+- `npm run test:products`: hơn 100 món, literal search/phân trang, voucher/làm tròn/lọc món, nhiều dòng/menu/review, ngày hoàn thành/legacy/orphan, readiness/qua nửa đêm, đối soát/tuổi giai đoạn, nguồn cung/heatmap, phiên/favorites, mua lại, năm tab, audit/outbox và lưu ngưỡng. Fixture chỉ chạy MySQL local, tự dọn và khôi phục cấu hình. Kiểm tra quyền API trong `test:sepay`.
+
 ## Bộ kiểm tra chung
 
 `npm test`: ngày Việt Nam, kỳ đối chiếu, CSV, domain và cache.
