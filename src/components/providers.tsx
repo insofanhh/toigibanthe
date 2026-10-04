@@ -54,6 +54,7 @@ type Context = {
   revision: number;
   toast: (message: string) => void;
   refresh: () => void;
+  markNotificationRead: (id: string) => Promise<void>;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
   setLocation: (value: Location) => void;
@@ -80,6 +81,8 @@ export function Providers({ children }: { children: ReactNode }) {
   const [loadCache] = useState(() => new ClientLoadCache());
   const authIdentity = useRef("");
   const authSequence = useRef(0);
+  const notificationSequence = useRef(0);
+  const notificationReadQueue = useRef<Promise<void>>(Promise.resolve());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useCallback((text: string) => {
     setMessage(text);
@@ -87,6 +90,38 @@ export function Providers({ children }: { children: ReactNode }) {
     timer.current = setTimeout(() => setMessage(""), 4500);
   }, []);
   const refresh = useCallback(() => setRevision((x) => x + 1), []);
+  const markNotificationRead = useCallback(
+    (id: string) => {
+      const identity = authIdentity.current;
+      const operation = notificationReadQueue.current
+        .catch(() => {})
+        .then(async () => {
+          if (authIdentity.current !== identity) return;
+          ++notificationSequence.current;
+          const result = await post(
+            `notifications/${encodeURIComponent(id)}/read`,
+            {},
+          );
+          if (authIdentity.current !== identity) return;
+          ++notificationSequence.current;
+          setUnread(result.unreadCounts.total);
+          const key = `${identity}:notifications`;
+          const cached = loadCache.read<any>(key).data;
+          if (cached)
+            loadCache.set(key, {
+              ...cached,
+              unreadCounts: result.unreadCounts,
+              notifications: cached.notifications.map((n: any) =>
+                n.id === id ? { ...n, is_read: 1 } : n,
+              ),
+            });
+          refresh();
+        });
+      notificationReadQueue.current = operation;
+      return operation;
+    },
+    [loadCache, refresh],
+  );
   const refreshAuth = useCallback(async () => {
     const sequence = ++authSequence.current;
     try {
@@ -142,14 +177,20 @@ export function Providers({ children }: { children: ReactNode }) {
       return;
     }
     const controller = new AbortController();
+    const sequence = ++notificationSequence.current;
     request("notifications", { signal: controller.signal })
-      .then((r) =>
+      .then((r) => {
+        if (
+          sequence !== notificationSequence.current ||
+          controller.signal.aborted
+        )
+          return;
         setUnread(
           r.unreadCounts?.total ??
             r.notifications.filter((n: { is_read: number }) => !n.is_read)
               .length,
-        ),
-      )
+        );
+      })
       .catch(() => {});
     return () => controller.abort();
   }, [user, revision]);
@@ -318,6 +359,7 @@ export function Providers({ children }: { children: ReactNode }) {
         revision,
         toast,
         refresh,
+        markNotificationRead,
         refreshAuth,
         logout,
         setLocation,

@@ -42,7 +42,11 @@ import {
   adminChefDetail,
   audit,
 } from "@/lib/manage";
-import { notify, unreadNotificationCounts } from "@/lib/notifications";
+import {
+  notify,
+  readNotification,
+  unreadNotificationCounts,
+} from "@/lib/notifications";
 import {
   listPaymentRequests,
   submitPaymentRequest,
@@ -268,7 +272,9 @@ async function dispatch(req: Request) {
   }
   if (section === "notifications") {
     const user = (await actor())!;
-    if (method === "GET")
+    if (action && id === "read" && method === "POST")
+      return readNotification(user.id, z.string().min(1).max(36).parse(action));
+    if (!action && method === "GET")
       return {
         notifications: await rows(
           "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 100",
@@ -276,7 +282,7 @@ async function dispatch(req: Request) {
         ),
         unreadCounts: await unreadNotificationCounts(user.id),
       };
-    if (method === "POST") {
+    if (!action && method === "POST") {
       await exec("UPDATE notifications SET is_read=TRUE WHERE user_id=?", [
         user.id,
       ]);

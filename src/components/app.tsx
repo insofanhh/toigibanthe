@@ -1308,9 +1308,15 @@ export function OrderCard({
   );
 }
 function Notifications() {
+  const params = useSearchParams();
+  const tab = params.get("tab") === "order" ? "order" : "news";
+  function setTab(value: "news" | "order") {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", value);
+    window.history.replaceState(null, "", url.pathname + url.search);
+  }
   const { user, revision, refresh, toast } = useApp(),
     { data, error } = useLoad(user ? "notifications" : null, [revision]),
-    [tab, setTab] = useState("news"),
     [marking, setMarking] = useState(false);
   if (!user) return <NeedLogin />;
   const list = data?.notifications || [];
@@ -1424,6 +1430,21 @@ function Notifications() {
   );
 }
 function NotificationList({ list }: { list: any[] }) {
+  const { markNotificationRead, toast } = useApp();
+  const router = useRouter();
+  const opening = useRef(new Set<string>());
+  async function open(n: any) {
+    if (opening.current.has(n.id)) return;
+    opening.current.add(n.id);
+    try {
+      await markNotificationRead(n.id);
+      router.push(n.href, { transitionTypes: ["page-forward"] });
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      opening.current.delete(n.id);
+    }
+  }
   return list.length ? (
     <div className="notification-list">
       {list.map((n) => (
@@ -1431,6 +1452,11 @@ function NotificationList({ list }: { list: any[] }) {
           className={"notification-item " + (!n.is_read ? "unread" : "")}
           key={n.id}
           href={n.href}
+          onNavigate={(e) => {
+            if (n.is_read) return;
+            e.preventDefault();
+            void open(n);
+          }}
         >
           <span className="notification-dot" />
           <div>

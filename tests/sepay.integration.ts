@@ -1432,6 +1432,44 @@ try {
     promotion: 2,
     total: 109,
   });
+  const unreadNotice = notifications.data.notifications.find(
+    (n: any) => n.category === "order" && !n.is_read,
+  );
+  assert.ok(unreadNotice);
+  const readPath = `notifications/${unreadNotice.id}/read`;
+  assert.equal((await api(readPath, {}, 1)).status, 404);
+  const missingNotice = await api(`notifications/${randomUUID()}/read`, {}, 3);
+  assert.equal(missingNotice.status, 404);
+  const [readA, readB] = await Promise.all([
+    api(readPath, {}, 3),
+    api(readPath, {}, 3),
+  ]);
+  assert.equal(readA.status, 200);
+  assert.equal(readB.status, 200);
+  for (const result of [readA, readB])
+    assert.deepEqual(result.data.unreadCounts, {
+      news: 2,
+      order: 104,
+      promotion: 2,
+      total: 108,
+    });
+  assert.deepEqual((await api(readPath, {}, 3)).data.unreadCounts, {
+    news: 2,
+    order: 104,
+    promotion: 2,
+    total: 108,
+  });
+  assert.equal(
+    (
+      await rows<any>("SELECT is_read FROM notifications WHERE id=?", [
+        unreadNotice.id,
+      ])
+    )[0].is_read,
+    1,
+  );
+  console.log(
+    "PASS: đọc từng thông báo chỉ giảm một lần kể cả đồng thời/bấm lại, không thay nhóm khác, từ chối đọc thông báo của người khác",
+  );
   await api("notifications", {}, 3);
   assert.deepEqual(
     (await api("notifications", undefined, 3)).data.unreadCounts,

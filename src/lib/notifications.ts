@@ -1,5 +1,26 @@
 import { randomUUID } from "node:crypto";
-import { exec, rows, sqlDate, type DB } from "./db";
+import { exec, rows, sqlDate, transaction, type DB } from "./db";
+import { AppError } from "./http";
+export async function readNotification(userId: string, notificationId: string) {
+  await transaction(async (db) => {
+    const [notification] = await rows(
+      "SELECT id FROM notifications WHERE id=? AND user_id=? FOR UPDATE",
+      [notificationId, userId],
+      db,
+    );
+    if (!notification) throw new AppError("Không tìm thấy thông báo.", 404);
+    await exec(
+      "UPDATE notifications SET is_read=TRUE WHERE id=? AND user_id=? AND is_read=FALSE",
+      [notificationId, userId],
+      db,
+    );
+  });
+  return {
+    ok: true,
+    notificationId,
+    unreadCounts: await unreadNotificationCounts(userId),
+  };
+}
 export async function unreadNotificationCounts(userId: string) {
   const counts = { news: 0, order: 0, promotion: 0, total: 0 };
   for (const row of await rows<{ category: string; count: number }>(
