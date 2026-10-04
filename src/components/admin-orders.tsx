@@ -1172,7 +1172,11 @@ export function AdminOrders({
                                           ? "all"
                                           : r.status,
                                     group:
-                                      r.status === "ACTIVE" ? "active" : "all",
+                                      r.status === "ACTIVE"
+                                        ? "active"
+                                        : r.status === "UNKNOWN"
+                                          ? "unknown"
+                                          : "all",
                                   })
                                 }
                               >

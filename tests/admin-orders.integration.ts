@@ -359,9 +359,9 @@ try {
   assert.equal(po.total, 3);
   assert.equal(po.confirmed.count, 108);
   assert.equal(po.confirmed.paid_value, 108 * 65000);
-  assert.equal(Number(po.requests.orders),2);
-  assert.equal(po.requests.count,3);
-  assert.equal(po.requests.claimed_amount,195000);
+  assert.equal(Number(po.requests.orders), 2);
+  assert.equal(po.requests.count, 3);
+  assert.equal(po.requests.claimed_amount, 195000);
   const webhook = await report("payments", {
     txDate: "received",
     txGroup: "valid",
@@ -461,6 +461,10 @@ try {
     1,
     "Report cannot backfill duplicate requests",
   );
+  const unknown = await order("LEGACY", -1, 1, "PENDING", null);
+  const unknownList = await report("list", { group: "unknown" });
+  assert.equal(unknownList.total, 1);
+  assert.equal(unknownList.orders[0].id, unknown);
   for (const p of [
     { sort: "toString" },
     { from: "2026-02-30" },

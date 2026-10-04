@@ -191,6 +191,8 @@ function listConditions(f: OrderReportFilter) {
     money: "r.money_issue OR r.late_money OR r.invalid_transactions>0",
     requests: "r.open_requests>0",
     paid: "r.paid_at IS NOT NULL",
+    unknown:
+      "r.status NOT IN ('PLACED','PAID','ACCEPTED','PREPARING','DELIVERING','DELIVERED','COMPLETED','CANCELLED','REJECTED','EXPIRED')",
   }[f.group];
   clauses.push("(" + group + ")");
   return { sql: clauses.join(" AND "), values };

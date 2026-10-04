@@ -20,6 +20,7 @@ export const ORDER_REPORT_GROUPS = {
   money: "Tiền cần kiểm tra",
   requests: "Có đối soát đang chờ",
   paid: "Đã có xác nhận tiền",
+  unknown: "Trạng thái chưa xác định",
 } as const;
 export const ORDER_REPORT_SORTS = {
   newest: "Mới nhất",
