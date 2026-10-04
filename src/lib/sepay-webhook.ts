@@ -175,6 +175,7 @@ export async function receiveSePay(chefId: string, request: Request) {
         [reason, chefId, b.id],
         db,
       );
+      if (value !== "PAID") await analyticsLive(db, order?.id || chefId);
       return { success: true, result: value, ...(reason ? { reason } : {}) };
     }
     if (!order) {

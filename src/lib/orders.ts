@@ -633,6 +633,22 @@ export async function transition(
           [sqlDate(), id],
           db,
         );
+        await exec(
+          "INSERT INTO audit_logs VALUES (?,?,?,?,?,?)",
+          [
+            randomUUID(),
+            user.id,
+            "order.payment.manual",
+            id,
+            JSON.stringify({
+              previousPayment: o.payment_status,
+              previousStatus: o.status,
+              source: "manual",
+            }),
+            sqlDate(),
+          ],
+          db,
+        );
       }
     } else if (target === "CANCELLED" || target === "REJECTED") {
       if (target === "REJECTED" && !isChef && !isAdmin)
@@ -681,6 +697,23 @@ export async function transition(
       db,
     );
     await event(db, o, user.id, target, note);
+    if (isAdmin)
+      await exec(
+        "INSERT INTO audit_logs VALUES (?,?,?,?,?,?)",
+        [
+          randomUUID(),
+          user.id,
+          "order.admin.transition",
+          id,
+          JSON.stringify({
+            previousStatus: o.status,
+            status: target,
+            reason: note,
+          }),
+          sqlDate(),
+        ],
+        db,
+      );
     await notify(
       db,
       o.user_id,
@@ -691,12 +724,12 @@ export async function transition(
         : `Đơn ${o.code} đã cập nhật trạng thái.`,
       `/orders/${id}`,
     );
-    if (isUser && !refundRequested)
+    if ((isUser || isAdmin) && !refundRequested && o.chef_user_id !== user.id)
       await notify(
         db,
         o.chef_user_id,
         "order",
-        "Khách cập nhật đơn",
+        isAdmin ? "Quản trị cập nhật đơn" : "Khách cập nhật đơn",
         `Đơn ${o.code} đã cập nhật.`,
         `/chef?order=${id}`,
       );

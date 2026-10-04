@@ -1050,6 +1050,9 @@ function BankSettings({ chef, onSave }: { chef: any; onSave: () => void }) {
     </form>
   );
 }
+const AdminOrders = dynamic(() =>
+  import("./admin-orders").then((m) => m.AdminOrders),
+);
 export function AdminDashboard() {
   const { user, revision, toast, refresh } = useApp(),
     params = useSearchParams(),
@@ -1057,15 +1060,8 @@ export function AdminDashboard() {
     [tab, setTab] = useState(params.get("tab") || "overview"),
     { data, error, reload } = useLoad(
       user?.role === "admin" &&
-        !["overview", "users", "chefs", "products"].includes(tab)
+        !["overview", "users", "chefs", "products", "orders"].includes(tab)
         ? "admin"
-        : null,
-      [revision],
-    ),
-    { data: orders, error: ordersError } = useLoad(
-      user?.role === "admin" && tab === "orders"
-        ? "admin/orders" +
-            (params.get("filter") === "active" ? "?filter=active" : "")
         : null,
       [revision],
     ),
@@ -1081,6 +1077,10 @@ export function AdminDashboard() {
     const p = new URLSearchParams(params.toString());
     p.set("tab", next);
     if (next !== "products") p.delete("product");
+    p.delete("order");
+    p.delete("request");
+    if (next === "orders")
+      for (const key of [...p.keys()]) if (key.startsWith("o")) p.delete(key);
     p.delete("chef");
     if (["chefs", "orders", "products", "payments"].includes(next) && chef)
       p.set("chef", chef);
@@ -1197,7 +1197,7 @@ export function AdminDashboard() {
           title={items.find(([id]) => id === tab)?.[1] || "Quản trị"}
           subtitle="Quản trị hệ thống"
         />
-        {!["overview", "users", "chefs", "products"].includes(tab) &&
+        {!["overview", "users", "chefs", "products", "orders"].includes(tab) &&
         (error || !data) ? (
           error ? (
             <Notice error>{error}</Notice>
@@ -1210,93 +1210,7 @@ export function AdminDashboard() {
             {tab === "users" && <AdminUsers />}
             {tab === "chefs" && <AdminChefs onNavigate={navigateAdmin} />}
             {tab === "products" && <AdminProducts onNavigate={navigateAdmin} />}
-            {tab === "orders" && (
-              <div className="filter-row">
-                <select
-                  value={chefFilter}
-                  onChange={(e) =>
-                    navigateAdmin(
-                      tab,
-                      e.target.value,
-                      params.get("filter") || undefined,
-                    )
-                  }
-                  aria-label="Lọc bếp"
-                >
-                  <option value="">Tất cả bếp</option>
-                  {data.chefs.map((c: any) => (
-                    <option value={c.id} key={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {tab === "orders" && (
-              <>
-                <div
-                  className="analytics-presets"
-                  aria-label="Lọc đơn quản trị"
-                >
-                  <button
-                    type="button"
-                    className={
-                      params.get("filter") !== "active" ? "active" : ""
-                    }
-                    onClick={() => navigateAdmin("orders", chefFilter)}
-                  >
-                    Tất cả
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      params.get("filter") === "active" ? "active" : ""
-                    }
-                    onClick={() =>
-                      navigateAdmin("orders", chefFilter, "active")
-                    }
-                  >
-                    Đang xử lý
-                  </button>
-                </div>
-                {ordersError && <Notice error>{ordersError}</Notice>}
-                {!orders && !ordersError && (
-                  <PageLoading label="Đang tải đơn…" />
-                )}
-                {chefFilter && orders && (
-                  <Notice>
-                    Doanh số hoàn thành trong danh sách:{" "}
-                    {money(
-                      (orders?.orders || [])
-                        .filter(
-                          (o: any) =>
-                            o.chef_id === chefFilter &&
-                            o.status === "COMPLETED",
-                        )
-                        .reduce((a: number, o: any) => a + o.total, 0),
-                    )}
-                  </Notice>
-                )}
-                {orders?.orders
-                  .filter((o: any) => !chefFilter || o.chef_id === chefFilter)
-                  .map((o: any) => (
-                    <OrderCard key={o.id} order={o} />
-                  ))}
-                {orders &&
-                  !orders.orders.some(
-                    (o: any) => !chefFilter || o.chef_id === chefFilter,
-                  ) && (
-                    <Empty
-                      icon={ShoppingBag}
-                      title={
-                        params.get("filter") === "active"
-                          ? "Không có đơn đang xử lý"
-                          : "Chưa có đơn trong danh sách"
-                      }
-                    />
-                  )}
-              </>
-            )}
+            {tab === "orders" && <AdminOrders onNavigate={navigateAdmin} />}
             {tab === "settings" && (
               <>
                 <SectionTitle title="Giờ hết nhận theo bữa" />
@@ -1528,9 +1442,11 @@ export function AdminDashboard() {
             )}
             {tab === "payments" && (
               <>
-                {chefFilter && (
+                {(chefFilter ||
+                  params.get("order") ||
+                  params.get("request")) && (
                   <Notice>
-                    Đang xem đối soát của bếp đã chọn.{" "}
+                    Đang xem đối soát trong phạm vi đã chọn.{" "}
                     <button
                       className="text-button"
                       onClick={() => navigateAdmin("payments")}
@@ -1540,7 +1456,14 @@ export function AdminDashboard() {
                   </Notice>
                 )}
                 {data.exceptions
-                  .filter((e: any) => !chefFilter || e.chef_id === chefFilter)
+                  .filter(
+                    (e: any) =>
+                      (!chefFilter || e.chef_id === chefFilter) &&
+                      (!params.get("order") ||
+                        e.order_id === params.get("order")) &&
+                      (!params.get("request") ||
+                        e.id === params.get("request")),
+                  )
                   .map((e: any) => (
                     <div className="panel" key={e.id}>
                       <div className="spread">
@@ -1620,7 +1543,11 @@ export function AdminDashboard() {
                     </div>
                   ))}
                 {!data.exceptions.some(
-                  (e: any) => !chefFilter || e.chef_id === chefFilter,
+                  (e: any) =>
+                    (!chefFilter || e.chef_id === chefFilter) &&
+                    (!params.get("order") ||
+                      e.order_id === params.get("order")) &&
+                    (!params.get("request") || e.id === params.get("request")),
                 ) && <Empty icon={Wallet} title="Chưa có yêu cầu đối soát" />}
               </>
             )}

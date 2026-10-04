@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { rows, exec, sqlDate, transaction } from "./db";
 import { AppError } from "./http";
+import { COMPLETED_AT_SQL } from "./order-report-ledger";
 import {
   chefFilter,
   chefState,
@@ -37,7 +38,7 @@ const ledger = `WITH event_times AS (SELECT e.order_id,
  MAX(e.status IN ('CANCELLED','REJECTED') AND e.actor_id<>o.user_id AND e.actor_id<>c.user_id) other_cancelled
  FROM order_events e JOIN orders o ON o.id=e.order_id JOIN chefs c ON c.id=o.chef_id GROUP BY e.order_id),
  ledger AS (SELECT o.*,COALESCE(e.paid_at,o.payment_confirmed_at) paid_at,e.accepted_at,
- CASE WHEN o.status='COMPLETED' THEN COALESCE(e.finished_at,o.updated_at) END completed_at,
+ ${COMPLETED_AT_SQL} completed_at,
  e.finished_at IS NULL AND o.status='COMPLETED' legacy_completed,COALESCE(e.chef_rejected,0) chef_rejected,COALESCE(e.user_cancelled,0) user_cancelled,COALESCE(e.other_cancelled,0) other_cancelled
  FROM orders o LEFT JOIN event_times e ON e.order_id=o.id)`;
 const cache = new Map<

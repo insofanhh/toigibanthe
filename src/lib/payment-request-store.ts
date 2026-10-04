@@ -4,7 +4,8 @@ import { AppError } from "./http";
 import { notify } from "./notifications";
 
 let ready: Promise<void> | null = null;
-export function ensurePaymentRequestSchema() {
+let backfilled: Promise<void> | null = null;
+export async function ensurePaymentRequestSchema(includeBackfill = true) {
   if (!ready)
     ready = (async () => {
       await exec(`CREATE TABLE IF NOT EXISTS payment_request_details (
@@ -13,12 +14,19 @@ export function ensurePaymentRequestSchema() {
         evidence_asset_id VARCHAR(36), resolution_type VARCHAR(20), submitted_at DATETIME(3),
         review_note TEXT, reviewed_at DATETIME(3), reviewed_by VARCHAR(36),
         UNIQUE KEY payment_request_order(order_id))`);
-      await backfillPaymentRequests();
     })().catch((e) => {
       ready = null;
       throw e;
     });
-  return ready;
+  await ready;
+  if (includeBackfill) {
+    if (!backfilled)
+      backfilled = backfillPaymentRequests().catch((e) => {
+        backfilled = null;
+        throw e;
+      });
+    await backfilled;
+  }
 }
 
 export async function backfillPaymentRequests() {

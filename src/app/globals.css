@@ -5319,6 +5319,51 @@ hr {
 .chefs-dialog::backdrop {
   background: #162b2460;
 }
+.orders-list-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.orders-list-filters .field { margin: 0; }
+.orders-list-filters form { display: flex; gap: 8px; align-items: end; grid-column: span 2; }
+.orders-list-filters form .field { flex: 1; min-width: 0; }
+.orders-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.order-payment-tag { font-size: 11px; line-height: 1.5; padding: 4px 8px; border-radius: 8px; color: #53605c; background: #edf0ee; display: inline-block; }
+.order-payment-tag[data-status="PAID_AUTO"], .order-payment-tag[data-status="PAID"], .order-payment-tag[data-status="PAID_MANUAL"] { color: #17624c; background: #e3f3eb; }
+.order-payment-tag[data-status="PARTIAL"], .order-payment-tag[data-status="PENDING"] { color: #946316; background: #fff3d8; }
+.order-payment-tag[data-status="PAYMENT_REVIEW"], .order-payment-tag[data-status="REFUND_PENDING"], .order-payment-tag[data-status="LATE"], .order-payment-tag[data-status="EXTRA_PAYMENT"], .order-payment-tag[data-status="OVERPAID"] { color: #8b4a87; background: #f6e9f5; }
+.order-payment-tag[data-status="ACCOUNT_MISMATCH"], .order-payment-tag[data-status="INVALID_DATE"] { color: #b13a3a; background: #fce8e8; }
+.orders-table { min-width: 1050px; }
+.orders-table td:nth-child(1) { width: 25%; }
+.orders-table .products-identity div { min-width: 0; }
+.orders-table td { max-width: 330px; white-space: normal; overflow-wrap: anywhere; }
+.orders-table td:last-child .text-button { display: block; margin-bottom: 8px; }
+.orders-alert { display: block; text-align: left; padding: 5px 8px; margin-top: 6px; background: #fff3df; color: #865b25; font-size: 11px; border: 0; border-radius: 6px; cursor: pointer; }
+.orders-detail { display: grid; gap: 18px; min-width: 0; }
+.orders-detail .analytics-presets { flex-wrap: wrap; }
+.orders-detail-metrics, .orders-contact-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.orders-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 20px; }
+.orders-detail-metrics > span { font-size: 12px; color: #66776c; padding: 16px; background: #f4f7f5; border-radius: 10px; }
+.orders-detail-metrics strong { display: block; font-size: 18px; font-weight: 500; margin-top: 8px; color: #243e31; }
+.orders-detail .panel, .orders-contact-grid > div { overflow-wrap: anywhere; min-width: 0; }
+.orders-stage-times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.orders-stage-times small { display: block; color: #6d7872; margin-top: 5px; }
+.orders-heatmap { max-width: 100%; overflow: auto; padding-bottom: 8px; }
+.orders-heatmap-row { display: grid; grid-template-columns: 40px repeat(24, minmax(34px, 1fr)); gap: 4px; min-width: 950px; margin: 4px 0; }
+.orders-heatmap-row > div { border-radius: 5px; text-align: center; padding: 8px 2px; font-size: 12px; }
+.orders-heatmap-row small { display: block; font-size: 9px; margin-bottom: 4px; }
+.admin-orders .analytics-two-columns { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; }
+.admin-orders .form-row { flex-wrap: wrap; }
+@media (max-width: 1100px) {
+  .orders-list-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-orders .analytics-two-columns { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767px) {
+  .orders-detail-metrics, .orders-contact-grid, .orders-stage-times { grid-template-columns: minmax(0, 1fr); }
+  .orders-list-filters form { flex-wrap: wrap; }
+  .orders-detail .analytics-block-heading { flex-wrap: wrap; }
+}
 .chefs-dialog h2 {
   font-size: 18px;
   font-weight: 500;

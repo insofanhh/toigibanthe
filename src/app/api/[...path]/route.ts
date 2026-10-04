@@ -86,6 +86,12 @@ import {
   clearProductReports,
 } from "@/lib/admin-products";
 import {
+  adminOrderAnalytics,
+  adminOrderDetail,
+  saveOrderThresholds,
+  clearOrderReports,
+} from "@/lib/admin-orders";
+import {
   generateWebhookKey,
   sepayConfig,
   saveSePayConfig,
@@ -615,6 +621,35 @@ async function dispatch(req: Request) {
   }
   if (section === "admin") {
     const user = await requireRole("admin");
+    if (action === "order-analytics" && method === "GET") {
+      if (id === "detail")
+        return adminOrderDetail(path[3] || "", url.searchParams);
+      return adminOrderAnalytics(id || "summary", url.searchParams);
+    }
+    if (action === "order-analytics" && id === "settings" && method === "POST")
+      return saveOrderThresholds(user, await req.json());
+    if (
+      action === "order-analytics" &&
+      id === "transition" &&
+      method === "POST"
+    ) {
+      const b = z
+        .object({
+          action: z.enum([
+            "ACCEPTED",
+            "PREPARING",
+            "DELIVERING",
+            "DELIVERED",
+            "COMPLETED",
+            "CANCELLED",
+          ]),
+          reason: z.string().trim().min(5).max(500),
+        })
+        .parse(await req.json());
+      const result = await transition(user, path[3] || "", b.action, b.reason);
+      clearOrderReports();
+      return result;
+    }
     if (action === "product-analytics" && method === "GET") {
       if (id === "detail")
         return adminProductDetail(path[3] || "", url.searchParams);

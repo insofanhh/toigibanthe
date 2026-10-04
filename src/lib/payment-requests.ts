@@ -5,6 +5,7 @@ import type { Actor } from "./domain";
 import { AppError } from "./http";
 import { getOrder } from "./orders";
 import { notify } from "./notifications";
+import { analyticsLive } from "./analytics";
 import { ensurePaymentRequestSchema } from "./payment-request-store";
 export {
   ensurePaymentRequestSchema,
@@ -29,7 +30,7 @@ export async function listAdminPaymentExceptions() {
     d.exception_id customer_request_id,d.contact_phone,d.resolution_note,d.evidence_asset_id,
     d.resolution_type,d.submitted_at,d.review_note,d.reviewed_at,a.original_name evidence_name
     FROM payment_exceptions e JOIN orders o ON o.id=e.order_id
-    JOIN chefs c ON c.id=o.chef_id JOIN users u ON u.id=o.user_id
+    LEFT JOIN chefs c ON c.id=o.chef_id LEFT JOIN users u ON u.id=o.user_id
     LEFT JOIN payment_request_details d ON d.exception_id=e.id
     LEFT JOIN assets a ON a.id=d.evidence_asset_id
     WHERE e.actor_id<>o.user_id OR d.exception_id IS NOT NULL
@@ -137,6 +138,7 @@ async function log(
     [randomUUID(), user.id, action, id, JSON.stringify(detail), sqlDate()],
     db,
   );
+  await analyticsLive(db, id);
 }
 export async function submitPaymentResolution(
   user: Actor,

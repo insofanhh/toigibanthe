@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { rows, exec, sqlDate, type DB } from "./db";
 import { AppError } from "./http";
+import { COMPLETED_AT_SQL } from "./order-report-ledger";
 import { ensureAnalyticsSchema } from "./analytics-schema";
 import { ensureSePaySchema } from "./sepay-schema";
 import { ensurePaymentRequestSchema } from "./payment-request-store";
@@ -100,7 +101,7 @@ const base = `WITH event_times AS (
  MIN(CASE WHEN status='ACCEPTED' THEN created_at END) accepted_at,MAX(created_at) state_at FROM order_events GROUP BY order_id
 ), all_orders AS (
  SELECT o.*,c.name chef_name,c.area chef_area,c.status chef_status,
- CASE WHEN o.status='COMPLETED' THEN COALESCE(e.finished_at,o.updated_at) END completed_at,
+ ${COMPLETED_AT_SQL} completed_at,
  e.accepted_at,COALESCE(e.state_at,o.created_at) state_at,
  CONCAT(ROUND(o.lat*50),':',ROUND(o.lng*50)) region
  FROM orders o JOIN chefs c ON c.id=o.chef_id LEFT JOIN event_times e ON e.order_id=o.id

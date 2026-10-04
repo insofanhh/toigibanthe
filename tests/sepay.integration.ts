@@ -241,6 +241,14 @@ try {
       (s) => "admin/product-analytics/" + s,
     ),
     "admin/product-analytics/detail/" + ids.product + "?panel=overview",
+    ...[
+      "summary",
+      "trends",
+      "operations",
+      "list",
+      "performance",
+      "payments",
+    ].map((s) => "admin/order-analytics/" + s + "?chef=" + ids.chef),
   ]) {
     assert.equal((await api(path, undefined, 1)).status, 403);
     assert.equal((await api(path, undefined, 3)).status, 200);
@@ -268,6 +276,80 @@ try {
     (await api("admin/product-analytics/settings", {}, 1)).status,
     403,
   );
+  assert.equal(
+    (await api("admin/order-analytics/list?sort=toString", undefined, 3))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await api("admin/order-analytics/settings", { acceptedMinutes: 0 }, 3))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await api("admin/order-analytics/settings", {}, 1)).status,
+    403,
+  );
+  const adminOrder = await order({ automatic: false });
+  for (const panel of ["overview", "timeline", "payments", "delivery"]) {
+    const path = `admin/order-analytics/detail/${adminOrder.id}?panel=${panel}`;
+    assert.equal((await api(path, undefined, 1)).status, 403);
+    assert.equal((await api(path, undefined, 3)).status, 200);
+  }
+  const adminActionPath = `admin/order-analytics/transition/${adminOrder.id}`;
+  assert.equal(
+    (await api(adminActionPath, { action: "ACCEPTED", reason: "  " }, 3))
+      .status,
+    400,
+  );
+  assert.equal(
+    (
+      await api(
+        adminActionPath,
+        { action: "ACCEPTED", reason: "Đã kiểm tra tiền vào" },
+        1,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await api(
+        adminActionPath,
+        { action: "ACCEPTED", reason: "Đã kiểm tra tiền vào" },
+        3,
+      )
+    ).status,
+    200,
+  );
+  assert.equal((await read(adminOrder.id)).payment_status, "PAID_MANUAL");
+  assert.equal(
+    (
+      await rows<any>(
+        "SELECT COUNT(*) n FROM audit_logs WHERE entity_id=? AND action IN ('order.payment.manual','order.admin.transition')",
+        [adminOrder.id],
+      )
+    )[0].n,
+    2,
+  );
+  assert.equal(
+    (
+      await api(
+        adminActionPath,
+        { action: "DELIVERED", reason: "Kiểm tra nhảy trạng thái" },
+        3,
+      )
+    ).status,
+    400,
+  );
+  assert.ok(
+    (await api("notifications")).data.notifications.some(
+      (n: any) => n.href === `/chef?order=${adminOrder.id}`,
+    ),
+  );
+  for (const table of ["order_items", "order_events", "sepay_order_settings"])
+    await exec(`DELETE FROM ${table} WHERE order_id=?`, [adminOrder.id]);
+  await exec("DELETE FROM orders WHERE id=?", [adminOrder.id]);
   assert.equal(
     (
       await api(
@@ -1547,6 +1629,26 @@ try {
     "PASS: số chưa đọc theo nhóm và tổng khớp kể cả hơn 100 thông báo; bỏ thông báo đã đọc và cập nhật về 0 khi đánh dấu đã đọc",
   );
 } finally {
+  const exceptionIds = orders.length
+    ? await rows<any>(
+        `SELECT id FROM payment_exceptions WHERE order_id IN (${orders.map(() => "?").join(",")})`,
+        orders,
+      )
+    : [];
+  for (const id of [
+    ids.chef,
+    ids.otherChef,
+    ...exceptionIds.map((x) => x.id),
+  ]) {
+    await exec(
+      "DELETE r FROM outbox_receipts r JOIN realtime_outbox o ON o.id=r.event_id WHERE JSON_UNQUOTE(JSON_EXTRACT(o.payload,'$.entityId'))=?",
+      [id],
+    );
+    await exec(
+      "DELETE FROM realtime_outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.entityId'))=?",
+      [id],
+    );
+  }
   // Also remove fixture notifications delivered to pre-existing local administrators.
   for (const id of orders) {
     await exec(

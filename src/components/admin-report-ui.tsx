@@ -52,7 +52,7 @@ export function ReportPending({
       </button>
     </Notice>
   ) : (
-    <PageLoading label="Đang tải dữ liệu món…" />
+    <PageLoading label="Đang tải báo cáo…" />
   );
 }
 export function ReportTable({
@@ -151,9 +151,11 @@ export function ReportDialog({
 export function SalesChart({
   days,
   metric,
+  unit = "phần",
 }: {
   days: ReportRow[];
   metric: string;
+  unit?: string;
 }) {
   const [hover, setHover] = useState<number | null>(null),
     max = Math.max(
@@ -166,7 +168,8 @@ export function SalesChart({
     x = (i: number) =>
       45 + (days.length === 1 ? 0.5 : i / (days.length - 1)) * 710,
     y = (n: number) => 180 - (n / max) * 145,
-    format = (n: number) => (metric === "gmv" ? money(n) : count(n) + " phần");
+    format = (n: number) =>
+      metric === "gmv" ? money(n) : count(n) + " " + unit;
   return (
     <>
       <div className="analytics-chart-legend">
@@ -186,7 +189,7 @@ export function SalesChart({
           aria-label={
             metric === "gmv"
               ? "Doanh số món theo ngày"
-              : "Số phần bán theo ngày"
+              : "Số " + unit + " theo ngày"
           }
         >
           {[0, 0.5, 1].map((n) => (
