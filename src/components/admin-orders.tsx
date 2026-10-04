@@ -2,7 +2,19 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { RefreshCw, Settings, ChevronLeft } from "lucide-react";
+import {
+  RefreshCw,
+  Settings,
+  ChevronLeft,
+  ShoppingBag,
+  BadgeCheck,
+  CheckCircle2,
+  Wallet,
+  Clock3,
+  TriangleAlert,
+  CircleX,
+  TimerOff,
+} from "lucide-react";
 import { Button, Field, Notice, useLoad } from "./app";
 import { useApp, post } from "./providers";
 import {
@@ -888,15 +900,15 @@ export function AdminOrders({
     }
   }
   const cards = [
-    ["placed", "Đơn phát sinh", "Ngày tạo trong kỳ"],
-    ["paid", "Đơn xác nhận tiền", "Ngày xác nhận trong kỳ"],
-    ["completed", "Đơn hoàn thành", "Ngày hoàn thành trong kỳ"],
-    ["gmv", "Doanh số món", "Sau voucher · Không gồm giao"],
-    ["current", "Đang xử lý", "Toàn bộ ngày"],
-    ["attention", "Cần chú ý", "Toàn bộ ngày"],
-    ["cancelled", "Hủy / từ chối", "Nhóm tạo trong kỳ"],
-    ["expired", "Hết hạn", "Nhóm tạo trong kỳ"],
-  ];
+    ["placed", "Đơn phát sinh", "Ngày tạo trong kỳ", ShoppingBag],
+    ["paid", "Đơn xác nhận tiền", "Ngày xác nhận trong kỳ", BadgeCheck],
+    ["completed", "Đơn hoàn thành", "Ngày hoàn thành trong kỳ", CheckCircle2],
+    ["gmv", "Doanh số món", "Sau voucher · Không gồm giao", Wallet],
+    ["current", "Đang xử lý", "Toàn bộ ngày", Clock3],
+    ["attention", "Cần chú ý", "Toàn bộ ngày", TriangleAlert],
+    ["cancelled", "Hủy / từ chối", "Nhóm tạo trong kỳ", CircleX],
+    ["expired", "Hết hạn", "Nhóm tạo trong kỳ", TimerOff],
+  ] as const;
   const tableProps = {
     open,
     advanced,
@@ -1030,13 +1042,16 @@ export function AdminOrders({
         summary.data && (
           <>
             <div className="analytics-kpis products-kpis orders-kpis">
-              {cards.map(([k, label, caption]) => (
+              {cards.map(([k, label, caption, Icon]) => (
                 <button
                   className="analytics-kpi"
                   key={k}
                   onClick={() => kpi(k)}
                 >
-                  <span className="analytics-kpi-label">{label}</span>
+                  <span className="analytics-kpi-label">
+                    {label}
+                    <Icon size={19} strokeWidth={1.6} aria-hidden="true" />
+                  </span>
                   <strong>
                     {k === "gmv"
                       ? money(summary.data!.metrics[k])
