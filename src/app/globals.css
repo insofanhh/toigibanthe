@@ -1215,6 +1215,235 @@ hr {
   gap: 14px;
   font-size: 13px;
 }
+.order-card-container {
+  min-width: 0;
+}
+.history-reorder {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.history-reorder > p {
+  flex-basis: 100%;
+  margin: 0;
+  text-align: right;
+}
+.history-reorder-button {
+  min-height: 36px;
+  padding: 8px 14px;
+  font-size: 12px;
+  gap: 6px;
+  width: auto;
+}
+.history-reorder-button.unavailable {
+  background: #e7ebe5;
+  color: #7b847b;
+}
+.history-reorder-choices {
+  width: 100%;
+}
+.history-reorder-choices > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+.history-reorder-choices > div > span {
+  min-width: 0;
+  font-size: 13px;
+}
+.history-reorder-choices small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+.history-reorder-choices button {
+  flex-shrink: 0;
+}
+.order-tracking {
+  margin-bottom: 20px;
+}
+.order-tracking h2 {
+  font-size: 17px;
+}
+.order-tracking .order-progress {
+  margin: 18px 0;
+  overflow-x: auto;
+  padding: 4px 0 10px;
+}
+.order-tracking .order-progress > div {
+  min-width: 40px;
+}
+.order-tracking .order-progress > div:before {
+  top: 18px;
+  z-index: 0;
+}
+.progress-step {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  width: 100%;
+  gap: 4px;
+  color: inherit;
+  position: relative;
+  z-index: 1;
+  border-radius: 8px;
+}
+.order-tracking .progress-step span {
+  width: 29px;
+  height: 29px;
+  border-color: white;
+}
+.order-tracking .progress-step small {
+  font-size: 10px;
+  line-height: 1.5;
+  max-width: 65px;
+  min-height: 30px;
+  margin-top: 3px;
+}
+.progress-step > svg {
+  opacity: 0.35;
+}
+.progress-step.selected > svg {
+  opacity: 1;
+}
+.progress-step.selected span {
+  outline: 2px solid #badbcf;
+  outline-offset: 2px;
+}
+.progress-step:disabled {
+  cursor: default;
+}
+.order-stage-detail {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  font-size: 13px;
+}
+.order-stage-detail > div {
+  margin-top: 8px;
+}
+.order-stage-detail time {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0;
+}
+.order-stage-detail p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 4px 0;
+}
+.dish-rating-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: inherit;
+  color: inherit;
+  padding: 5px 0;
+  text-align: left;
+}
+.dish-rating-button > svg {
+  color: #c49c4c;
+}
+.reviews-dialog {
+  border: 0;
+  border-radius: 18px;
+  width: min(480px, calc(100% - 32px));
+  padding: 22px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  color: var(--text);
+  background: white;
+}
+.reviews-dialog::backdrop {
+  background: #10241966;
+}
+.reviews-dialog .sheet-header {
+  margin-bottom: 8px;
+  gap: 15px;
+}
+.reviews-dialog h2 {
+  font-size: 20px;
+}
+.reviews-dialog .icon-button {
+  flex-shrink: 0;
+}
+.reviews-dialog .sheet-header .icon-button svg {
+  width: 21px;
+  height: 21px;
+}
+.reviews-dish-name {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+.reviews-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 0;
+}
+.reviews-summary svg,
+.review-stars {
+  color: #bd9444;
+}
+.reviews-summary strong {
+  font-size: 22px;
+}
+.reviews-summary > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.dish-review {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+.dish-review strong {
+  font-weight: 500;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.review-stars {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.dish-review time {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 6px 0;
+}
+.dish-review p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.reviews-empty {
+  padding: 20px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .reviews-dialog {
+    width: 100%;
+    max-width: 100%;
+    margin: auto 0 0;
+    max-height: 85dvh;
+    border-radius: 20px 20px 0 0;
+    padding: 22px 20px calc(25px + env(safe-area-inset-bottom));
+  }
+}
 .notification-groups {
   display: grid;
   grid-template-columns: 1fr 1fr;

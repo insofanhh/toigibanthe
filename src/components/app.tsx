@@ -59,7 +59,9 @@ import {
   type LoadSnapshot,
 } from "@/lib/client-load-cache";
 import { AddressPicker } from "./address-picker";
-import { OrderReorder } from "./order-reorder";
+import { OrderReorder, HistoryReorder } from "./order-reorder";
+import { OrderProgress } from "./order-progress";
+import { DishReviews } from "./dish-reviews";
 import {
   CustomerPaymentRequestForm,
   PaymentRequestList,
@@ -1018,10 +1020,12 @@ function DishDetail({ id }: { id: string }) {
             <ChevronRight size={17} />
           </Link>
           <div className="dish-meta">
-            <span>
-              <Star size={14} fill="currentColor" />
-              {d.rating.toFixed(1)} ({d.ratingCount} đánh giá)
-            </span>
+            <DishReviews
+              productId={d.id}
+              name={d.name}
+              rating={d.rating}
+              count={d.ratingCount}
+            />
             <span>{d.distance.toFixed(1)} km</span>
           </div>
           <div className="detail-price">
@@ -1225,7 +1229,11 @@ function Orders() {
       {history.length > 0 && (
         <Section title="Lịch sử đơn">
           {history.map((o: any) => (
-            <OrderCard key={o.id} order={o} />
+            <OrderCard
+              key={o.id}
+              order={o}
+              reorder={o.status === "COMPLETED" && o.user_id === user.id}
+            />
           ))}
         </Section>
       )}
@@ -1244,44 +1252,50 @@ function Orders() {
 export function OrderCard({
   order: o,
   chef = false,
+  reorder = false,
 }: {
   order: any;
   chef?: boolean;
+  reorder?: boolean;
 }) {
   return (
-    <Link className="order-card panel" href={"/orders/" + o.id}>
-      <div className="order-card-icon">
-        <ShoppingBag size={22} />
-      </div>
-      <div className="order-card-info">
-        <strong>{o.chef_name}</strong>
-        <p>
-          #{o.code} ·{" "}
-          {new Date(o.created_at.replace(" ", "T") + "Z").toLocaleString(
-            "vi-VN",
-          )}
-        </p>
-        <div className="order-card-statuses">
-          <span className="status" data-status={o.status}>
-            {ORDER_LABELS[o.status]}
-          </span>
-          {o.payment_request_status && (
-            <span
-              className="status order-request-status"
-              data-status={o.payment_request_status}
-            >
-              {o.payment_request_kind === "REFUND" ? "Hoàn tiền" : "Đối soát"} ·{" "}
-              {PAYMENT_REQUEST_STATUSES[o.payment_request_status] ||
-                o.payment_request_status}
-            </span>
-          )}
+    <article className="panel order-card-container">
+      <Link className="order-card" href={"/orders/" + o.id}>
+        <div className="order-card-icon">
+          <ShoppingBag size={22} />
         </div>
-      </div>
-      <div className="order-card-total">
-        <strong>{money(o.total)}</strong>
-        <ChevronRight size={18} />
-      </div>
-    </Link>
+        <div className="order-card-info">
+          <strong>{o.chef_name}</strong>
+          <p>
+            #{o.code} ·{" "}
+            {new Date(o.created_at.replace(" ", "T") + "Z").toLocaleString(
+              "vi-VN",
+            )}
+          </p>
+          <div className="order-card-statuses">
+            <span className="status" data-status={o.status}>
+              {ORDER_LABELS[o.status]}
+            </span>
+            {o.payment_request_status && (
+              <span
+                className="status order-request-status"
+                data-status={o.payment_request_status}
+              >
+                {o.payment_request_kind === "REFUND" ? "Hoàn tiền" : "Đối soát"}{" "}
+                ·{" "}
+                {PAYMENT_REQUEST_STATUSES[o.payment_request_status] ||
+                  o.payment_request_status}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="order-card-total">
+          <strong>{money(o.total)}</strong>
+          <ChevronRight size={18} />
+        </div>
+      </Link>
+      {reorder && !chef && <HistoryReorder orderId={o.id} />}
+    </article>
   );
 }
 function Notifications() {
@@ -1962,27 +1976,10 @@ function OrderDetail({ id }: { id: string }) {
       setBusy(false);
     }
   }
-  const statuses = [
-      "PLACED",
-      "PAID",
-      "ACCEPTED",
-      "PREPARING",
-      "DELIVERING",
-      "DELIVERED",
-      "COMPLETED",
-    ],
-    at = statuses.indexOf(o.status);
   return (
     <>
       <PageTitle title={"Đơn #" + o.code} subtitle={o.chef_name} back />
-      <div className="order-progress">
-        {statuses.map((s, i) => (
-          <div key={s} className={at >= i ? "done" : ""}>
-            <span>{at > i ? <Check size={13} /> : i + 1}</span>
-            <small>{ORDER_LABELS[s]}</small>
-          </div>
-        ))}
-      </div>
+      <OrderProgress key={id} status={o.status} events={data.events || []} />
       <div className="checkout-grid">
         <div>
           <div className="panel form">
@@ -2240,25 +2237,6 @@ function OrderDetail({ id }: { id: string }) {
               {map ? "Ẩn bản đồ" : "Xem tuyến giao"}
             </button>
             {map && <DeliveryMap order={o} />}
-          </div>
-          <div className="panel timeline">
-            <h2>Lịch sử đơn</h2>
-            {data.events.map((ev: any, i: number) => (
-              <div key={i}>
-                <span />
-                <p>
-                  <strong>
-                    {ORDER_LABELS[ev.status] || "Khách báo đã chuyển khoản"}
-                  </strong>
-                  <small>
-                    {new Date(
-                      ev.created_at.replace(" ", "T") + "Z",
-                    ).toLocaleString("vi-VN")}
-                  </small>
-                  {ev.note && <small>{ev.note}</small>}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
         <div className="panel summary">

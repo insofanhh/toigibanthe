@@ -5,7 +5,110 @@ import { useRouter } from "next/navigation";
 import { LoaderCircle, RotateCcw } from "lucide-react";
 import { useApp, request } from "./providers";
 import { useLoad, Notice } from "./app";
-import type { ReorderResult } from "@/lib/reorder";
+import type { ReorderOption, ReorderResult } from "@/lib/reorder";
+
+/** History checks are lazy so opening 100 past orders does not fetch 100 menus. */
+export function HistoryReorder({ orderId }: { orderId: string }) {
+  const { location, user, loadCache, toast, setLocationOpen } = useApp();
+  const router = useRouter();
+  const [options, setOptions] = useState<ReorderOption[] | null>(null);
+  const [checking, setChecking] = useState(false);
+  const controller = useRef<AbortController | null>(null);
+  const path = location
+    ? `orders/${orderId}/reorder?lat=${location.lat}&lng=${location.lng}`
+    : null;
+  useEffect(() => {
+    setOptions(null);
+    setChecking(false);
+    return () => controller.current?.abort();
+  }, [path]);
+  async function check(productId?: string) {
+    if (!path) {
+      toast("Chọn địa chỉ giao để kiểm tra điều kiện đặt lại.");
+      setLocationOpen(true);
+      return;
+    }
+    if (checking) return;
+    const operation = new AbortController();
+    controller.current = operation;
+    setChecking(true);
+    try {
+      const fresh = await request<ReorderResult>(path, {
+        signal: operation.signal,
+      });
+      if (operation.signal.aborted) return;
+      const choices = [
+        ...new Map(fresh.options.map((o) => [o.productId, o])).values(),
+      ];
+      setOptions(choices);
+      const choice = productId
+        ? choices.find((o) => o.productId === productId)
+        : choices.length === 1
+          ? choices[0]
+          : undefined;
+      if (!choice) {
+        if (!choices.length) toast("Đơn không có món để đặt lại.");
+        return;
+      }
+      if (!choice.eligible || !choice.href) {
+        toast(choice.reason || "Món hiện không đủ điều kiện đặt lại.");
+        return;
+      }
+      if (user && location)
+        loadCache.invalidate(
+          `${user.id}:${user.role}:catalog?lat=${location.lat}&lng=${location.lng}&product=${encodeURIComponent(choice.productId)}`,
+        );
+      router.push(choice.href, { transitionTypes: ["page-forward"] });
+    } catch (error) {
+      if (!operation.signal.aborted) toast((error as Error).message);
+    } finally {
+      if (!operation.signal.aborted) setChecking(false);
+    }
+  }
+  const blocked = options?.length === 1 && !options[0].eligible;
+  return (
+    <div className="history-reorder">
+      <button
+        type="button"
+        className={`button secondary history-reorder-button ${blocked ? "unavailable" : ""}`}
+        aria-disabled={Boolean(blocked)}
+        disabled={checking}
+        onClick={() => void check()}
+      >
+        {checking ? (
+          <LoaderCircle size={15} className="spin" />
+        ) : (
+          <RotateCcw size={15} />
+        )}{" "}
+        {checking ? "Đang kiểm tra…" : "Đặt lại"}
+      </button>
+      {blocked && <p className="muted small">{options[0].reason}</p>}
+      {options && options.length > 1 && (
+        <div className="history-reorder-choices" aria-label="Chọn món đặt lại">
+          <p className="muted small">Chọn món muốn đặt lại</p>
+          {options.map((o) => (
+            <div key={o.productId}>
+              <span>
+                {o.name}
+                {!o.eligible && <small>{o.reason}</small>}
+              </span>
+              <button
+                type="button"
+                className={`button secondary history-reorder-button ${!o.eligible ? "unavailable" : ""}`}
+                aria-label={`Đặt lại ${o.name}`}
+                aria-disabled={!o.eligible}
+                disabled={checking}
+                onClick={() => void check(o.productId)}
+              >
+                Đặt lại
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function OrderReorder({
   orderId,

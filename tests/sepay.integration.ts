@@ -1282,6 +1282,54 @@ try {
     5,
   );
   assert.equal((await read(reordered.id)).total, 50000);
+  const reviewsPath = `products/${ids.product}/reviews`;
+  const emptyReviews = await api(reviewsPath, undefined, 3);
+  assert.equal(emptyReviews.status, 200);
+  assert.equal(emptyReviews.data.total, 0);
+  assert.equal(
+    (
+      await api(
+        `orders/${reordered.id}/review`,
+        { rating: 4, body: "Món ngon, giao đúng giờ." },
+        1,
+      )
+    ).status,
+    200,
+  );
+  // A dish appearing twice in one order must not duplicate its review.
+  await exec(
+    "INSERT INTO order_items SELECT ?,order_id,menu_id,product_id,name,image_url,unit_price,quantity FROM order_items WHERE order_id=? LIMIT 1",
+    [randomUUID(), reordered.id],
+  );
+  const publicReviews = await api(reviewsPath, undefined, 3);
+  assert.equal(publicReviews.status, 200);
+  assert.equal(publicReviews.data.total, 1);
+  assert.equal(publicReviews.data.rating, 4);
+  assert.equal(publicReviews.data.reviews.length, 1);
+  assert.equal(publicReviews.data.reviews[0].body, "Món ngon, giao đúng giờ.");
+  assert.deepEqual(
+    Object.keys(publicReviews.data.reviews[0]).sort(),
+    ["id", "name", "rating", "body", "createdAt"].sort(),
+  );
+  assert.equal(publicReviews.data.nextCursor, null);
+  assert.equal(
+    (await api(reviewsPath + "?cursor=1", undefined, 3)).data.reviews.length,
+    0,
+  );
+  assert.equal(
+    (await api(reviewsPath + "?cursor=-1", undefined, 3)).status,
+    400,
+  );
+  assert.equal(
+    (await api(`products/${randomUUID()}/reviews`, undefined, 3)).status,
+    404,
+  );
+  await exec("UPDATE products SET active=FALSE WHERE id=?", [ids.product]);
+  assert.equal((await api(reviewsPath, undefined, 3)).status, 404);
+  await exec("UPDATE products SET active=TRUE WHERE id=?", [ids.product]);
+  console.log(
+    "PASS: đánh giá đúng món, không lặp khi nhiều dòng món, phân trang, không trả thông tin riêng tư, chặn món ngừng bán",
+  );
   console.log(
     "PASS: đặt lại chỉ cho chủ đơn hoàn thành; kiểm tra giờ, suất, bếp, bán kính, ngân hàng; dùng thực đơn và giá mới, không trừ suất/tạo đơn",
   );

@@ -55,6 +55,7 @@ import { goong } from "@/lib/goong";
 import { queueBroadcast, processBroadcasts } from "@/lib/jobs";
 import { quoteOrder } from "@/lib/quote";
 import { getReorderOptions } from "@/lib/reorder";
+import { getProductReviews } from "@/lib/product-reviews";
 import { sepayBanks, sepayQR } from "@/lib/sepay-qr";
 import {
   generateWebhookKey,
@@ -178,6 +179,22 @@ async function dispatch(req: Request) {
         [action],
       ),
     };
+  }
+  if (
+    section === "products" &&
+    action &&
+    id === "reviews" &&
+    method === "GET"
+  ) {
+    return getProductReviews(
+      z.string().min(1).max(36).parse(action),
+      z.coerce
+        .number()
+        .int()
+        .min(0)
+        .max(10000)
+        .parse(url.searchParams.get("cursor") || 0),
+    );
   }
   if (section === "banks" && method === "GET") return { banks: sepayBanks };
   if (section === "location" && method === "GET") {
