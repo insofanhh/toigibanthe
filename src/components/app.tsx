@@ -52,6 +52,7 @@ import {
   Wallet,
   ArrowUpRight,
   Mail,
+  RefreshCw,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
 import { analyticsContext, trackEvent } from "@/lib/analytics-client";
@@ -339,40 +340,133 @@ export function PageTitle({
     </div>
   );
 }
+type NavMode = "user" | "chef";
+function ModeSwitchIcon({
+  size = 21,
+  strokeWidth = 1.6,
+}: {
+  size?: number;
+  strokeWidth?: number;
+}) {
+  return (
+    <span className="mode-switch-icon" aria-hidden="true">
+      <RefreshCw size={size} strokeWidth={strokeWidth} />
+      <UserRound size={Math.round(size * 0.46)} strokeWidth={strokeWidth} />
+    </span>
+  );
+}
 function Nav({ path }: { path: string }) {
-  const { unread } = useApp();
-  const items = [
+  const { user, unread } = useApp();
+  const params = useSearchParams();
+  const chefMode =
+    user?.role === "chef" &&
+    (path.startsWith("/chef") ||
+      path.startsWith("/orders/") ||
+      path === "/notifications");
+  const requestedMode: NavMode = chefMode ? "chef" : "user";
+  const [mode, setMode] = useState<NavMode>(requestedMode);
+  const [transition, setTransition] = useState<{
+    from: NavMode;
+    to: NavMode;
+  } | null>(null);
+  const navInitialized = useRef(false);
+  const modeRef = useRef<NavMode>(requestedMode);
+  useEffect(() => {
+    let previous: NavMode | null = null;
+    try {
+      previous = window.sessionStorage.getItem(
+        "tgbd-nav-mode",
+      ) as NavMode | null;
+    } catch {
+      // Private browsing can disable session storage; the current nav still works.
+    }
+    const current = modeRef.current;
+    const from = !navInitialized.current
+      ? previous && previous !== requestedMode
+        ? previous
+        : null
+      : current !== requestedMode
+        ? current
+        : null;
+    navInitialized.current = true;
+    modeRef.current = requestedMode;
+    try {
+      window.sessionStorage.setItem("tgbd-nav-mode", requestedMode);
+    } catch {
+      // Keep navigation usable when storage is unavailable.
+    }
+    if (!from) return;
+    setTransition({ from, to: requestedMode });
+    setMode(requestedMode);
+    const timer = window.setTimeout(() => setTransition(null), 360);
+    return () => window.clearTimeout(timer);
+  }, [requestedMode]);
+
+  const userItems = [
     ["/", "Home", House],
     ["/orders", "Đơn hàng", ShoppingBag],
     ["/favorites", "Thích", Heart],
     ["/notifications", "Thông báo", Bell],
     ["/me", "Tôi", UserRound],
   ] as const;
-  return (
-    <nav className="bottom-nav" aria-label="Điều hướng chính">
-      {items.map(([href, label, Icon]) => (
-        <Link
-          key={href}
-          href={href}
-          className={
-            (href === "/" ? path === "/" : path.startsWith(href))
-              ? "active"
-              : ""
-          }
-        >
-          <span className="nav-icon">
-            <Icon size={21} strokeWidth={1.6} />
-            {href === "/notifications" && unread > 0 && (
-              <span className="badge">
-                <AnimatedValue>{unread > 9 ? "9+" : unread}</AnimatedValue>
+  const chefItems = [
+    ["/chef?tab=overview", "Tổng quan", ChefHat],
+    ["/chef?tab=orders", "Đơn hàng", ShoppingBag],
+    ["/chef?tab=menu", "Thực đơn", Utensils],
+    ["/notifications", "Thông báo", Bell],
+    ["/", "Chuyển đổi", ModeSwitchIcon],
+  ] as const;
+  const chefTab = params.get("tab") || "overview";
+  function renderNav(navMode: NavMode, animation = "") {
+    const items = navMode === "chef" ? chefItems : userItems;
+    return (
+      <nav
+        className={`bottom-nav ${navMode === "chef" ? "chef-bottom-nav" : ""} ${animation}`}
+        aria-label={navMode === "chef" ? "Điều hướng bếp" : "Điều hướng chính"}
+        aria-hidden={animation.includes("exit") ? true : undefined}
+      >
+        {items.map(([href, label, Icon]) => {
+          const baseHref = href.split("?")[0];
+          const active =
+            navMode === "chef"
+              ? (baseHref === "/chef" &&
+                  path.startsWith("/chef") &&
+                  chefTab === href.split("tab=")[1]) ||
+                (baseHref === "/notifications" && path === "/notifications")
+              : href === "/"
+                ? path === "/"
+                : path.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={active ? "active" : ""}
+              aria-current={active ? "page" : undefined}
+              tabIndex={animation.includes("exit") ? -1 : undefined}
+            >
+              <span className="nav-icon">
+                <Icon size={21} strokeWidth={1.6} />
+                {href === "/notifications" && unread > 0 && (
+                  <span className="badge">
+                    <AnimatedValue>{unread > 9 ? "9+" : unread}</AnimatedValue>
+                  </span>
+                )}
               </span>
-            )}
-          </span>
-          <span>{label}</span>
-        </Link>
-      ))}
-    </nav>
-  );
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    );
+  }
+  if (transition)
+    return (
+      <>
+        {renderNav(transition.from, "nav-transition-exit")}
+        {renderNav(transition.to, "nav-transition-enter")}
+      </>
+    );
+  return renderNav(mode);
 }
 function Header() {
   const { location, storageReady, setLocationOpen } = useApp();
