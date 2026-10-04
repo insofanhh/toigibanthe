@@ -243,16 +243,16 @@ hr {
 }
 ::view-transition-group(.page-slide-forward),
 ::view-transition-group(.page-slide-back) {
-  animation-duration: 280ms;
+  animation-duration: 400ms;
   overflow: clip;
 }
 ::view-transition-old(.page-slide-forward),
 ::view-transition-old(.page-slide-back) {
-  animation: page-slide-out 200ms cubic-bezier(0.4, 0, 1, 1) both;
+  animation: page-slide-out 160ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 ::view-transition-new(.page-slide-forward),
 ::view-transition-new(.page-slide-back) {
-  animation: page-slide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: page-slide-in 240ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
 }
 ::view-transition-old(.page-slide-forward) {
   --page-slide-distance: -48px;

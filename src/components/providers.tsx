@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Actor, Dish, Location } from "@/lib/domain";
+import { ClientLoadCache } from "@/lib/client-load-cache";
 import {
   currentPosition,
   isUnresolvedLocation,
@@ -44,6 +45,9 @@ type Context = {
     rejection_reason?: string;
   } | null;
   authReady: boolean;
+  authError: string;
+  storageReady: boolean;
+  loadCache: ClientLoadCache;
   location: Location | null;
   cart: CartLine[];
   unread: number;
@@ -51,6 +55,7 @@ type Context = {
   toast: (message: string) => void;
   refresh: () => void;
   refreshAuth: () => Promise<void>;
+  logout: () => Promise<void>;
   setLocation: (value: Location) => void;
   add: (dish: Dish) => void;
   setQuantity: (id: string, n: number) => void;
@@ -64,6 +69,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Actor | null>(null),
     [chef, setChef] = useState<Context["chef"]>(null),
     [authReady, setAuthReady] = useState(false),
+    [authError, setAuthError] = useState(""),
     [location, setLocationState] = useState<Location | null>(null),
     [cart, setCart] = useState<CartLine[]>([]),
     [unread, setUnread] = useState(0),
@@ -71,6 +77,9 @@ export function Providers({ children }: { children: ReactNode }) {
     [message, setMessage] = useState(""),
     [locationOpen, setLocationOpen] = useState(false),
     [ready, setReady] = useState(false);
+  const [loadCache] = useState(() => new ClientLoadCache());
+  const authIdentity = useRef("");
+  const authSequence = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useCallback((text: string) => {
     setMessage(text);
@@ -79,16 +88,39 @@ export function Providers({ children }: { children: ReactNode }) {
   }, []);
   const refresh = useCallback(() => setRevision((x) => x + 1), []);
   const refreshAuth = useCallback(async () => {
+    const sequence = ++authSequence.current;
     try {
       const data = await request("auth/me");
+      if (sequence !== authSequence.current) return;
+      const identity = data.user
+        ? `${data.user.id}:${data.user.role}`
+        : "guest";
+      if (authIdentity.current !== identity) {
+        loadCache.clear();
+        setUnread(0);
+      }
+      authIdentity.current = identity;
       setUser(data.user);
       setChef(data.chef);
-    } catch {
-      setUser(null);
+      setAuthError("");
+    } catch (error) {
+      if (sequence === authSequence.current)
+        setAuthError((error as Error).message);
     } finally {
-      setAuthReady(true);
+      if (sequence === authSequence.current) setAuthReady(true);
     }
-  }, []);
+  }, [loadCache]);
+  const logout = useCallback(async () => {
+    await post("auth/logout", {});
+    authSequence.current++;
+    authIdentity.current = "guest";
+    loadCache.clear();
+    setUser(null);
+    setChef(null);
+    setUnread(0);
+    setAuthError("");
+    setAuthReady(true);
+  }, [loadCache]);
   useEffect(() => {
     void refreshAuth();
     try {
@@ -109,13 +141,15 @@ export function Providers({ children }: { children: ReactNode }) {
       setUnread(0);
       return;
     }
-    request("notifications")
+    const controller = new AbortController();
+    request("notifications", { signal: controller.signal })
       .then((r) =>
         setUnread(
           r.notifications.filter((n: { is_read: number }) => !n.is_read).length,
         ),
       )
       .catch(() => {});
+    return () => controller.abort();
   }, [user, revision]);
   useEffect(() => {
     if (!user) return;
@@ -273,6 +307,9 @@ export function Providers({ children }: { children: ReactNode }) {
         user,
         chef,
         authReady,
+        authError,
+        storageReady: ready,
+        loadCache,
         location,
         cart,
         unread,
@@ -280,6 +317,7 @@ export function Providers({ children }: { children: ReactNode }) {
         toast,
         refresh,
         refreshAuth,
+        logout,
         setLocation,
         add,
         setQuantity,

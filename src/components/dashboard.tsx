@@ -40,6 +40,7 @@ import {
   Notice,
   NeedLogin,
   OrderCard,
+  PageLoading,
 } from "./app";
 import {
   money,
@@ -441,10 +442,12 @@ export function ChefDashboard() {
             </Button>
           </div>
           <SectionTitle title="Đơn gần đây" />
+          {ordersError && <Notice error>{ordersError}</Notice>}
+          {!orders && !ordersError && <PageLoading label="Đang tải đơn…" />}
           {orders?.orders.slice(0, 5).map((o: any) => (
             <OrderCard key={o.id} order={o} />
           ))}
-          {!orders?.orders.length && (
+          {orders && !orders.orders.length && (
             <Empty
               title="Chưa có đơn"
               body="Mở bếp và thêm món vào thực đơn hôm nay."
@@ -479,7 +482,8 @@ export function ChefDashboard() {
           <div style={{ marginTop: 18 }}>
             {listError ? (
               <Notice error>{listError}</Notice>
-            ) : listLoading ? (
+            ) : listLoading &&
+              !(orderFilter === "active" ? activeOrders : orders) ? (
               <div className="loading">
                 <LoaderCircle className="spin" /> Đang tải đơn…
               </div>
@@ -1115,9 +1119,10 @@ export function AdminDashboard() {
     { data, error, reload } = useLoad(user?.role === "admin" ? "admin" : null, [
       revision,
     ]),
-    { data: orders } = useLoad(user?.role === "admin" ? "admin/orders" : null, [
-      revision,
-    ]),
+    { data: orders, error: ordersError } = useLoad(
+      user?.role === "admin" ? "admin/orders" : null,
+      [revision],
+    ),
     [chefFilter, setChefFilter] = useState(""),
     [detailChef, setDetailChef] = useState<string | null>(params.get("chef")),
     [form, setForm] = useState("");
@@ -1185,6 +1190,8 @@ export function AdminDashboard() {
             ]}
           />
           <SectionTitle title="Đơn gần đây" />
+          {ordersError && <Notice error>{ordersError}</Notice>}
+          {!orders && !ordersError && <PageLoading label="Đang tải đơn…" />}
           {orders?.orders.slice(0, 6).map((o: any) => (
             <OrderCard order={o} key={o.id} />
           ))}
@@ -1365,7 +1372,9 @@ export function AdminDashboard() {
       )}
       {tab === "orders" && (
         <>
-          {chefFilter && (
+          {ordersError && <Notice error>{ordersError}</Notice>}
+          {!orders && !ordersError && <PageLoading label="Đang tải đơn…" />}
+          {chefFilter && orders && (
             <Notice>
               Doanh số hoàn thành trong danh sách:{" "}
               {money(

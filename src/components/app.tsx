@@ -4,13 +4,14 @@ import {
   useEffect,
   useCallback,
   useRef,
+  useSyncExternalStore,
   type ReactNode,
   type FormEvent,
 } from "react";
 import dynamic from "next/dynamic";
 import { Link, PageMotion } from "./page-motion";
 import Image from "next/image";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   House,
   ShoppingBag,
@@ -52,6 +53,11 @@ import {
   Mail,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
+import {
+  pendingLoad,
+  disabledLoad,
+  type LoadSnapshot,
+} from "@/lib/client-load-cache";
 import { AddressPicker } from "./address-picker";
 import {
   CustomerPaymentRequestForm,
@@ -93,36 +99,60 @@ const fallbackLocation = {
 export function useLoad<T = any>(
   path: string | null,
   dependencies: unknown[] = [],
-  initial: T | null = null,
 ) {
-  const [data, setData] = useState<T | null>(initial),
-    [error, setError] = useState(""),
-    [loading, setLoading] = useState(!initial),
-    seq = useRef(0);
+  const { loadCache, user, storageReady, authReady } = useApp();
+  // Never fetch a fallback city before the saved delivery location is restored.
+  const enabledPath =
+    path?.startsWith("catalog") && (!storageReady || !authReady) ? null : path;
+  const key = enabledPath
+    ? `${user?.id || "guest"}:${user?.role || "guest"}:${enabledPath}`
+    : null;
+  const subscribe = useCallback(
+    (listener: () => void) => loadCache.subscribe(key, listener),
+    [loadCache, key],
+  );
+  const getSnapshot = useCallback(
+    () => loadCache.read<T>(key),
+    [loadCache, key],
+  );
+  const getServerSnapshot = useCallback(
+    () => (key ? pendingLoad : disabledLoad) as LoadSnapshot<T>,
+    [key],
+  );
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
+  const { data, error } = snapshot;
+  const missing = snapshot === pendingLoad;
+  const loading = !!path && (!enabledPath || snapshot.loading);
   const reload = useCallback(() => {
-    const current = ++seq.current;
-    if (!path) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    request<T>(path)
-      .then((value) => {
-        if (seq.current === current) {
-          setData(value);
-          setError("");
-        }
-      })
-      .catch((e) => {
-        if (seq.current === current) setError(e.message);
-      })
-      .finally(() => {
-        if (seq.current === current) setLoading(false);
-      });
-  }, [path]);
+    if (key && enabledPath)
+      void loadCache.load(
+        key,
+        (signal) => request<T>(enabledPath, { signal }),
+        true,
+      );
+  }, [loadCache, key, enabledPath]);
+  const previous = useRef<{ key: string | null; dependencies: string } | null>(
+    null,
+  );
+  const dependencyKey = JSON.stringify(dependencies);
   useEffect(() => {
-    reload();
-  }, [reload, ...dependencies]);
+    const force =
+      previous.current?.key === key &&
+      previous.current.dependencies !== dependencyKey;
+    const shouldLoad =
+      missing || !previous.current || previous.current.key !== key || force;
+    previous.current = { key, dependencies: dependencyKey };
+    if (key && enabledPath && shouldLoad)
+      void loadCache.load(
+        key,
+        (signal) => request<T>(enabledPath, { signal }),
+        force,
+      );
+  }, [loadCache, key, enabledPath, dependencyKey, missing]);
   useEffect(() => {
     if (!path?.startsWith("catalog")) return;
     const interval = setInterval(reload, 30000);
@@ -145,6 +175,12 @@ export function useLoad<T = any>(
     const timer = setTimeout(reload, Math.max(100, next - Date.now() + 100));
     return () => clearTimeout(timer);
   }, [data, reload]);
+  const setData = useCallback(
+    (value: T | null) => {
+      if (key) loadCache.set(key, value);
+    },
+    [loadCache, key],
+  );
   return { data, error, loading, reload, setData };
 }
 export function Button({
@@ -259,9 +295,8 @@ export function PageTitle({
     </div>
   );
 }
-function Nav() {
-  const path = usePathname(),
-    { unread } = useApp();
+function Nav({ path }: { path: string }) {
+  const { unread } = useApp();
   const items = [
     ["/", "Home", House],
     ["/orders", "Đơn hàng", ShoppingBag],
@@ -294,7 +329,7 @@ function Nav() {
   );
 }
 function Header() {
-  const { location, setLocationOpen } = useApp();
+  const { location, storageReady, setLocationOpen } = useApp();
   return (
     <header className="header">
       <div className="header-inner">
@@ -311,7 +346,11 @@ function Header() {
           <MapPin size={18} />
           <span>
             <small>Giao đến</small>
-            <strong>{location?.address || "Chọn địa chỉ giao"}</strong>
+            <strong>
+              {!storageReady
+                ? "Đang tải địa chỉ…"
+                : location?.address || "Chọn địa chỉ giao"}
+            </strong>
           </span>
           <ChevronDown size={15} />
         </button>
@@ -319,9 +358,8 @@ function Header() {
     </header>
   );
 }
-function CartDock() {
-  const { cart } = useApp(),
-    path = usePathname();
+function CartDock({ path }: { path: string }) {
+  const { cart } = useApp();
   if (
     !cart.length ||
     ["/cart", "/checkout"].includes(path) ||
@@ -343,16 +381,15 @@ function CartDock() {
     </Link>
   );
 }
-export function App({ initialFeed = null }: { initialFeed?: Feed | null }) {
-  const path = usePathname();
-  const searchParams = useSearchParams();
+export function App({ pathname: path }: { pathname: string }) {
+  const { user, authReady, authError, storageReady, refreshAuth } = useApp();
   let content: ReactNode;
-  if (path === "/") content = <Home initialFeed={initialFeed} />;
+  if (path === "/") content = <Home />;
   else if (
     ["/nearby", "/recommended", "/offers", "/search"].includes(path) ||
     path.startsWith("/meal/")
   )
-    content = <DishList />;
+    content = <DishList path={path} />;
   else if (path.startsWith("/dishes/"))
     content = <DishDetail id={path.split("/")[2]} />;
   else if (path === "/chefs" || path.startsWith("/chefs/"))
@@ -382,18 +419,37 @@ export function App({ initialFeed = null }: { initialFeed?: Feed | null }) {
         </Link>
       </Empty>
     );
+  const privatePage =
+    path === "/orders" ||
+    path.startsWith("/orders/") ||
+    path === "/favorites" ||
+    path === "/notifications" ||
+    path === "/me" ||
+    path.startsWith("/me/") ||
+    path === "/chef" ||
+    path.startsWith("/chef/") ||
+    path === "/admin" ||
+    path === "/checkout";
+  if ((privatePage || path === "/login") && !authReady)
+    content = <PageLoading label="Đang tải tài khoản…" />;
+  else if ((privatePage || path === "/login") && authError && !user)
+    content = (
+      <Notice error>
+        {authError} <button onClick={() => void refreshAuth()}>Thử lại</button>
+      </Notice>
+    );
+  else if ((path === "/cart" || path === "/checkout") && !storageReady)
+    content = <PageLoading label="Đang tải giỏ hàng…" />;
   return (
     <>
       {path === "/" && <Header />}
       <main
         className={`main ${path === "/admin" || path === "/chef" ? "dashboard-main" : ""}`}
       >
-        <PageMotion pageKey={`${path}?${searchParams.toString()}`}>
-          {content}
-        </PageMotion>
+        <PageMotion pageKey={path}>{content}</PageMotion>
       </main>
-      <CartDock />
-      <Nav />
+      <CartDock path={path} />
+      <Nav path={path} />
       <LocationSheet />
     </>
   );
@@ -412,6 +468,14 @@ function LoadingCards() {
           <div className="skeleton line short" />
         </div>
       ))}
+    </div>
+  );
+}
+export function PageLoading({ label = "Đang tải…" }: { label?: string }) {
+  return (
+    <div className="loading" role="status">
+      <LoaderCircle className="spin" size={20} />
+      {label}
     </div>
   );
 }
@@ -617,13 +681,11 @@ function ChefCards({ chefs }: { chefs: Feed["chefs"] }) {
     </div>
   );
 }
-function Home({ initialFeed }: { initialFeed: Feed | null }) {
-  const { location, revision, setLocationOpen } = useApp(),
-    { data, error, loading, reload } = useLoad<Feed>(
-      feedPath(location),
-      [revision],
-      initialFeed,
-    ),
+function Home() {
+  const { location, storageReady, revision, setLocationOpen } = useApp(),
+    { data, error, loading, reload } = useLoad<Feed>(feedPath(location), [
+      revision,
+    ]),
     router = useRouter();
   const recommended = data
     ? [...data.dishes]
@@ -642,7 +704,7 @@ function Home({ initialFeed }: { initialFeed: Feed | null }) {
           <SlidersHorizontal size={19} />
         </Link>
       </div>
-      {!location && (
+      {storageReady && !location && (
         <button className="area-note" onClick={() => setLocationOpen(true)}>
           <MapPin size={14} /> Đang xem khu vực Quận 3, TP.HCM{" "}
           <span>
@@ -650,110 +712,109 @@ function Home({ initialFeed }: { initialFeed: Feed | null }) {
           </span>
         </button>
       )}
-      {error ? (
+      {error && (
         <Notice error>
           {error} <button onClick={reload}>Thử lại</button>
         </Notice>
-      ) : loading && !data ? (
-        <LoadingCards />
-      ) : (
-        data && (
-          <>
-            {data.banners[0] && (
-              <Link href={data.banners[0].href} className="home-banner">
-                <div>
-                  <span className="eyebrow">THỰC ĐƠN TRONG KHU VỰC</span>
-                  <h1>{data.banners[0].title}</h1>
-                  <p>{data.banners[0].body}</p>
-                  <span className="banner-link">
-                    Xem thực đơn <ArrowRight size={15} />
-                  </span>
-                </div>
-                {data.banners[0].image_url ? (
-                  <div className="banner-image">
-                    <Image
-                      src={data.banners[0].image_url}
-                      alt=""
-                      fill
-                      sizes="250px"
-                    />
+      )}
+      {!data
+        ? !error && <LoadingCards />
+        : data && (
+            <>
+              {data.banners[0] && (
+                <Link href={data.banners[0].href} className="home-banner">
+                  <div>
+                    <span className="eyebrow">THỰC ĐƠN TRONG KHU VỰC</span>
+                    <h1>{data.banners[0].title}</h1>
+                    <p>{data.banners[0].body}</p>
+                    <span className="banner-link">
+                      Xem thực đơn <ArrowRight size={15} />
+                    </span>
+                  </div>
+                  {data.banners[0].image_url ? (
+                    <div className="banner-image">
+                      <Image
+                        src={data.banners[0].image_url}
+                        alt=""
+                        fill
+                        sizes="250px"
+                      />
+                    </div>
+                  ) : (
+                    <div className="banner-art">
+                      <div className="bowl">
+                        <Utensils size={38} strokeWidth={1.1} />
+                      </div>
+                      <span className="leaf one" />
+                      <span className="leaf two" />
+                    </div>
+                  )}
+                </Link>
+              )}
+              <Meals meals={data.meals} />
+              <Section
+                title="Gần bạn"
+                subtitle="Các món đang nhận đặt trong khu vực"
+                href="/nearby"
+              >
+                {data.dishes.length ? (
+                  <div className="dish-scroll">
+                    {data.dishes.slice(0, 10).map((d) => (
+                      <DishCard key={d.menuId} dish={d} />
+                    ))}
                   </div>
                 ) : (
-                  <div className="banner-art">
-                    <div className="bowl">
-                      <Utensils size={38} strokeWidth={1.1} />
-                    </div>
-                    <span className="leaf one" />
-                    <span className="leaf two" />
-                  </div>
+                  <Empty
+                    title="Chưa có món đang nhận đặt"
+                    body="Thử đổi địa chỉ hoặc quay lại vào bữa tiếp theo."
+                  />
                 )}
-              </Link>
-            )}
-            <Meals meals={data.meals} />
-            <Section
-              title="Gần bạn"
-              subtitle="Các món đang nhận đặt trong khu vực"
-              href="/nearby"
-            >
-              {data.dishes.length ? (
-                <div className="dish-scroll">
-                  {data.dishes.slice(0, 10).map((d) => (
-                    <DishCard key={d.menuId} dish={d} />
-                  ))}
-                </div>
-              ) : (
-                <Empty
-                  title="Chưa có món đang nhận đặt"
-                  body="Thử đổi địa chỉ hoặc quay lại vào bữa tiếp theo."
-                />
-              )}
-            </Section>
-            {data.campaign &&
-              data.dishes.some((d) => d.price < d.originalPrice) && (
+              </Section>
+              {data.campaign &&
+                data.dishes.some((d) => d.price < d.originalPrice) && (
+                  <Section
+                    title="Giảm giá"
+                    subtitle={data.campaign.name}
+                    href="/offers"
+                  >
+                    <div className="dish-scroll">
+                      {data.dishes
+                        .filter((d) => d.price < d.originalPrice)
+                        .slice(0, 10)
+                        .map((d) => (
+                          <DishCard key={d.menuId} dish={d} />
+                        ))}
+                    </div>
+                  </Section>
+                )}
+              {recommended.length > 0 && (
                 <Section
-                  title="Giảm giá"
-                  subtitle={data.campaign.name}
-                  href="/offers"
+                  title="Nên thử"
+                  subtitle="Được đánh giá tốt từ những đơn đã hoàn thành"
+                  href="/recommended"
                 >
                   <div className="dish-scroll">
-                    {data.dishes
-                      .filter((d) => d.price < d.originalPrice)
-                      .slice(0, 10)
-                      .map((d) => (
-                        <DishCard key={d.menuId} dish={d} />
-                      ))}
+                    {recommended.map((d) => (
+                      <DishCard key={d.menuId} dish={d} />
+                    ))}
                   </div>
                 </Section>
               )}
-            {recommended.length > 0 && (
-              <Section
-                title="Nên thử"
-                subtitle="Được đánh giá tốt từ những đơn đã hoàn thành"
-                href="/recommended"
-              >
-                <div className="dish-scroll">
-                  {recommended.map((d) => (
-                    <DishCard key={d.menuId} dish={d} />
-                  ))}
-                </div>
-              </Section>
-            )}
-            {data.chefs.length > 0 && (
-              <Section
-                title="Gợi ý chef"
-                subtitle="Các bếp đang nhận đơn gần khu vực của bạn"
-                href="/chefs"
-              >
-                <ChefCards
-                  chefs={[...data.chefs]
-                    .sort((a, b) => b.rating - a.rating)
-                    .slice(0, 4)}
-                />
-              </Section>
-            )}
-          </>
-        )
-      )}
+              {data.chefs.length > 0 && (
+                <Section
+                  title="Gợi ý chef"
+                  subtitle="Các bếp đang nhận đơn gần khu vực của bạn"
+                  href="/chefs"
+                >
+                  <ChefCards
+                    chefs={[...data.chefs]
+                      .sort((a, b) => b.rating - a.rating)
+                      .slice(0, 4)}
+                  />
+                </Section>
+              )}
+            </>
+          )}
       <div className="home-footer">
         <ChefHat size={18} />
         <span>Tôi gì, bạn đó!</span>
@@ -762,16 +823,17 @@ function Home({ initialFeed }: { initialFeed: Feed | null }) {
     </>
   );
 }
-function DishList() {
-  const path = usePathname(),
-    params = useSearchParams(),
+function DishList({ path }: { path: string }) {
+  const params = useSearchParams(),
     { location, revision } = useApp(),
     [sort, setSort] = useState("near"),
     [maxPrice, setMaxPrice] = useState(""),
     [all, setAll] = useState<Dish[]>([]),
+    [source, setSource] = useState<Feed | null>(null),
     [cursor, setCursor] = useState<number | null>(null),
     [more, setMore] = useState(false),
     [moreError, setMoreError] = useState("");
+  const pagination = useRef<AbortController | null>(null);
   const meal = path.startsWith("/meal/") ? path.split("/")[2] : "",
     query = params.get("q") || "",
     extra = `&limit=20${meal ? "&meal=" + meal : ""}${path === "/offers" ? "&sale=true" : ""}${query ? "&q=" + encodeURIComponent(query) : ""}`;
@@ -779,27 +841,39 @@ function DishList() {
     revision,
   ]);
   useEffect(() => {
+    pagination.current?.abort();
+    setMore(false);
+    setMoreError("");
+    return () => pagination.current?.abort();
+  }, [location?.lat, location?.lng, extra]);
+  useEffect(() => {
     if (data) {
       setAll(data.dishes);
       setCursor(data.cursor);
+      setSource(data);
     }
   }, [data]);
   const loadMore = useCallback(async () => {
     if (cursor === null || more) return;
+    const controller = new AbortController();
+    pagination.current?.abort();
+    pagination.current = controller;
     setMore(true);
     try {
       const d = await request<Feed>(
         feedPath(location, extra + "&cursor=" + cursor),
+        { signal: controller.signal },
       );
+      if (controller.signal.aborted) return;
       setAll((old) => [
         ...new Map([...old, ...d.dishes].map((d) => [d.menuId, d])).values(),
       ]);
       setCursor(d.cursor);
       setMoreError("");
     } catch (e) {
-      setMoreError((e as Error).message);
+      if (!controller.signal.aborted) setMoreError((e as Error).message);
     } finally {
-      setMore(false);
+      if (!controller.signal.aborted) setMore(false);
     }
   }, [cursor, more, location, extra]);
   useEffect(() => {
@@ -824,7 +898,8 @@ function DishList() {
         : path === "/search"
           ? "Tìm món"
           : "Gần bạn";
-  const list = all
+  const list = (source === data ? all : data?.dishes || [])
+    .slice()
     .filter((d) => !maxPrice || d.price <= Number(maxPrice))
     .sort((a, b) =>
       sort === "price"
@@ -1055,15 +1130,20 @@ export function NeedLogin() {
 }
 function Favorites() {
   const { user, location, revision, refresh, toast } = useApp(),
-    { data } = useLoad(user ? "favorites" : null, [revision]),
-    { data: available } = useLoad<Feed>(feedPath(location, "&limit=100"), [
-      revision,
-    ]);
+    { data, error } = useLoad(user ? "favorites" : null, [revision]),
+    { data: available, error: availableError } = useLoad<Feed>(
+      feedPath(location, "&limit=100"),
+      [revision],
+    );
   if (!user) return <NeedLogin />;
   return (
     <>
       <PageTitle title="Món đã thích" subtitle="Những món bạn đã lưu lại" />
-      {data?.favorites.length ? (
+      {error || availableError ? (
+        <Notice error>{error || availableError}</Notice>
+      ) : !data || (data.favorites.length > 0 && !available) ? (
+        <LoadingCards />
+      ) : data.favorites.length ? (
         <div className="dish-grid">
           {data.favorites.map((p: any) => {
             const d = available?.dishes.find((d) => d.id === p.id);
@@ -1124,7 +1204,11 @@ function Orders() {
       <PageTitle title="Đơn hàng" />
       {error && <Notice error>{error}</Notice>}
       <Section title="Vừa đặt">
-        {current.length ? (
+        {!data ? (
+          error ? null : (
+            <PageLoading label="Đang tải đơn hàng…" />
+          )
+        ) : current.length ? (
           current.map((o: any) => <OrderCard key={o.id} order={o} />)
         ) : (
           <Empty
@@ -1237,17 +1321,25 @@ function Notifications() {
         </button>
       </div>
       {error && <Notice error>{error}</Notice>}
-      <NotificationList
-        list={list.filter((n: any) =>
-          tab === "news"
-            ? ["news", "system"].includes(n.category)
-            : n.category === "order",
-        )}
-      />
-      <Section title="Khuyến mãi">
+      {!data ? (
+        error ? null : (
+          <PageLoading label="Đang tải thông báo…" />
+        )
+      ) : (
         <NotificationList
-          list={list.filter((n: any) => n.category === "promotion")}
+          list={list.filter((n: any) =>
+            tab === "news"
+              ? ["news", "system"].includes(n.category)
+              : n.category === "order",
+          )}
         />
+      )}
+      <Section title="Khuyến mãi">
+        {data && (
+          <NotificationList
+            list={list.filter((n: any) => n.category === "promotion")}
+          />
+        )}
         <Link href="/offers" className="text-button">
           Xem món đang giảm giá <ArrowRight size={14} />
         </Link>
@@ -1283,7 +1375,7 @@ function NotificationList({ list }: { list: any[] }) {
   );
 }
 function Profile() {
-  const { user, chef, refreshAuth } = useApp();
+  const { user, chef, logout, toast } = useApp();
   if (!user) return <NeedLogin />;
   const items = [
     ["/me/vouchers", "Voucher", Ticket],
@@ -1345,8 +1437,11 @@ function Profile() {
         ))}
         <button
           onClick={async () => {
-            await post("auth/logout", {});
-            await refreshAuth();
+            try {
+              await logout();
+            } catch (error) {
+              toast((error as Error).message);
+            }
           }}
         >
           <LogOut size={20} />
@@ -1404,6 +1499,7 @@ function Login() {
     params = useSearchParams(),
     [register, setRegister] = useState(false),
     [busy, setBusy] = useState(false),
+    [navigating, setNavigating] = useState(false),
     [error, setError] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1416,6 +1512,7 @@ function Login() {
         email: f.get("email"),
         password: f.get("password"),
       });
+      setNavigating(true);
       await refreshAuth();
       const next = params.get("next") || "/me";
       router.push(
@@ -1423,12 +1520,13 @@ function Login() {
         { transitionTypes: ["page-forward"] },
       );
     } catch (e) {
+      setNavigating(false);
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
-  if (user)
+  if (user && !navigating)
     return (
       <>
         <PageTitle title="Bạn đã đăng nhập" />
@@ -1463,7 +1561,7 @@ function Login() {
           />
         </Field>
         {error && <Notice error>{error}</Notice>}
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || navigating}>
           {busy ? (
             <LoaderCircle size={18} className="spin" />
           ) : register ? (
@@ -2230,7 +2328,11 @@ function Vouchers() {
     <>
       <PageTitle title="Voucher" back />
       {error && <Notice error>{error}</Notice>}
-      {data?.vouchers.length ? (
+      {!data ? (
+        error ? null : (
+          <PageLoading label="Đang tải voucher…" />
+        )
+      ) : data.vouchers.length ? (
         data.vouchers.map((v: any) => (
           <div className="voucher-card panel" key={v.id}>
             <span className="voucher-icon">
