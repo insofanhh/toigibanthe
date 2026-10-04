@@ -448,7 +448,7 @@ export function App({ pathname: path }: { pathname: string }) {
     <>
       {path === "/" && <Header />}
       <main
-        className={`main ${path === "/admin" || path === "/chef" ? "dashboard-main" : ""}`}
+        className={`main ${path === "/admin" || path === "/chef" ? "dashboard-main" : ""} ${path === "/admin" ? "admin-main" : ""}`}
       >
         <PageMotion pageKey={path}>{content}</PageMotion>
       </main>

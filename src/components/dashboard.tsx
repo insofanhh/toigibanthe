@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "./page-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -22,6 +22,9 @@ import {
   Upload,
   Check,
   ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  House,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
 import { KitchenLocationPicker } from "./kitchen-location-picker";
@@ -1126,6 +1129,22 @@ export function AdminDashboard() {
     [chefFilter, setChefFilter] = useState(""),
     [detailChef, setDetailChef] = useState<string | null>(params.get("chef")),
     [form, setForm] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setCollapsed(
+        localStorage.getItem("tgbd-admin-sidebar-collapsed") === "1",
+      );
+    } catch {}
+  }, []);
+  function toggleSidebar() {
+    setCollapsed((value) => {
+      try {
+        localStorage.setItem("tgbd-admin-sidebar-collapsed", value ? "0" : "1");
+      } catch {}
+      return !value;
+    });
+  }
   if (!user) return <NeedLogin />;
   if (user.role !== "admin")
     return <Empty icon={ShieldCheck} title="Bạn không có quyền quản trị" />;
@@ -1160,567 +1179,635 @@ export function AdminDashboard() {
     ["payments", "Đối soát", Wallet],
   ];
   return (
-    <>
-      <PageTitle title="Quản trị" subtitle="Vận hành hệ thống" />
-      <Tabs items={items} tab={tab} setTab={setTab} />
-      {tab === "chefs" && detailChef && (
-        <AdminChefDetails id={detailChef} onClose={() => setDetailChef(null)} />
-      )}
-      {tab === "overview" && (
-        <>
-          <Stats
-            items={[
-              [
-                "Tổng đơn",
-                String(data.stats.total_orders),
-                "Trên toàn hệ thống",
-              ],
-              [
-                "Doanh số hoàn thành",
-                money(Number(data.stats.revenue)),
-                "Không phải tiền nền tảng đã thu",
-              ],
-              [
-                "Bếp chờ duyệt",
-                String(
-                  data.chefs.filter((c: any) => c.status === "pending").length,
-                ),
-                "Hồ sơ đăng ký mới",
-              ],
-            ]}
-          />
-          <SectionTitle title="Đơn gần đây" />
-          {ordersError && <Notice error>{ordersError}</Notice>}
-          {!orders && !ordersError && <PageLoading label="Đang tải đơn…" />}
-          {orders?.orders.slice(0, 6).map((o: any) => (
-            <OrderCard order={o} key={o.id} />
+    <div className="admin-layout" data-collapsed={collapsed}>
+      <div className="admin-mobile-heading">
+        <PageTitle title="Quản trị" subtitle="Vận hành hệ thống" />
+      </div>
+      <aside className="admin-sidebar">
+        <div className="admin-sidebar-header">
+          <div className="admin-sidebar-brand">
+            <ShieldCheck size={23} />
+            <span>Quản trị</span>
+          </div>
+          <button
+            type="button"
+            className="icon-button admin-sidebar-toggle"
+            aria-label={
+              collapsed ? "Mở rộng menu quản trị" : "Thu gọn menu quản trị"
+            }
+            title={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
+            aria-expanded={!collapsed}
+            aria-controls="admin-navigation"
+            onClick={toggleSidebar}
+          >
+            {collapsed ? (
+              <PanelLeftOpen size={20} />
+            ) : (
+              <PanelLeftClose size={20} />
+            )}
+          </button>
+        </div>
+        <nav
+          id="admin-navigation"
+          className="admin-navigation"
+          aria-label="Các mục quản trị"
+        >
+          {items.map(([id, label, Icon]) => (
+            <button
+              type="button"
+              key={id}
+              className={tab === id ? "active" : ""}
+              aria-label={label}
+              title={label}
+              aria-current={tab === id ? "page" : undefined}
+              onClick={() => setTab(id)}
+            >
+              <Icon size={19} />
+              <span>{label}</span>
+            </button>
           ))}
-        </>
-      )}
-      {tab === "users" && (
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Tài khoản</th>
-                <th>Vai trò</th>
-                <th>Trạng thái</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.users.map((u: any) => (
-                <tr key={u.id}>
-                  <td>
-                    {u.name}
-                    <small>{u.email}</small>
-                  </td>
-                  <td>{u.role}</td>
-                  <td>{u.active ? "Hoạt động" : "Đã khóa"}</td>
-                  <td>
+        </nav>
+        <Link
+          href="/"
+          className="admin-sidebar-exit"
+          title="Xem ứng dụng"
+          aria-label="Xem ứng dụng"
+        >
+          <House size={19} />
+          <span>Xem ứng dụng</span>
+        </Link>
+      </aside>
+      <section className="admin-content" aria-label="Nội dung quản trị">
+        <PageTitle
+          title={items.find(([id]) => id === tab)?.[1] || "Quản trị"}
+          subtitle="Quản trị hệ thống"
+        />
+        {tab === "chefs" && detailChef && (
+          <AdminChefDetails
+            id={detailChef}
+            onClose={() => setDetailChef(null)}
+          />
+        )}
+        {tab === "overview" && (
+          <>
+            <Stats
+              items={[
+                [
+                  "Tổng đơn",
+                  String(data.stats.total_orders),
+                  "Trên toàn hệ thống",
+                ],
+                [
+                  "Doanh số hoàn thành",
+                  money(Number(data.stats.revenue)),
+                  "Không phải tiền nền tảng đã thu",
+                ],
+                [
+                  "Bếp chờ duyệt",
+                  String(
+                    data.chefs.filter((c: any) => c.status === "pending")
+                      .length,
+                  ),
+                  "Hồ sơ đăng ký mới",
+                ],
+              ]}
+            />
+            <SectionTitle title="Đơn gần đây" />
+            {ordersError && <Notice error>{ordersError}</Notice>}
+            {!orders && !ordersError && <PageLoading label="Đang tải đơn…" />}
+            {orders?.orders.slice(0, 6).map((o: any) => (
+              <OrderCard order={o} key={o.id} />
+            ))}
+          </>
+        )}
+        {tab === "users" && (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Tài khoản</th>
+                  <th>Vai trò</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.users.map((u: any) => (
+                  <tr key={u.id}>
+                    <td>
+                      {u.name}
+                      <small>{u.email}</small>
+                    </td>
+                    <td>{u.role}</td>
+                    <td>{u.active ? "Hoạt động" : "Đã khóa"}</td>
+                    <td>
+                      <button
+                        onClick={() =>
+                          void run("admin/users/" + u.id, { active: !u.active })
+                        }
+                      >
+                        {u.active ? "Khóa" : "Mở khóa"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {tab === "chefs" && (
+          <>
+            <SectionTitle title="Hồ sơ chờ duyệt" />
+            {data.chefs
+              .filter((c: any) => c.status === "pending")
+              .map((c: any) => (
+                <div className="panel admin-chef" key={c.id}>
+                  <div>
+                    <h3>{c.name}</h3>
+                    <p>
+                      {c.owner_name} · {c.email}
+                    </p>
+                    <p>{c.address}</p>
+                    <p>{c.bio}</p>
+                    <p>Bán kính: {c.radius_km} km</p>
                     <button
+                      className="text-button"
+                      onClick={() => setDetailChef(c.id)}
+                    >
+                      Thông tin hồ sơ
+                    </button>
+                  </div>
+                  <div className="actions">
+                    <Button
                       onClick={() =>
-                        void run("admin/users/" + u.id, { active: !u.active })
+                        void run("admin/chefs/" + c.id, { status: "approved" })
                       }
                     >
-                      {u.active ? "Khóa" : "Mở khóa"}
-                    </button>
-                  </td>
-                </tr>
+                      Duyệt
+                    </Button>
+                    <Button
+                      secondary
+                      onClick={() => {
+                        const reason = prompt("Nội dung cần bổ sung:");
+                        if (reason)
+                          void run("admin/chefs/" + c.id, {
+                            status: "needs_changes",
+                            reason,
+                          });
+                      }}
+                    >
+                      Bổ sung
+                    </Button>
+                    <Button
+                      secondary
+                      onClick={() => {
+                        const reason = prompt("Lý do từ chối:");
+                        if (reason)
+                          void run("admin/chefs/" + c.id, {
+                            status: "rejected",
+                            reason,
+                          });
+                      }}
+                    >
+                      Từ chối
+                    </Button>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {tab === "chefs" && (
-        <>
-          <SectionTitle title="Hồ sơ chờ duyệt" />
-          {data.chefs
-            .filter((c: any) => c.status === "pending")
-            .map((c: any) => (
-              <div className="panel admin-chef" key={c.id}>
-                <div>
-                  <h3>{c.name}</h3>
-                  <p>
-                    {c.owner_name} · {c.email}
-                  </p>
-                  <p>{c.address}</p>
-                  <p>{c.bio}</p>
-                  <p>Bán kính: {c.radius_km} km</p>
-                  <button
-                    className="text-button"
-                    onClick={() => setDetailChef(c.id)}
-                  >
-                    Thông tin hồ sơ
-                  </button>
-                </div>
-                <div className="actions">
-                  <Button
-                    onClick={() =>
-                      void run("admin/chefs/" + c.id, { status: "approved" })
-                    }
-                  >
-                    Duyệt
-                  </Button>
-                  <Button
-                    secondary
-                    onClick={() => {
-                      const reason = prompt("Nội dung cần bổ sung:");
-                      if (reason)
+            {!data.chefs.some((c: any) => c.status === "pending") && (
+              <div className="quiet-empty">Không có hồ sơ chờ duyệt.</div>
+            )}
+            <SectionTitle title="Danh sách bếp" />
+            {data.chefs
+              .filter((c: any) => c.status !== "pending")
+              .map((c: any) => (
+                <div className="panel admin-chef" key={c.id}>
+                  <img src={c.avatar_url || "/icon.svg"} alt={c.name} />
+                  <div>
+                    <h3>{c.name}</h3>
+                    <p>
+                      {c.area} · {c.completed_orders} đơn hoàn thành
+                    </p>
+                    <p>
+                      {c.status === "approved"
+                        ? "Đã duyệt"
+                        : c.status === "suspended"
+                          ? "Tạm ngưng"
+                          : c.status === "needs_changes"
+                            ? "Cần bổ sung"
+                            : "Từ chối"}
+                    </p>
+                  </div>
+                  <div className="actions">
+                    <Button secondary onClick={() => setDetailChef(c.id)}>
+                      Hồ sơ
+                    </Button>
+                    <Button
+                      secondary
+                      onClick={() => {
+                        setChefFilter(c.id);
+                        setTab("products");
+                      }}
+                    >
+                      Sản phẩm
+                    </Button>
+                    <Button
+                      secondary
+                      onClick={() => {
+                        setChefFilter(c.id);
+                        setTab("orders");
+                      }}
+                    >
+                      Đơn & doanh số
+                    </Button>
+                    <Button
+                      secondary
+                      onClick={() =>
                         void run("admin/chefs/" + c.id, {
-                          status: "needs_changes",
-                          reason,
-                        });
-                    }}
-                  >
-                    Bổ sung
-                  </Button>
-                  <Button
-                    secondary
-                    onClick={() => {
-                      const reason = prompt("Lý do từ chối:");
-                      if (reason)
-                        void run("admin/chefs/" + c.id, {
-                          status: "rejected",
-                          reason,
-                        });
-                    }}
-                  >
-                    Từ chối
-                  </Button>
+                          status:
+                            c.status === "suspended" ? "approved" : "suspended",
+                          reason: "Quản trị cập nhật trạng thái bếp.",
+                        })
+                      }
+                    >
+                      {c.status === "suspended" ? "Cho hoạt động" : "Tạm ngưng"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          {!data.chefs.some((c: any) => c.status === "pending") && (
-            <div className="quiet-empty">Không có hồ sơ chờ duyệt.</div>
-          )}
-          <SectionTitle title="Danh sách bếp" />
-          {data.chefs
-            .filter((c: any) => c.status !== "pending")
-            .map((c: any) => (
-              <div className="panel admin-chef" key={c.id}>
-                <img src={c.avatar_url || "/icon.svg"} alt={c.name} />
+              ))}
+          </>
+        )}
+        {(tab === "orders" || tab === "products") && (
+          <div className="filter-row">
+            <select
+              value={chefFilter}
+              onChange={(e) => setChefFilter(e.target.value)}
+              aria-label="Lọc bếp"
+            >
+              <option value="">Tất cả bếp</option>
+              {data.chefs.map((c: any) => (
+                <option value={c.id} key={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {tab === "orders" && (
+          <>
+            {ordersError && <Notice error>{ordersError}</Notice>}
+            {!orders && !ordersError && <PageLoading label="Đang tải đơn…" />}
+            {chefFilter && orders && (
+              <Notice>
+                Doanh số hoàn thành trong danh sách:{" "}
+                {money(
+                  (orders?.orders || [])
+                    .filter(
+                      (o: any) =>
+                        o.chef_id === chefFilter && o.status === "COMPLETED",
+                    )
+                    .reduce((a: number, o: any) => a + o.total, 0),
+                )}
+              </Notice>
+            )}
+            {orders?.orders
+              .filter((o: any) => !chefFilter || o.chef_id === chefFilter)
+              .map((o: any) => (
+                <OrderCard key={o.id} order={o} />
+              ))}
+          </>
+        )}
+        {tab === "products" &&
+          data.products
+            .filter((p: any) => !chefFilter || p.chef_id === chefFilter)
+            .map((p: any) => (
+              <div className="panel dashboard-product" key={p.id}>
+                <img src={p.image_url} alt={p.name} />
                 <div>
-                  <h3>{c.name}</h3>
+                  <h3>{p.name}</h3>
                   <p>
-                    {c.area} · {c.completed_orders} đơn hoàn thành
-                  </p>
-                  <p>
-                    {c.status === "approved"
-                      ? "Đã duyệt"
-                      : c.status === "suspended"
-                        ? "Tạm ngưng"
-                        : c.status === "needs_changes"
-                          ? "Cần bổ sung"
-                          : "Từ chối"}
+                    {p.chef_name} · {money(p.price)} ·{" "}
+                    {p.active ? "Đang dùng" : "Đã ẩn"}
                   </p>
                 </div>
-                <div className="actions">
-                  <Button secondary onClick={() => setDetailChef(c.id)}>
-                    Hồ sơ
-                  </Button>
-                  <Button
-                    secondary
-                    onClick={() => {
-                      setChefFilter(c.id);
-                      setTab("products");
-                    }}
-                  >
-                    Sản phẩm
-                  </Button>
-                  <Button
-                    secondary
-                    onClick={() => {
-                      setChefFilter(c.id);
-                      setTab("orders");
-                    }}
-                  >
-                    Đơn & doanh số
-                  </Button>
-                  <Button
-                    secondary
-                    onClick={() =>
-                      void run("admin/chefs/" + c.id, {
-                        status:
-                          c.status === "suspended" ? "approved" : "suspended",
-                        reason: "Quản trị cập nhật trạng thái bếp.",
-                      })
-                    }
-                  >
-                    {c.status === "suspended" ? "Cho hoạt động" : "Tạm ngưng"}
-                  </Button>
-                </div>
+                <Button
+                  secondary
+                  onClick={() => {
+                    const reason = prompt("Lý do cập nhật trạng thái món:");
+                    if (reason)
+                      void run("admin/products/" + p.id, {
+                        active: !p.active,
+                        reason,
+                      });
+                  }}
+                >
+                  {p.active ? "Ẩn món" : "Cho hiển thị"}
+                </Button>
               </div>
             ))}
-        </>
-      )}
-      {(tab === "orders" || tab === "products") && (
-        <div className="filter-row">
-          <select
-            value={chefFilter}
-            onChange={(e) => setChefFilter(e.target.value)}
-            aria-label="Lọc bếp"
-          >
-            <option value="">Tất cả bếp</option>
-            {data.chefs.map((c: any) => (
-              <option value={c.id} key={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-      {tab === "orders" && (
-        <>
-          {ordersError && <Notice error>{ordersError}</Notice>}
-          {!orders && !ordersError && <PageLoading label="Đang tải đơn…" />}
-          {chefFilter && orders && (
-            <Notice>
-              Doanh số hoàn thành trong danh sách:{" "}
-              {money(
-                (orders?.orders || [])
-                  .filter(
-                    (o: any) =>
-                      o.chef_id === chefFilter && o.status === "COMPLETED",
-                  )
-                  .reduce((a: number, o: any) => a + o.total, 0),
-              )}
-            </Notice>
-          )}
-          {orders?.orders
-            .filter((o: any) => !chefFilter || o.chef_id === chefFilter)
-            .map((o: any) => (
-              <OrderCard key={o.id} order={o} />
-            ))}
-        </>
-      )}
-      {tab === "products" &&
-        data.products
-          .filter((p: any) => !chefFilter || p.chef_id === chefFilter)
-          .map((p: any) => (
-            <div className="panel dashboard-product" key={p.id}>
-              <img src={p.image_url} alt={p.name} />
-              <div>
-                <h3>{p.name}</h3>
-                <p>
-                  {p.chef_name} · {money(p.price)} ·{" "}
-                  {p.active ? "Đang dùng" : "Đã ẩn"}
-                </p>
-              </div>
-              <Button
-                secondary
-                onClick={() => {
-                  const reason = prompt("Lý do cập nhật trạng thái món:");
-                  if (reason)
-                    void run("admin/products/" + p.id, {
-                      active: !p.active,
-                      reason,
-                    });
+        {tab === "settings" && (
+          <>
+            <SectionTitle title="Giờ hết nhận theo bữa" />
+            {data.meals.map((m: any) => (
+              <form
+                key={m.id}
+                className="panel form narrow"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  void run("admin/meals/" + m.id, {
+                    cutoff: f.get("cutoff"),
+                    dayOffset: Number(f.get("offset")),
+                  });
                 }}
               >
-                {p.active ? "Ẩn món" : "Cho hiển thị"}
-              </Button>
-            </div>
-          ))}
-      {tab === "settings" && (
-        <>
-          <SectionTitle title="Giờ hết nhận theo bữa" />
-          {data.meals.map((m: any) => (
+                <h2>{m.name}</h2>
+                <div className="form-row">
+                  <Field label="Giờ cuối nhận đơn">
+                    <input
+                      name="cutoff"
+                      type="time"
+                      defaultValue={m.cutoff_time}
+                      required
+                    />
+                  </Field>
+                  <Field label="Ngày hết nhận">
+                    <select name="offset" defaultValue={m.day_offset}>
+                      <option value="0">Cùng ngày</option>
+                      <option value="1">Ngày kế tiếp</option>
+                    </select>
+                  </Field>
+                </div>
+                <Button type="submit">Lưu giờ bữa</Button>
+              </form>
+            ))}
             <form
-              key={m.id}
               className="panel form narrow"
               onSubmit={(e) => {
                 e.preventDefault();
                 const f = new FormData(e.currentTarget);
-                void run("admin/meals/" + m.id, {
-                  cutoff: f.get("cutoff"),
-                  dayOffset: Number(f.get("offset")),
+                void run("admin/delivery", {
+                  baseFee: Number(f.get("base")),
+                  perKm: Number(f.get("km")),
                 });
               }}
             >
-              <h2>{m.name}</h2>
+              <h2>Phí giao</h2>
               <div className="form-row">
-                <Field label="Giờ cuối nhận đơn">
+                <Field label="Phí cơ bản (đ)">
                   <input
-                    name="cutoff"
-                    type="time"
-                    defaultValue={m.cutoff_time}
-                    required
+                    name="base"
+                    type="number"
+                    min="0"
+                    defaultValue={
+                      (typeof data.delivery === "string"
+                        ? JSON.parse(data.delivery)
+                        : data.delivery
+                      )?.baseFee || 0
+                    }
                   />
                 </Field>
-                <Field label="Ngày hết nhận">
-                  <select name="offset" defaultValue={m.day_offset}>
-                    <option value="0">Cùng ngày</option>
-                    <option value="1">Ngày kế tiếp</option>
-                  </select>
+                <Field label="Phí mỗi km đường đi (đ)">
+                  <input
+                    name="km"
+                    type="number"
+                    min="0"
+                    defaultValue={
+                      (typeof data.delivery === "string"
+                        ? JSON.parse(data.delivery)
+                        : data.delivery
+                      )?.perKm || 0
+                    }
+                  />
                 </Field>
               </div>
-              <Button type="submit">Lưu giờ bữa</Button>
+              <Notice>
+                Phí theo km yêu cầu cấu hình Goong để tính đường đi.
+              </Notice>
+              <Button type="submit">Lưu phí giao</Button>
             </form>
-          ))}
+          </>
+        )}
+        {tab === "sale" && (
+          <>
+            <div className="dashboard-heading">
+              <h2>Sự kiện giảm giá</h2>
+              <Button
+                onClick={() => setForm(form === "campaign" ? "" : "campaign")}
+              >
+                <Plus size={16} /> Tạo sự kiện
+              </Button>
+            </div>
+            {form === "campaign" && (
+              <form
+                className="panel form narrow"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  void run("admin/campaigns", {
+                    name: f.get("name"),
+                    active: true,
+                    startsAt: new Date(String(f.get("start"))).toISOString(),
+                    endsAt: new Date(String(f.get("end"))).toISOString(),
+                  });
+                  setForm("");
+                }}
+              >
+                <Field label="Tên sự kiện">
+                  <input name="name" required />
+                </Field>
+                <div className="form-row">
+                  <Field label="Bắt đầu">
+                    <input name="start" type="datetime-local" required />
+                  </Field>
+                  <Field label="Kết thúc">
+                    <input name="end" type="datetime-local" required />
+                  </Field>
+                </div>
+                <Button type="submit">Tạo & bật sự kiện</Button>
+              </form>
+            )}
+            {data.campaigns.map((c: any) => (
+              <div className="panel spread" key={c.id}>
+                <div>
+                  <h3>{c.name}</h3>
+                  <p className="muted small">
+                    {c.active ? "Đang bật" : "Đã tắt"}
+                  </p>
+                </div>
+                <Button
+                  secondary
+                  onClick={() =>
+                    void run("admin/campaigns/" + c.id, {
+                      name: c.name,
+                      active: !c.active,
+                      startsAt: new Date(
+                        c.starts_at.replace(" ", "T") + "Z",
+                      ).toISOString(),
+                      endsAt: new Date(
+                        c.ends_at.replace(" ", "T") + "Z",
+                      ).toISOString(),
+                    })
+                  }
+                >
+                  {c.active ? "Tắt sale" : "Bật sale"}
+                </Button>
+              </div>
+            ))}
+          </>
+        )}
+        {tab === "news" && (
           <form
             className="panel form narrow"
             onSubmit={(e) => {
               e.preventDefault();
               const f = new FormData(e.currentTarget);
-              void run("admin/delivery", {
-                baseFee: Number(f.get("base")),
-                perKm: Number(f.get("km")),
+              void run("admin/news", {
+                title: f.get("title"),
+                body: f.get("body"),
+                audience: f.get("audience"),
               });
             }}
           >
-            <h2>Phí giao</h2>
-            <div className="form-row">
-              <Field label="Phí cơ bản (đ)">
-                <input
-                  name="base"
-                  type="number"
-                  min="0"
-                  defaultValue={
-                    (typeof data.delivery === "string"
-                      ? JSON.parse(data.delivery)
-                      : data.delivery
-                    )?.baseFee || 0
-                  }
-                />
-              </Field>
-              <Field label="Phí mỗi km đường đi (đ)">
-                <input
-                  name="km"
-                  type="number"
-                  min="0"
-                  defaultValue={
-                    (typeof data.delivery === "string"
-                      ? JSON.parse(data.delivery)
-                      : data.delivery
-                    )?.perKm || 0
-                  }
-                />
-              </Field>
-            </div>
-            <Notice>
-              Phí theo km yêu cầu cấu hình Goong để tính đường đi.
-            </Notice>
-            <Button type="submit">Lưu phí giao</Button>
+            <h2>Gửi tin tức</h2>
+            <Field label="Người nhận">
+              <select name="audience">
+                <option value="all">Tất cả</option>
+                <option value="user">Users</option>
+                <option value="chef">Chefs</option>
+              </select>
+            </Field>
+            <Field label="Tiêu đề">
+              <input name="title" required minLength={3} />
+            </Field>
+            <Field label="Nội dung">
+              <textarea name="body" rows={5} required minLength={5} />
+            </Field>
+            <Button type="submit">Gửi thông báo</Button>
           </form>
-        </>
-      )}
-      {tab === "sale" && (
-        <>
-          <div className="dashboard-heading">
-            <h2>Sự kiện giảm giá</h2>
-            <Button
-              onClick={() => setForm(form === "campaign" ? "" : "campaign")}
-            >
-              <Plus size={16} /> Tạo sự kiện
-            </Button>
-          </div>
-          {form === "campaign" && (
-            <form
-              className="panel form narrow"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                void run("admin/campaigns", {
-                  name: f.get("name"),
-                  active: true,
-                  startsAt: new Date(String(f.get("start"))).toISOString(),
-                  endsAt: new Date(String(f.get("end"))).toISOString(),
-                });
-                setForm("");
-              }}
-            >
-              <Field label="Tên sự kiện">
-                <input name="name" required />
-              </Field>
-              <div className="form-row">
-                <Field label="Bắt đầu">
-                  <input name="start" type="datetime-local" required />
-                </Field>
-                <Field label="Kết thúc">
-                  <input name="end" type="datetime-local" required />
-                </Field>
-              </div>
-              <Button type="submit">Tạo & bật sự kiện</Button>
-            </form>
-          )}
-          {data.campaigns.map((c: any) => (
-            <div className="panel spread" key={c.id}>
-              <div>
-                <h3>{c.name}</h3>
-                <p className="muted small">
-                  {c.active ? "Đang bật" : "Đã tắt"}
-                </p>
-              </div>
-              <Button
-                secondary
-                onClick={() =>
-                  void run("admin/campaigns/" + c.id, {
-                    name: c.name,
-                    active: !c.active,
-                    startsAt: new Date(
-                      c.starts_at.replace(" ", "T") + "Z",
-                    ).toISOString(),
-                    endsAt: new Date(
-                      c.ends_at.replace(" ", "T") + "Z",
-                    ).toISOString(),
-                  })
-                }
-              >
-                {c.active ? "Tắt sale" : "Bật sale"}
-              </Button>
-            </div>
-          ))}
-        </>
-      )}
-      {tab === "news" && (
-        <form
-          className="panel form narrow"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            void run("admin/news", {
-              title: f.get("title"),
-              body: f.get("body"),
-              audience: f.get("audience"),
-            });
-          }}
-        >
-          <h2>Gửi tin tức</h2>
-          <Field label="Người nhận">
-            <select name="audience">
-              <option value="all">Tất cả</option>
-              <option value="user">Users</option>
-              <option value="chef">Chefs</option>
-            </select>
-          </Field>
-          <Field label="Tiêu đề">
-            <input name="title" required minLength={3} />
-          </Field>
-          <Field label="Nội dung">
-            <textarea name="body" rows={5} required minLength={5} />
-          </Field>
-          <Button type="submit">Gửi thông báo</Button>
-        </form>
-      )}
-      {tab === "banners" && (
-        <>
-          <BannerForm onSave={reload} />
-          {data.banners.map((b: any) => (
-            <div className="panel spread" key={b.id}>
-              <div>
-                <h3>{b.title}</h3>
-                <p className="muted small">{b.body}</p>
-              </div>
-              <Button
-                secondary
-                onClick={() =>
-                  void run("admin/banners/" + b.id, {
-                    title: b.title,
-                    body: b.body,
-                    imageUrl: b.image_url,
-                    href: b.href,
-                    active: !b.active,
-                  })
-                }
-              >
-                {b.active ? "Ẩn" : "Hiển thị"}
-              </Button>
-            </div>
-          ))}
-        </>
-      )}
-      {tab === "vouchers" && (
-        <>
-          <VoucherForm chefs={data.chefs} onSave={reload} />
-          {data.vouchers.map((v: any) => (
-            <div className="panel spread" key={v.id}>
-              <div>
-                <h3>{v.title}</h3>
-                <p className="muted small">
-                  {v.code} · {v.chef_name} · Đã dùng {v.used_count}/{v.max_uses}
-                </p>
-              </div>
-              <strong>{money(v.discount_amount)}</strong>
-            </div>
-          ))}
-        </>
-      )}
-      {tab === "payments" && (
-        <>
-          {data.exceptions.map((e: any) => (
-            <div className="panel" key={e.id}>
-              <div className="spread">
-                <h3>Đơn #{e.code}</h3>
-                <span className="status" data-status={e.status}>
-                  {PAYMENT_REQUEST_STATUSES[e.status] || e.status}
-                </span>
-              </div>
-              <p className="muted small">
-                {PAYMENT_REQUEST_KINDS[e.kind] || e.kind} · {money(e.amount)}
-              </p>
-              <p className="muted small">
-                {e.customer_name} · {e.chef_name}
-              </p>
-              {e.contact_phone && (
-                <p className="small">
-                  Số điện thoại liên hệ: {e.contact_phone}
-                </p>
-              )}
-              <p style={{ margin: "12px 0", fontSize: 12 }}>{e.note}</p>
-              <Link className="text-button" href={"/orders/" + e.order_id}>
-                Xem đơn
-              </Link>
-              {e.customer_request_id && (
-                <>
-                  <PaymentRequestEvidence value={e} />
-                  {e.review_note && <Notice>Hệ thống: {e.review_note}</Notice>}
-                  {e.status === "OPEN" && (
-                    <p className="muted small">
-                      Đang chờ bếp gửi bằng chứng giải quyết.
-                    </p>
-                  )}
-                  {e.status === "REVIEW" && (
-                    <AdminPaymentRequestReview value={e} onChange={reload} />
-                  )}
-                </>
-              )}
-              {!e.customer_request_id && e.status === "OPEN" && (
-                <div className="form-row">
-                  <Button
-                    secondary
-                    onClick={() =>
-                      void run("admin/exceptions/" + e.id, {
-                        status: "RESOLVED",
-                        note: "Quản trị đã kiểm tra và giải quyết.",
-                      })
-                    }
-                  >
-                    Đã giải quyết
-                  </Button>
-                  <Button
-                    secondary
-                    onClick={() => {
-                      const note = prompt("Thông tin đã kiểm tra tiền hoàn:");
-                      if (note)
-                        void run("admin/exceptions/" + e.id, {
-                          status: "REFUNDED",
-                          note,
-                        });
-                    }}
-                  >
-                    Đã xác nhận hoàn tiền
-                  </Button>
+        )}
+        {tab === "banners" && (
+          <>
+            <BannerForm onSave={reload} />
+            {data.banners.map((b: any) => (
+              <div className="panel spread" key={b.id}>
+                <div>
+                  <h3>{b.title}</h3>
+                  <p className="muted small">{b.body}</p>
                 </div>
-              )}
-            </div>
-          ))}
-          {!data.exceptions.length && (
-            <Empty icon={Wallet} title="Chưa có yêu cầu đối soát" />
-          )}
-        </>
-      )}
-    </>
+                <Button
+                  secondary
+                  onClick={() =>
+                    void run("admin/banners/" + b.id, {
+                      title: b.title,
+                      body: b.body,
+                      imageUrl: b.image_url,
+                      href: b.href,
+                      active: !b.active,
+                    })
+                  }
+                >
+                  {b.active ? "Ẩn" : "Hiển thị"}
+                </Button>
+              </div>
+            ))}
+          </>
+        )}
+        {tab === "vouchers" && (
+          <>
+            <VoucherForm chefs={data.chefs} onSave={reload} />
+            {data.vouchers.map((v: any) => (
+              <div className="panel spread" key={v.id}>
+                <div>
+                  <h3>{v.title}</h3>
+                  <p className="muted small">
+                    {v.code} · {v.chef_name} · Đã dùng {v.used_count}/
+                    {v.max_uses}
+                  </p>
+                </div>
+                <strong>{money(v.discount_amount)}</strong>
+              </div>
+            ))}
+          </>
+        )}
+        {tab === "payments" && (
+          <>
+            {data.exceptions.map((e: any) => (
+              <div className="panel" key={e.id}>
+                <div className="spread">
+                  <h3>Đơn #{e.code}</h3>
+                  <span className="status" data-status={e.status}>
+                    {PAYMENT_REQUEST_STATUSES[e.status] || e.status}
+                  </span>
+                </div>
+                <p className="muted small">
+                  {PAYMENT_REQUEST_KINDS[e.kind] || e.kind} · {money(e.amount)}
+                </p>
+                <p className="muted small">
+                  {e.customer_name} · {e.chef_name}
+                </p>
+                {e.contact_phone && (
+                  <p className="small">
+                    Số điện thoại liên hệ: {e.contact_phone}
+                  </p>
+                )}
+                <p style={{ margin: "12px 0", fontSize: 12 }}>{e.note}</p>
+                <Link className="text-button" href={"/orders/" + e.order_id}>
+                  Xem đơn
+                </Link>
+                {e.customer_request_id && (
+                  <>
+                    <PaymentRequestEvidence value={e} />
+                    {e.review_note && (
+                      <Notice>Hệ thống: {e.review_note}</Notice>
+                    )}
+                    {e.status === "OPEN" && (
+                      <p className="muted small">
+                        Đang chờ bếp gửi bằng chứng giải quyết.
+                      </p>
+                    )}
+                    {e.status === "REVIEW" && (
+                      <AdminPaymentRequestReview value={e} onChange={reload} />
+                    )}
+                  </>
+                )}
+                {!e.customer_request_id && e.status === "OPEN" && (
+                  <div className="form-row">
+                    <Button
+                      secondary
+                      onClick={() =>
+                        void run("admin/exceptions/" + e.id, {
+                          status: "RESOLVED",
+                          note: "Quản trị đã kiểm tra và giải quyết.",
+                        })
+                      }
+                    >
+                      Đã giải quyết
+                    </Button>
+                    <Button
+                      secondary
+                      onClick={() => {
+                        const note = prompt("Thông tin đã kiểm tra tiền hoàn:");
+                        if (note)
+                          void run("admin/exceptions/" + e.id, {
+                            status: "REFUNDED",
+                            note,
+                          });
+                      }}
+                    >
+                      Đã xác nhận hoàn tiền
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {!data.exceptions.length && (
+              <Empty icon={Wallet} title="Chưa có yêu cầu đối soát" />
+            )}
+          </>
+        )}
+      </section>
+    </div>
   );
 }
 function BannerForm({ onSave }: { onSave: () => void }) {
