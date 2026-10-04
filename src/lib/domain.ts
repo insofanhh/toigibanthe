@@ -67,6 +67,14 @@ export const ACTIVE_ORDER_STATUSES = [
   "DELIVERING",
   "DELIVERED",
 ] as const;
+// Delivery confirmation is still pending for the customer, but the chef's work is done.
+export const CHEF_PROCESSING_ORDER_STATUSES = [
+  "PLACED",
+  "PAID",
+  "ACCEPTED",
+  "PREPARING",
+  "DELIVERING",
+] as const;
 export const PAYMENT_REQUEST_KINDS: Record<string, string> = {
   LATE: "Chuyển khoản sau hạn",
   UNDERPAID: "Chuyển thiếu",

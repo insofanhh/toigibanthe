@@ -74,4 +74,5 @@ export async function notify(
     db,
   );
   await queueNotificationPush(db, userId, id, category);
+  return id;
 }

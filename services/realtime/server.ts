@@ -3,6 +3,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { jwtVerify } from "jose";
 import { rows, exec, sqlDate, pool } from "../../src/lib/db";
 import { expireOrders } from "../../src/lib/orders";
+import { processDeliveryReminders } from "../../src/lib/delivery-reminders";
 import { randomUUID } from "node:crypto";
 import { processBroadcasts } from "../../src/lib/jobs";
 import { processPushQueue, pushConfig } from "../../src/lib/push";
@@ -140,6 +141,7 @@ const jobs = setInterval(async () => {
   try {
     if (pushConfig().configured) await ensurePushSchema();
     await expireOrders();
+    await processDeliveryReminders();
     await processBroadcasts();
     await processPushQueue();
   } catch (e) {

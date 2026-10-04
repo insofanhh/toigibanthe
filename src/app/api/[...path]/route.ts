@@ -67,6 +67,7 @@ import {
 import { cutoffAt, serviceDate } from "@/lib/domain";
 import { goong } from "@/lib/goong";
 import { queueBroadcast, processBroadcasts } from "@/lib/jobs";
+import { processDeliveryReminders } from "@/lib/delivery-reminders";
 import { quoteOrder } from "@/lib/quote";
 import { getReorderOptions } from "@/lib/reorder";
 import { getProductReviews } from "@/lib/product-reviews";
@@ -1097,13 +1098,14 @@ async function dispatch(req: Request) {
     )
       throw new AppError("Không có quyền.", 401);
     await expireOrders();
+    const deliveryReminders = await processDeliveryReminders();
     await processBroadcasts();
     await processPushQueue();
     await exec("DELETE FROM sessions WHERE expires_at<?", [sqlDate()]);
     await exec(
       "DELETE FROM outbox_receipts WHERE created_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY)",
     );
-    return { ok: true };
+    return { ok: true, deliveryReminders };
   }
   throw new AppError("Không tìm thấy chức năng.", 404);
 }

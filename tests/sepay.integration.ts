@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { rows, exec, pool, sqlDate, transaction } from "../src/lib/db";
 import { ensureSePaySchema } from "../src/lib/sepay-schema";
+import { ensureDeliveryReminderSchema } from "../src/lib/delivery-reminders";
 import { sepayBankBin, sepayOrderCode, sepayQR } from "../src/lib/sepay-qr";
 import { createOrder, expirePendingOrder, getOrder } from "../src/lib/orders";
 import { serviceDate, type Actor } from "../src/lib/domain";
@@ -147,6 +148,7 @@ async function read(id: string) {
 }
 try {
   await ensureSePaySchema();
+  await ensureDeliveryReminderSchema();
   for (let i = 0; i < 4; i++) {
     const email = `sepay-${randomUUID()}@local.test`,
       r = await api("auth/register", {
@@ -422,11 +424,11 @@ try {
     "ACCEPTED",
     "PREPARING",
     "DELIVERING",
-    "DELIVERED",
   ];
   const fixtureOrders: { id: string; code: string; status: string }[] = [];
   for (const status of [
     ...activeStatuses,
+    "DELIVERED",
     "COMPLETED",
     "CANCELLED",
     "REJECTED",
@@ -464,7 +466,7 @@ try {
     activeStatuses.length - 1,
   );
   console.log(
-    "PASS: bộ lọc chef chỉ lấy đơn đang xử lý của bếp, bao gồm đã giao chưa xác nhận; số thống kê khớp và đơn hoàn thành tự ra khỏi danh sách",
+    "PASS: bộ lọc và thống kê chef loại đơn đã giao chờ khách xác nhận; mục Tất cả vẫn có đơn đã giao, hoàn thành và hủy",
   );
 
   const requestOrder = await order({
@@ -1691,6 +1693,7 @@ try {
       "payment_exceptions",
       "payment_request_details",
       "reviews",
+      "order_delivery_reminders",
     ])
       await exec(`DELETE FROM ${table} WHERE order_id=?`, [id]);
   await exec("DELETE FROM sepay_transactions WHERE chef_id IN (?,?)", [

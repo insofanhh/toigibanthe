@@ -9,9 +9,15 @@ import {
   ORDER_NEXT,
   TERMINAL,
   ACTIVE_ORDER_STATUSES,
+  CHEF_PROCESSING_ORDER_STATUSES,
   type Actor,
 } from "./domain";
 import { notify } from "./notifications";
+import {
+  ensureDeliveryReminderSchema,
+  queueDeliveryReminder,
+  cancelDeliveryReminder,
+} from "./delivery-reminders";
 import { direction } from "./goong";
 import { ensureSePaySchema } from "./sepay-schema";
 import { automaticPayment } from "./sepay-config";
@@ -111,12 +117,14 @@ async function event(
   status: string,
   note = "",
 ) {
+  const createdAt = new Date();
   await exec(
     "INSERT INTO order_events VALUES (?,?,?,?,?,?)",
-    [randomUUID(), order.id, actorId, status, note, sqlDate()],
+    [randomUUID(), order.id, actorId, status, note, sqlDate(createdAt)],
     db,
   );
   await analyticsLive(db, order.id);
+  return createdAt;
 }
 async function release(db: DB, order: OrderRecord) {
   const items = await rows<{ menu_id: string; quantity: number }>(
@@ -537,10 +545,12 @@ export async function listOrders(
     values.push(user.id);
   }
   if (activeOnly) {
-    conditions.push(
-      `o.status IN (${ACTIVE_ORDER_STATUSES.map(() => "?").join(",")})`,
-    );
-    values.push(...ACTIVE_ORDER_STATUSES);
+    const statuses =
+      chefMode && user.role === "chef"
+        ? CHEF_PROCESSING_ORDER_STATUSES
+        : ACTIVE_ORDER_STATUSES;
+    conditions.push(`o.status IN (${statuses.map(() => "?").join(",")})`);
+    values.push(...statuses);
   }
   const orders = await rows<OrderRecord>(
     orderSQL +
@@ -580,6 +590,8 @@ export async function transition(
   note = "",
 ) {
   await ensureSePaySchema();
+  if (action === "DELIVERED" || TERMINAL.includes(action))
+    await ensureDeliveryReminderSchema();
   if (action === "CANCELLED" || action === "REJECTED")
     await ensurePaymentRequestSchema();
   return transaction(async (db) => {
@@ -696,7 +708,9 @@ export async function transition(
       [target, note || null, sqlDate(), id],
       db,
     );
-    await event(db, o, user.id, target, note);
+    const eventAt = await event(db, o, user.id, target, note);
+    if (target === "DELIVERED") await queueDeliveryReminder(db, id, eventAt);
+    else if (TERMINAL.includes(target)) await cancelDeliveryReminder(db, id);
     if (isAdmin)
       await exec(
         "INSERT INTO audit_logs VALUES (?,?,?,?,?,?)",

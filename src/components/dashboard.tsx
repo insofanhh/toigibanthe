@@ -493,7 +493,8 @@ export function ChefDashboard() {
           </div>
           <Notice>
             Đơn đã thanh toán qua SePay sẽ chờ bếp nhận. Mở chi tiết đơn để
-            nhận, chuẩn bị và cập nhật giao hàng.
+            nhận, chuẩn bị và cập nhật giao hàng. Đơn đã giao chờ khách xác nhận
+            được xem ở mục Tất cả.
           </Notice>
           <div style={{ marginTop: 18 }}>
             {listError ? (

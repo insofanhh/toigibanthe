@@ -4,7 +4,7 @@ import {
   type Actor,
   cutoffAt,
   serviceDate,
-  ACTIVE_ORDER_STATUSES,
+  CHEF_PROCESSING_ORDER_STATUSES,
 } from "./domain";
 import { AppError } from "./http";
 import { notify } from "./notifications";
@@ -73,8 +73,8 @@ export async function chefOverview(user: Actor) {
   );
   const stats = (
     await rows(
-      `SELECT COUNT(*) orders_count,COALESCE(SUM(CASE WHEN status="COMPLETED" THEN total ELSE 0 END),0) revenue,SUM(CASE WHEN status IN (${ACTIVE_ORDER_STATUSES.map(() => "?").join(",")}) THEN 1 ELSE 0 END) active_orders FROM orders WHERE chef_id=?`,
-      [...ACTIVE_ORDER_STATUSES, c.id],
+      `SELECT COUNT(*) orders_count,COALESCE(SUM(CASE WHEN status="COMPLETED" THEN total ELSE 0 END),0) revenue,SUM(CASE WHEN status IN (${CHEF_PROCESSING_ORDER_STATUSES.map(() => "?").join(",")}) THEN 1 ELSE 0 END) active_orders FROM orders WHERE chef_id=?`,
+      [...CHEF_PROCESSING_ORDER_STATUSES, c.id],
     )
   )[0];
   return {

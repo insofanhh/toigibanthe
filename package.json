@@ -18,6 +18,7 @@
     "test:chefs": "tsx --env-file=.env.local tests/admin-chefs.integration.ts",
     "test:products": "tsx --env-file=.env.local tests/admin-products.integration.ts",
     "test:orders": "tsx --env-file=.env.local tests/admin-orders.integration.ts",
+    "test:delivery-reminders": "tsx --env-file=.env.local tests/delivery-reminders.integration.ts",
     "test:integration": "tsx --env-file=.env.local tests/integration.ts",
     "test:location": "tsx --env-file=.env.local tests/kitchen-location.integration.ts",
     "test:sepay": "tsx --env-file=.env.local tests/sepay.integration.ts",
