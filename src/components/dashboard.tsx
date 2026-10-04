@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import { useEffect, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { Link } from "./page-motion";
@@ -12,7 +13,6 @@ import {
   CalendarDays,
   ShoppingBag,
   BarChart3,
-  Bell,
   ShieldCheck,
   Users,
   Newspaper,
@@ -323,13 +323,17 @@ function Stats({ items }: { items: [string, string, string, string?][] }) {
               {label}
               <ChevronRight size={13} />
             </span>
-            <strong>{value}</strong>
+            <strong>
+              <AnimatedValue>{value}</AnimatedValue>
+            </strong>
             <small>{note}</small>
           </Link>
         ) : (
           <div className="stat" key={label}>
             <span>{label}</span>
-            <strong>{value}</strong>
+            <strong>
+              <AnimatedValue>{value}</AnimatedValue>
+            </strong>
             <small>{note}</small>
           </div>
         ),
@@ -402,15 +406,7 @@ export function ChefDashboard() {
   }
   return (
     <>
-      <PageTitle title={c.name} subtitle="Quản lý hoạt động bếp">
-        <Link
-          href="/notifications"
-          className="icon-button"
-          aria-label="Thông báo bếp"
-        >
-          <Bell size={21} />
-        </Link>
-      </PageTitle>
+      <PageTitle title={c.name} subtitle="Quản lý hoạt động bếp" />
       {c.status !== "approved" && (
         <Notice error>
           Bếp hiện chưa được phép nhận đơn. Kiểm tra thông báo hoặc liên hệ hỗ
@@ -547,7 +543,8 @@ export function ChefDashboard() {
               <div>
                 <h3>{p.name}</h3>
                 <p>
-                  {money(p.price)} · {p.active ? "Đang sử dụng" : "Đã ẩn"}
+                  <AnimatedValue>{money(p.price)}</AnimatedValue> ·{" "}
+                  {p.active ? "Đang sử dụng" : "Đã ẩn"}
                 </p>
               </div>
               <Button secondary onClick={() => setProductForm(p)}>
@@ -626,12 +623,14 @@ export function ChefDashboard() {
                     <div>
                       <h3>{item.name}</h3>
                       <p>
-                        Còn {item.stock} suất ·{" "}
-                        {money(
-                          data.campaign?.id === item.campaign_id
-                            ? item.sale_price || item.price
-                            : item.price,
-                        )}{" "}
+                        Còn <AnimatedValue>{item.stock}</AnimatedValue> suất ·{" "}
+                        <AnimatedValue>
+                          {money(
+                            data.campaign?.id === item.campaign_id
+                              ? item.sale_price || item.price
+                              : item.price,
+                          )}
+                        </AnimatedValue>{" "}
                         ·{" "}
                         {m.disabled
                           ? "Đã hết giờ nhận"
@@ -1431,11 +1430,14 @@ export function AdminDashboard() {
                     <div>
                       <h3>{v.title}</h3>
                       <p className="muted small">
-                        {v.code} · {v.chef_name} · Đã dùng {v.used_count}/
-                        {v.max_uses}
+                        {v.code} · {v.chef_name} · Đã dùng{" "}
+                        <AnimatedValue>{v.used_count}</AnimatedValue>/
+                        <AnimatedValue>{v.max_uses}</AnimatedValue>
                       </p>
                     </div>
-                    <strong>{money(v.discount_amount)}</strong>
+                    <strong>
+                      <AnimatedValue>{money(v.discount_amount)}</AnimatedValue>
+                    </strong>
                   </div>
                 ))}
               </>
@@ -1474,7 +1476,7 @@ export function AdminDashboard() {
                       </div>
                       <p className="muted small">
                         {PAYMENT_REQUEST_KINDS[e.kind] || e.kind} ·{" "}
-                        {money(e.amount)}
+                        <AnimatedValue>{money(e.amount)}</AnimatedValue>
                       </p>
                       <p className="muted small">
                         {e.customer_name} · {e.chef_name}

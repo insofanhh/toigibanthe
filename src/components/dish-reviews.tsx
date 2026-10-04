@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -69,8 +70,9 @@ export function DishReviews({
           setOpen(true);
         }}
       >
-        <Star size={14} fill="currentColor" /> {rating.toFixed(1)} ({count} đánh
-        giá)
+        <Star size={14} fill="currentColor" />{" "}
+        <AnimatedValue>{rating.toFixed(1)}</AnimatedValue> (
+        <AnimatedValue>{count}</AnimatedValue> đánh giá)
       </button>
       {mounted &&
         createPortal(
@@ -111,8 +113,14 @@ export function DishReviews({
               {data && (
                 <div className="reviews-summary">
                   <Star size={18} fill="currentColor" />
-                  <strong>{data.total ? data.rating.toFixed(1) : "—"}</strong>
-                  <span>{data.total} đánh giá</span>
+                  <strong>
+                    <AnimatedValue>
+                      {data.total ? data.rating.toFixed(1) : "—"}
+                    </AnimatedValue>
+                  </strong>
+                  <span>
+                    <AnimatedValue>{data.total}</AnimatedValue> đánh giá
+                  </span>
                 </div>
               )}
               {reviews.map((r) => (

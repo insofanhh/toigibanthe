@@ -12,6 +12,14 @@
   font-synthesis: none;
   color-scheme: light;
 }
+.animated-number {
+  display: inline-block;
+  vertical-align: baseline;
+  font-variant-numeric: tabular-nums;
+}
+tspan.animated-number {
+  display: inline;
+}
 * {
   box-sizing: border-box;
 }

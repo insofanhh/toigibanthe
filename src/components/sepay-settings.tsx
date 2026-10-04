@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import { useState, type FormEvent } from "react";
 import { Copy } from "lucide-react";
 import { post, useApp } from "./providers";
@@ -220,7 +221,8 @@ export function SePaySettings() {
               {data.transactions.map((t: any) => (
                 <div key={t.transaction_id}>
                   <span>
-                    #{t.transaction_id} · {money(Number(t.amount))}
+                    #{t.transaction_id} ·{" "}
+                    <AnimatedValue>{money(Number(t.amount))}</AnimatedValue>
                   </span>
                   <small>{results[t.result] || t.result}</small>
                   {t.receiver_last4 && (
@@ -235,7 +237,10 @@ export function SePaySettings() {
                   )}
                   {t.order_code && (
                     <small>
-                      Đơn #{t.order_code} · Tổng {money(Number(t.order_total))}
+                      Đơn #{t.order_code} · Tổng{" "}
+                      <AnimatedValue>
+                        {money(Number(t.order_total))}
+                      </AnimatedValue>
                     </small>
                   )}
                   {t.result === "UNMATCHED" && (

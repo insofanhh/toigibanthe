@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import {
   useEffect,
   useMemo,
@@ -161,7 +162,8 @@ function Delta({
   return (
     <span className={"analytics-delta " + (good ? "good" : "bad")}>
       {value >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}{" "}
-      {Math.abs(value).toFixed(1)}% so với kỳ trước
+      <AnimatedValue>{Math.abs(value).toFixed(1)}</AnimatedValue>% so với kỳ
+      trước
     </span>
   );
 }
@@ -186,7 +188,9 @@ function Kpi({
         <span>{label}</span>
         <Icon size={18} />
       </div>
-      <strong>{unit(metric, value)}</strong>
+      <strong>
+        <AnimatedValue>{unit(metric, value)}</AnimatedValue>
+      </strong>
       <Delta
         value={metricDelta(value, previous)}
         inverse={metric === "cancelRate"}
@@ -251,9 +255,11 @@ function TrendChart({
                 stroke="#e7ede9"
               />
               <text x="42" y={194 - n * 160} textAnchor="end">
-                {metric === "gmv"
-                  ? count(Math.round((max * n) / 1000)) + "k"
-                  : count(Math.round(max * n))}
+                <AnimatedValue as="tspan">
+                  {metric === "gmv"
+                    ? count(Math.round((max * n) / 1000)) + "k"
+                    : count(Math.round(max * n))}
+                </AnimatedValue>
               </text>
             </g>
           ))}
@@ -311,11 +317,15 @@ function TrendChart({
         {hover !== null && (
           <div className="analytics-chart-tooltip">
             {dayLabel(rows[hover].day)} ·{" "}
-            {keys
-              .map(
-                (k) => `${labels[k]}: ${unit(k, Number(rows[hover][k] || 0))}`,
-              )
-              .join(" · ")}
+            {keys.map((k, i) => (
+              <span key={k}>
+                {i > 0 && " · "}
+                {labels[k]}:{" "}
+                <AnimatedValue>
+                  {unit(k, Number(rows[hover][k] || 0))}
+                </AnimatedValue>
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -326,7 +336,9 @@ function TrendChart({
             <tr key={r.day}>
               <td>{dayLabel(r.day)}</td>
               {keys.map((k) => (
-                <td key={k}>{unit(k, Number(r[k] || 0))}</td>
+                <td key={k}>
+                  <AnimatedValue>{unit(k, Number(r[k] || 0))}</AnimatedValue>
+                </td>
               ))}
             </tr>
           ))}
@@ -437,44 +449,66 @@ function Performance({
                     }
                   </span>
                 </td>
-                <td>{count(c.menu_days)} ngày</td>
-                <td>{count(c.completed)}</td>
-                <td>{money(Math.round(Number(c.gmv)))}</td>
                 <td>
-                  {c.accept_minutes === null
-                    ? "—"
-                    : Number(c.accept_minutes).toFixed(1) + " phút"}
+                  <AnimatedValue>{count(c.menu_days)}</AnimatedValue> ngày
                 </td>
                 <td>
-                  {pct(ratio(Number(c.cancelled), Number(c.placed)))}
+                  <AnimatedValue>{count(c.completed)}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>
+                    {money(Math.round(Number(c.gmv)))}
+                  </AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>
+                    {c.accept_minutes === null
+                      ? "—"
+                      : Number(c.accept_minutes).toFixed(1) + " phút"}
+                  </AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>
+                    {pct(ratio(Number(c.cancelled), Number(c.placed)))}
+                  </AnimatedValue>
                   <small>
-                    {count(c.cancelled)} / {count(c.placed)} đơn tạo
+                    <AnimatedValue>{count(c.cancelled)}</AnimatedValue> /{" "}
+                    <AnimatedValue>{count(c.placed)}</AnimatedValue> đơn tạo
                   </small>
                 </td>
                 <td>
-                  {Number(c.rating_count)
-                    ? Number(c.rating).toFixed(1) + " ★"
-                    : "—"}
-                  <small>{count(c.rating_count)} lượt · toàn thời gian</small>
+                  <AnimatedValue>
+                    {Number(c.rating_count)
+                      ? Number(c.rating).toFixed(1) + " ★"
+                      : "—"}
+                  </AnimatedValue>
+                  <small>
+                    <AnimatedValue>{count(c.rating_count)}</AnimatedValue> lượt
+                    · toàn thời gian
+                  </small>
                 </td>
                 <td>
-                  {count(c.requests)}
+                  <AnimatedValue>{count(c.requests)}</AnimatedValue>
                   <small>Đang mở · hiện tại</small>
                 </td>
                 <td>
                   {stamp(c.first_order_at)}
                   {c.approved_at && c.first_order_at && (
                     <small>
-                      {Math.max(
-                        0,
-                        Math.round(
-                          (Date.parse(
-                            c.first_order_at.replace(" ", "T") + "Z",
-                          ) -
-                            Date.parse(c.approved_at.replace(" ", "T") + "Z")) /
-                            86400000,
-                        ),
-                      )}{" "}
+                      <AnimatedValue>
+                        {Math.max(
+                          0,
+                          Math.round(
+                            (Date.parse(
+                              c.first_order_at.replace(" ", "T") + "Z",
+                            ) -
+                              Date.parse(
+                                c.approved_at.replace(" ", "T") + "Z",
+                              )) /
+                              86400000,
+                          ),
+                        )}
+                      </AnimatedValue>{" "}
                       ngày từ duyệt
                     </small>
                   )}
@@ -513,20 +547,42 @@ function Performance({
                     </div>
                   </td>
                   <td>
-                    {count(p.servings)} suất<small>{count(p.orders)} đơn</small>
+                    <AnimatedValue>{count(p.servings)}</AnimatedValue> suất
+                    <small>
+                      <AnimatedValue>{count(p.orders)}</AnimatedValue> đơn
+                    </small>
                   </td>
-                  <td>{money(Math.round(Number(p.gmv)))}</td>
                   <td>
-                    {views.has(p.id)
-                      ? `${count(views.get(p.id)?.views)} / ${count(views.get(p.id)?.adds)}`
-                      : "Chưa ghi nhận"}
+                    <AnimatedValue>
+                      {money(Math.round(Number(p.gmv)))}
+                    </AnimatedValue>
+                  </td>
+                  <td>
+                    {views.has(p.id) ? (
+                      <>
+                        <AnimatedValue>
+                          {count(views.get(p.id)?.views)}
+                        </AnimatedValue>{" "}
+                        /{" "}
+                        <AnimatedValue>
+                          {count(views.get(p.id)?.adds)}
+                        </AnimatedValue>
+                      </>
+                    ) : (
+                      "Chưa ghi nhận"
+                    )}
                     <small>Phiên theo dõi trong kỳ</small>
                   </td>
                   <td>
-                    {Number(p.rating_count)
-                      ? Number(p.rating).toFixed(1) + " ★"
-                      : "—"}
-                    <small>{count(p.rating_count)} lượt · toàn thời gian</small>
+                    <AnimatedValue>
+                      {Number(p.rating_count)
+                        ? Number(p.rating).toFixed(1) + " ★"
+                        : "—"}
+                    </AnimatedValue>
+                    <small>
+                      <AnimatedValue>{count(p.rating_count)}</AnimatedValue>{" "}
+                      lượt · toàn thời gian
+                    </small>
                   </td>
                 </tr>
               ))}
@@ -553,14 +609,23 @@ function Performance({
                 <tr key={r.region}>
                   <td>{r.label}</td>
                   <td>
-                    {count(r.placed)} / {count(r.completed)}
+                    <AnimatedValue>{count(r.placed)}</AnimatedValue> /{" "}
+                    <AnimatedValue>{count(r.completed)}</AnimatedValue>
                   </td>
                   <td>
-                    {count(r.buyers)} / {count(r.chefs)}
+                    <AnimatedValue>{count(r.buyers)}</AnimatedValue> /{" "}
+                    <AnimatedValue>{count(r.chefs)}</AnimatedValue>
                   </td>
-                  <td>{pct(ratio(Number(r.cancelled), Number(r.placed)))}</td>
                   <td>
-                    {Number(r.distance).toFixed(1)} km<small>Đường thẳng</small>
+                    <AnimatedValue>
+                      {pct(ratio(Number(r.cancelled), Number(r.placed)))}
+                    </AnimatedValue>
+                  </td>
+                  <td>
+                    <AnimatedValue>
+                      {Number(r.distance).toFixed(1)}
+                    </AnimatedValue>{" "}
+                    km<small>Đường thẳng</small>
                   </td>
                 </tr>
               ))}
@@ -1029,16 +1094,19 @@ export function AdminOverview({
         <div className="analytics-live analytics-system-totals">
           <span>Quy mô toàn thời gian:</span>
           <button className="text-button" onClick={() => onNavigate("users")}>
-            {count(summary.data.totals.users)} tài khoản
+            <AnimatedValue>{count(summary.data.totals.users)}</AnimatedValue>{" "}
+            tài khoản
           </button>
           <button className="text-button" onClick={() => onNavigate("chefs")}>
-            {count(summary.data.totals.chefs)} bếp
+            <AnimatedValue>{count(summary.data.totals.chefs)}</AnimatedValue>{" "}
+            bếp
           </button>
           <button
             className="text-button"
             onClick={() => onNavigate("products")}
           >
-            {count(summary.data.totals.products)} sản phẩm
+            <AnimatedValue>{count(summary.data.totals.products)}</AnimatedValue>{" "}
+            sản phẩm
           </button>
         </div>
       )}
@@ -1072,9 +1140,13 @@ export function AdminOverview({
                 }
               >
                 <ShoppingBag size={19} />
-                <strong>{count(o.overduePaid)}</strong>
+                <strong>
+                  <AnimatedValue>{count(o.overduePaid)}</AnimatedValue>
+                </strong>
                 <span>Đã trả tiền, chậm nhận</span>
-                <small>Quá {o.sla.acceptMinutes} phút</small>
+                <small>
+                  Quá <AnimatedValue>{o.sla.acceptMinutes}</AnimatedValue> phút
+                </small>
                 <ChevronRight size={16} />
               </button>
               <button
@@ -1090,16 +1162,20 @@ export function AdminOverview({
               >
                 <Wallet size={19} />
                 <strong>
-                  {count(
-                    o.refunds.find((r: Row) => r.status === "OPEN")?.count,
-                  )}
+                  <AnimatedValue>
+                    {count(
+                      o.refunds.find((r: Row) => r.status === "OPEN")?.count,
+                    )}
+                  </AnimatedValue>
                 </strong>
                 <span>Chờ chef đối soát</span>
                 <small>
-                  {count(
-                    o.refunds.find((r: Row) => r.status === "OPEN")?.overdue,
-                  )}{" "}
-                  quá {o.sla.refundHours} giờ
+                  <AnimatedValue>
+                    {count(
+                      o.refunds.find((r: Row) => r.status === "OPEN")?.overdue,
+                    )}
+                  </AnimatedValue>{" "}
+                  quá <AnimatedValue>{o.sla.refundHours}</AnimatedValue> giờ
                 </small>
                 <ChevronRight size={16} />
               </button>
@@ -1116,16 +1192,21 @@ export function AdminOverview({
               >
                 <Activity size={19} />
                 <strong>
-                  {count(
-                    o.refunds.find((r: Row) => r.status === "REVIEW")?.count,
-                  )}
+                  <AnimatedValue>
+                    {count(
+                      o.refunds.find((r: Row) => r.status === "REVIEW")?.count,
+                    )}
+                  </AnimatedValue>
                 </strong>
                 <span>Bằng chứng chờ duyệt</span>
                 <small>
-                  {count(
-                    o.refunds.find((r: Row) => r.status === "REVIEW")?.overdue,
-                  )}{" "}
-                  quá {o.sla.refundHours} giờ
+                  <AnimatedValue>
+                    {count(
+                      o.refunds.find((r: Row) => r.status === "REVIEW")
+                        ?.overdue,
+                    )}
+                  </AnimatedValue>{" "}
+                  quá <AnimatedValue>{o.sla.refundHours}</AnimatedValue> giờ
                 </small>
                 <ChevronRight size={16} />
               </button>
@@ -1135,10 +1216,13 @@ export function AdminOverview({
                 onClick={() => onNavigate("chefs")}
               >
                 <ChefHat size={19} />
-                <strong>{count(o.pending.count)}</strong>
+                <strong>
+                  <AnimatedValue>{count(o.pending.count)}</AnimatedValue>
+                </strong>
                 <span>Hồ sơ chờ duyệt</span>
                 <small>
-                  {count(o.pending.overdue)} quá {o.sla.profileHours} giờ · toàn
+                  <AnimatedValue>{count(o.pending.overdue)}</AnimatedValue> quá{" "}
+                  <AnimatedValue>{o.sla.profileHours}</AnimatedValue> giờ · toàn
                   hệ thống
                 </small>
                 <ChevronRight size={16} />
@@ -1146,19 +1230,24 @@ export function AdminOverview({
             </div>
             <div className="analytics-live">
               <span>
-                <i /> {count(o.supply.open_chefs)} bếp có món nhận đặt
+                <i />{" "}
+                <AnimatedValue>{count(o.supply.open_chefs)}</AnimatedValue> bếp
+                có món nhận đặt
               </span>
               <span>
-                {count(o.supply.dishes)} món · {count(o.supply.servings)} suất
+                <AnimatedValue>{count(o.supply.dishes)}</AnimatedValue> món ·{" "}
+                <AnimatedValue>{count(o.supply.servings)}</AnimatedValue> suất
               </span>
               <button
                 className="text-button"
                 onClick={() => onNavigate("orders", undefined, "active")}
               >
-                {count(o.live.active)} đơn đang xử lý
+                <AnimatedValue>{count(o.live.active)}</AnimatedValue> đơn đang
+                xử lý
               </button>
               <span>
-                {count(o.unmatched)} giao dịch cần kiểm tra trong 7 ngày
+                <AnimatedValue>{count(o.unmatched)}</AnimatedValue> giao dịch
+                cần kiểm tra trong 7 ngày
               </span>
             </div>
           </>
@@ -1222,28 +1311,50 @@ export function AdminOverview({
       )}
       {current && (
         <div className="analytics-footnote">
-          Phí giao của đơn hoàn thành: <b>{money(Number(current.delivery))}</b>{" "}
+          Phí giao của đơn hoàn thành:{" "}
+          <b>
+            <AnimatedValue>{money(Number(current.delivery))}</AnimatedValue>
+          </b>{" "}
           · Tỷ lệ hoàn thành của nhóm đơn tạo trong kỳ:{" "}
-          <b>{pct(current.completionRate)}</b> · {count(current.unresolved)} đơn
-          trong nhóm còn xử lý. Nền tảng hiện chưa thu phí; doanh số không phải
-          doanh thu nền tảng.
+          <b>
+            <AnimatedValue>{pct(current.completionRate)}</AnimatedValue>
+          </b>{" "}
+          · <AnimatedValue>{count(current.unresolved)}</AnimatedValue> đơn trong
+          nhóm còn xử lý. Nền tảng hiện chưa thu phí; doanh số không phải doanh
+          thu nền tảng.
           {Number(summary.data?.legacyCompletions) > 0 && (
             <span>
               {" "}
-              {count(summary.data?.legacyCompletions)} đơn cũ thiếu sự kiện hoàn
-              thành dùng ngày cập nhật làm mốc thay thế.
+              <AnimatedValue>
+                {count(summary.data?.legacyCompletions)}
+              </AnimatedValue>{" "}
+              đơn cũ thiếu sự kiện hoàn thành dùng ngày cập nhật làm mốc thay
+              thế.
             </span>
           )}
           <span>
             {" "}
             Giá trị đơn đã xác nhận thanh toán trong kỳ:{" "}
-            <b>{money(Number(summary.data?.payments?.amount || 0))}</b> (
-            {count(summary.data?.payments?.confirmed)} đơn;{" "}
-            {count(summary.data?.payments?.automatic)} tự động SePay,{" "}
-            {count(
-              Number(summary.data?.payments?.confirmed || 0) -
-                Number(summary.data?.payments?.automatic || 0),
-            )}{" "}
+            <b>
+              <AnimatedValue>
+                {money(Number(summary.data?.payments?.amount || 0))}
+              </AnimatedValue>
+            </b>{" "}
+            (
+            <AnimatedValue>
+              {count(summary.data?.payments?.confirmed)}
+            </AnimatedValue>{" "}
+            đơn;{" "}
+            <AnimatedValue>
+              {count(summary.data?.payments?.automatic)}
+            </AnimatedValue>{" "}
+            tự động SePay,{" "}
+            <AnimatedValue>
+              {count(
+                Number(summary.data?.payments?.confirmed || 0) -
+                  Number(summary.data?.payments?.automatic || 0),
+              )}
+            </AnimatedValue>{" "}
             xác nhận khác). Đây là giá trị đơn được xác nhận, chưa trừ hoàn tiền
             và không phải số dư ngân hàng.
           </span>
@@ -1291,7 +1402,9 @@ export function AdminOverview({
                       }}
                     />
                   </div>
-                  <strong>{count(r.count)}</strong>
+                  <strong>
+                    <AnimatedValue>{count(r.count)}</AnimatedValue>
+                  </strong>
                 </div>
               ))}
             </div>
@@ -1312,9 +1425,15 @@ export function AdminOverview({
               {trends.data.meals.map((r: Row) => (
                 <tr key={r.meal_id}>
                   <td>{MEAL_NAMES[r.meal_id as MealId]}</td>
-                  <td>{count(r.placed)}</td>
-                  <td>{count(r.completed)}</td>
-                  <td>{count(r.chefs)}</td>
+                  <td>
+                    <AnimatedValue>{count(r.placed)}</AnimatedValue>
+                  </td>
+                  <td>
+                    <AnimatedValue>{count(r.completed)}</AnimatedValue>
+                  </td>
+                  <td>
+                    <AnimatedValue>{count(r.chefs)}</AnimatedValue>
+                  </td>
                 </tr>
               ))}
             </Table>
@@ -1362,7 +1481,7 @@ export function AdminOverview({
                                 : "#f4f6f4",
                             }}
                           >
-                            {count(n)}
+                            <AnimatedValue>{count(n)}</AnimatedValue>
                           </span>
                         </td>
                       );
@@ -1401,11 +1520,15 @@ export function AdminOverview({
               <tr key={r.id}>
                 <td>{r.code}</td>
                 <td>{r.chef_name}</td>
-                <td>{money(Number(r.total))}</td>
+                <td>
+                  <AnimatedValue>{money(Number(r.total))}</AnimatedValue>
+                </td>
                 <td>
                   <Status value={r.status} />
                 </td>
-                <td>{count(r.waiting_minutes)} phút</td>
+                <td>
+                  <AnimatedValue>{count(r.waiting_minutes)}</AnimatedValue> phút
+                </td>
                 <td>
                   <Link className="text-button" href={"/orders/" + r.id}>
                     Xem đơn
@@ -1456,7 +1579,9 @@ export function AdminOverview({
                         }}
                       />
                     </div>
-                    <b>{count(g.funnel[k])}</b>
+                    <b>
+                      <AnimatedValue>{count(g.funnel[k])}</AnimatedValue>
+                    </b>
                   </div>
                 ))}
               </div>
@@ -1479,10 +1604,18 @@ export function AdminOverview({
           ) : (
             <>
               <div className="analytics-retention">
-                <strong>{pct(current?.repeat30)}</strong>
+                <strong>
+                  <AnimatedValue>{pct(current?.repeat30)}</AnimatedValue>
+                </strong>
                 <span>
-                  {count(current?.repeatReturned)} /{" "}
-                  {count(current?.repeatEligible)} khách đủ 30 ngày quan sát
+                  <AnimatedValue>
+                    {count(current?.repeatReturned)}
+                  </AnimatedValue>{" "}
+                  /{" "}
+                  <AnimatedValue>
+                    {count(current?.repeatEligible)}
+                  </AnimatedValue>{" "}
+                  khách đủ 30 ngày quan sát
                 </span>
               </div>
               <Table
@@ -1497,13 +1630,21 @@ export function AdminOverview({
                 {g.cohorts.map((r: Row) => (
                   <tr key={r.month}>
                     <td>{r.month}</td>
-                    <td>{count(r.buyers)}</td>
-                    <td>{count(r.eligible)}</td>
-                    <td>{count(r.returned)}</td>
                     <td>
-                      {Number(r.eligible)
-                        ? pct(ratio(Number(r.returned), Number(r.eligible)))
-                        : "Chưa đủ 30 ngày"}
+                      <AnimatedValue>{count(r.buyers)}</AnimatedValue>
+                    </td>
+                    <td>
+                      <AnimatedValue>{count(r.eligible)}</AnimatedValue>
+                    </td>
+                    <td>
+                      <AnimatedValue>{count(r.returned)}</AnimatedValue>
+                    </td>
+                    <td>
+                      <AnimatedValue>
+                        {Number(r.eligible)
+                          ? pct(ratio(Number(r.returned), Number(r.eligible)))
+                          : "Chưa đủ 30 ngày"}
+                      </AnimatedValue>
                     </td>
                   </tr>
                 ))}
@@ -1536,10 +1677,16 @@ export function AdminOverview({
                   {r.label}
                   <small>{regionLabel(r.region)}</small>
                 </td>
-                <td>{count(r.sessions)}</td>
-                <td>{count(r.empty_sessions)}</td>
                 <td>
-                  {pct(ratio(Number(r.empty_sessions), Number(r.sessions)))}
+                  <AnimatedValue>{count(r.sessions)}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>{count(r.empty_sessions)}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>
+                    {pct(ratio(Number(r.empty_sessions), Number(r.sessions)))}
+                  </AnimatedValue>
                 </td>
                 <td>
                   <span
@@ -1548,7 +1695,7 @@ export function AdminOverview({
                       (!Number(r.serving_chefs) ? "warning" : "")
                     }
                   >
-                    {count(r.serving_chefs)} bếp
+                    <AnimatedValue>{count(r.serving_chefs)}</AnimatedValue> bếp
                   </span>
                 </td>
               </tr>
@@ -1595,7 +1742,9 @@ export function AdminOverview({
                     <small>{r.chef_name}</small>
                   </td>
                   <td>{PAYMENT_REQUEST_KINDS[r.kind] || r.kind}</td>
-                  <td>{money(Number(r.amount))}</td>
+                  <td>
+                    <AnimatedValue>{money(Number(r.amount))}</AnimatedValue>
+                  </td>
                   <td>
                     <Status value={r.status} />
                     {r.evidence_asset_id && <small>Đã có bằng chứng</small>}
@@ -1626,7 +1775,9 @@ export function AdminOverview({
                     {r.transaction_id}
                     <small>{r.chef_name}</small>
                   </td>
-                  <td>{money(Number(r.amount))}</td>
+                  <td>
+                    <AnimatedValue>{money(Number(r.amount))}</AnimatedValue>
+                  </td>
                   <td>
                     {(
                       {
@@ -1677,19 +1828,30 @@ export function AdminOverview({
                   <small>{r.title}</small>
                 </td>
                 <td>Voucher</td>
-                <td>{count(r.completed)}</td>
-                <td>{count(r.new_buyers)}</td>
                 <td>
-                  {Number(r.eligible)
-                    ? pct(ratio(Number(r.returned), Number(r.eligible)))
-                    : "Chưa đủ dữ liệu"}
+                  <AnimatedValue>{count(r.completed)}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>{count(r.new_buyers)}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>
+                    {Number(r.eligible)
+                      ? pct(ratio(Number(r.returned), Number(r.eligible)))
+                      : "Chưa đủ dữ liệu"}
+                  </AnimatedValue>
                   <small>
-                    {count(r.returned)} / {count(r.eligible)} khách mới đủ 30
-                    ngày
+                    <AnimatedValue>{count(r.returned)}</AnimatedValue> /{" "}
+                    <AnimatedValue>{count(r.eligible)}</AnimatedValue> khách mới
+                    đủ 30 ngày
                   </small>
                 </td>
-                <td>{money(Number(r.gmv))}</td>
-                <td>{money(Number(r.discount))}</td>
+                <td>
+                  <AnimatedValue>{money(Number(r.gmv))}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>{money(Number(r.discount))}</AnimatedValue>
+                </td>
                 <td>Chef</td>
               </tr>
             ))}
@@ -1697,19 +1859,30 @@ export function AdminOverview({
               <tr key={r.id}>
                 <td>{r.name}</td>
                 <td>Sale</td>
-                <td>{count(r.completed)}</td>
-                <td>{count(r.new_buyers)}</td>
                 <td>
-                  {Number(r.eligible)
-                    ? pct(ratio(Number(r.returned), Number(r.eligible)))
-                    : "Chưa đủ dữ liệu"}
+                  <AnimatedValue>{count(r.completed)}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>{count(r.new_buyers)}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>
+                    {Number(r.eligible)
+                      ? pct(ratio(Number(r.returned), Number(r.eligible)))
+                      : "Chưa đủ dữ liệu"}
+                  </AnimatedValue>
                   <small>
-                    {count(r.returned)} / {count(r.eligible)} khách mới đủ 30
-                    ngày
+                    <AnimatedValue>{count(r.returned)}</AnimatedValue> /{" "}
+                    <AnimatedValue>{count(r.eligible)}</AnimatedValue> khách mới
+                    đủ 30 ngày
                   </small>
                 </td>
-                <td>{money(Number(r.gmv))}</td>
-                <td>{money(Number(r.discount))}</td>
+                <td>
+                  <AnimatedValue>{money(Number(r.gmv))}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>{money(Number(r.discount))}</AnimatedValue>
+                </td>
                 <td>Chef</td>
               </tr>
             ))}
@@ -1742,22 +1915,28 @@ export function AdminOverview({
             <div className="analytics-small-stats">
               <div>
                 <span>Chi phí đã nhập</span>
-                <strong>{money(costsTotal)}</strong>
+                <strong>
+                  <AnimatedValue>{money(costsTotal)}</AnimatedValue>
+                </strong>
               </div>
               <div>
                 <span>Chi phí marketing</span>
-                <strong>{money(marketingTotal)}</strong>
+                <strong>
+                  <AnimatedValue>{money(marketingTotal)}</AnimatedValue>
+                </strong>
               </div>
               <div>
                 <span>Chi phí marketing / khách mới</span>
                 <strong>
-                  {marketingTotal && Number(current?.new_buyers)
-                    ? money(
-                        Math.round(
-                          marketingTotal / Number(current?.new_buyers),
-                        ),
-                      )
-                    : "Chưa đủ dữ liệu"}
+                  <AnimatedValue>
+                    {marketingTotal && Number(current?.new_buyers)
+                      ? money(
+                          Math.round(
+                            marketingTotal / Number(current?.new_buyers),
+                          ),
+                        )
+                      : "Chưa đủ dữ liệu"}
+                  </AnimatedValue>
                 </strong>
                 <small>Ước tính gộp · không phải CAC theo kênh</small>
               </div>
@@ -1778,18 +1957,26 @@ export function AdminOverview({
                   {g.sources.map((r: Row) => (
                     <tr key={r.source}>
                       <td>{r.source}</td>
-                      <td>{count(r.completed)}</td>
-                      <td>{count(r.new_buyers)}</td>
-                      <td>{money(Number(r.gmv))}</td>
                       <td>
-                        {sourceCosts.has(r.source) && Number(r.new_buyers)
-                          ? money(
-                              Math.round(
-                                sourceCosts.get(r.source)! /
-                                  Number(r.new_buyers),
-                              ),
-                            )
-                          : "Chưa đủ dữ liệu"}
+                        <AnimatedValue>{count(r.completed)}</AnimatedValue>
+                      </td>
+                      <td>
+                        <AnimatedValue>{count(r.new_buyers)}</AnimatedValue>
+                      </td>
+                      <td>
+                        <AnimatedValue>{money(Number(r.gmv))}</AnimatedValue>
+                      </td>
+                      <td>
+                        <AnimatedValue>
+                          {sourceCosts.has(r.source) && Number(r.new_buyers)
+                            ? money(
+                                Math.round(
+                                  sourceCosts.get(r.source)! /
+                                    Number(r.new_buyers),
+                                ),
+                              )
+                            : "Chưa đủ dữ liệu"}
+                        </AnimatedValue>
                       </td>
                     </tr>
                   ))}
@@ -1817,7 +2004,9 @@ export function AdminOverview({
                         </small>
                       </td>
                       <td>{dayLabel(r.spent_on)}</td>
-                      <td>{money(Number(r.amount))}</td>
+                      <td>
+                        <AnimatedValue>{money(Number(r.amount))}</AnimatedValue>
+                      </td>
                       <td>
                         <button
                           className="text-button"
@@ -1896,9 +2085,19 @@ export function AdminOverview({
                     {r.meal_id && " · " + MEAL_NAMES[r.meal_id as MealId]}
                   </small>
                   <div className="analytics-goal-values">
-                    <span>Mốc {unit(r.metric, r.baseline)}</span>
-                    <strong>{unit(r.metric, r.current)}</strong>
-                    <span>Mục tiêu {unit(r.metric, r.target)}</span>
+                    <span>
+                      Mốc{" "}
+                      <AnimatedValue>
+                        {unit(r.metric, r.baseline)}
+                      </AnimatedValue>
+                    </span>
+                    <strong>
+                      <AnimatedValue>{unit(r.metric, r.current)}</AnimatedValue>
+                    </strong>
+                    <span>
+                      Mục tiêu{" "}
+                      <AnimatedValue>{unit(r.metric, r.target)}</AnimatedValue>
+                    </span>
                   </div>
                   <div
                     className="analytics-progress"
@@ -1911,9 +2110,11 @@ export function AdminOverview({
                     <i style={{ width: (progress || 0) + "%" }} />
                   </div>
                   <small>
-                    {progress === null
-                      ? "Chưa đủ dữ liệu"
-                      : pct(progress) + " tiến độ"}{" "}
+                    <AnimatedValue>
+                      {progress === null
+                        ? "Chưa đủ dữ liệu"
+                        : pct(progress) + " tiến độ"}
+                    </AnimatedValue>{" "}
                     ·{" "}
                     {r.to_date < today
                       ? "Đã kết thúc"
@@ -1934,33 +2135,40 @@ export function AdminOverview({
         <div className="analytics-insights">
           {g && noMatch > 0 && (
             <p>
-              <b>Nguồn cung:</b> {count(noMatch)} lượt phiên theo khu vực có lúc
-              không tìm được món. Kiểm tra vùng thiếu bếp và bữa cần bổ sung.
+              <b>Nguồn cung:</b> <AnimatedValue>{count(noMatch)}</AnimatedValue>{" "}
+              lượt phiên theo khu vực có lúc không tìm được món. Kiểm tra vùng
+              thiếu bếp và bữa cần bổ sung.
             </p>
           )}
           {current && Number(current.cancelled) > 0 && (
             <p>
-              <b>Vận hành:</b> {count(current.cancelled)} đơn hủy hoặc bị từ
-              chối. Kiểm tra lý do và chef liên quan trước khi tăng quảng bá.
+              <b>Vận hành:</b>{" "}
+              <AnimatedValue>{count(current.cancelled)}</AnimatedValue> đơn hủy
+              hoặc bị từ chối. Kiểm tra lý do và chef liên quan trước khi tăng
+              quảng bá.
             </p>
           )}
           {current && current.repeat30 !== null && (
             <p>
-              <b>Giữ khách:</b> {pct(current.repeat30)} khách đủ thời gian quan
-              sát mua lại trong 30 ngày. Theo dõi xu hướng qua các nhóm khách.
+              <b>Giữ khách:</b>{" "}
+              <AnimatedValue>{pct(current.repeat30)}</AnimatedValue> khách đủ
+              thời gian quan sát mua lại trong 30 ngày. Theo dõi xu hướng qua
+              các nhóm khách.
             </p>
           )}
           {perf.data && Number(current?.gmv) > 0 && (
             <p>
               <b>Nguồn cung tập trung:</b> 3 bếp doanh số cao nhất chiếm{" "}
-              {pct(
-                ratio(
-                  perf.data.chefs
-                    .slice(0, 3)
-                    .reduce((s: number, c: Row) => s + Number(c.gmv), 0),
-                  Number(current?.gmv),
-                ),
-              )}{" "}
+              <AnimatedValue>
+                {pct(
+                  ratio(
+                    perf.data.chefs
+                      .slice(0, 3)
+                      .reduce((s: number, c: Row) => s + Number(c.gmv), 0),
+                    Number(current?.gmv),
+                  ),
+                )}
+              </AnimatedValue>{" "}
               doanh số món trong kỳ.
             </p>
           )}
@@ -2004,8 +2212,12 @@ export function AdminOverview({
                   </Link>
                 </td>
                 <td>{r.chef_name}</td>
-                <td>{count(r.servings)}</td>
-                <td>{money(Number(r.total))}</td>
+                <td>
+                  <AnimatedValue>{count(r.servings)}</AnimatedValue>
+                </td>
+                <td>
+                  <AnimatedValue>{money(Number(r.total))}</AnimatedValue>
+                </td>
                 <td>
                   <Status value={r.status} />
                 </td>

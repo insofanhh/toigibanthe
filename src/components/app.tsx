@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import {
   useState,
   useEffect,
@@ -362,7 +363,9 @@ function Nav({ path }: { path: string }) {
           <span className="nav-icon">
             <Icon size={21} strokeWidth={1.6} />
             {href === "/notifications" && unread > 0 && (
-              <span className="badge">{unread > 9 ? "9+" : unread}</span>
+              <span className="badge">
+                <AnimatedValue>{unread > 9 ? "9+" : unread}</AnimatedValue>
+              </span>
             )}
           </span>
           <span>{label}</span>
@@ -415,11 +418,15 @@ function CartDock({ path }: { path: string }) {
     total = cart.reduce((a, x) => a + x.quantity * x.dish.price, 0);
   return (
     <Link href="/cart" className="cart-dock">
-      <span className="cart-count">{count}</span>
+      <span className="cart-count">
+        <AnimatedValue>{count}</AnimatedValue>
+      </span>
       <span>
         Xem giỏ hàng <small>{cart[0].dish.chefName}</small>
       </span>
-      <strong>{money(total)}</strong>
+      <strong>
+        <AnimatedValue>{money(total)}</AnimatedValue>
+      </strong>
       <ChevronRight size={17} />
     </Link>
   );
@@ -585,7 +592,7 @@ function Section({
   href,
   children,
 }: {
-  title: string;
+  title: ReactNode;
   subtitle?: string;
   href?: string;
   children: ReactNode;
@@ -642,7 +649,11 @@ export function DishCard({ dish }: { dish: Dish }) {
         </Link>
         {dish.price < dish.originalPrice && (
           <span className="sale-label">
-            −{Math.round((1 - dish.price / dish.originalPrice) * 100)}%
+            −
+            <AnimatedValue>
+              {Math.round((1 - dish.price / dish.originalPrice) * 100)}
+            </AnimatedValue>
+            %
           </span>
         )}
         <button
@@ -668,19 +679,33 @@ export function DishCard({ dish }: { dish: Dish }) {
         <div className="dish-meta">
           <span>
             <Star size={12} fill="currentColor" />
-            {dish.rating ? dish.rating.toFixed(1) : "Mới"}
-            {dish.ratingCount > 0 && <small>({dish.ratingCount})</small>}
+            <AnimatedValue>
+              {dish.rating ? dish.rating.toFixed(1) : "Mới"}
+            </AnimatedValue>
+            {dish.ratingCount > 0 && (
+              <small>
+                (<AnimatedValue>{dish.ratingCount}</AnimatedValue>)
+              </small>
+            )}
           </span>
           <span className="dot">·</span>
-          <span>{dish.distance.toFixed(1)} km</span>
+          <span>
+            <AnimatedValue>{dish.distance.toFixed(1)}</AnimatedValue> km
+          </span>
           <span className="dot">·</span>
-          <span>{dish.prepMinutes} phút</span>
+          <span>
+            <AnimatedValue>{dish.prepMinutes}</AnimatedValue> phút
+          </span>
         </div>
         <div className="dish-bottom">
           <div>
-            <strong>{money(dish.price)}</strong>
+            <strong>
+              <AnimatedValue>{money(dish.price)}</AnimatedValue>
+            </strong>
             {dish.price < dish.originalPrice && (
-              <del>{money(dish.originalPrice)}</del>
+              <del>
+                <AnimatedValue>{money(dish.originalPrice)}</AnimatedValue>
+              </del>
             )}
           </div>
           <button
@@ -713,12 +738,18 @@ function ChefCards({ chefs }: { chefs: Feed["chefs"] }) {
           <div className="dish-meta">
             <span>
               <Star size={12} fill="currentColor" />
-              {c.rating ? c.rating.toFixed(1) : "Mới"}
+              <AnimatedValue>
+                {c.rating ? c.rating.toFixed(1) : "Mới"}
+              </AnimatedValue>
             </span>
             <span>·</span>
-            <span>{c.distance.toFixed(1)} km</span>
+            <span>
+              <AnimatedValue>{c.distance.toFixed(1)}</AnimatedValue> km
+            </span>
           </div>
-          <small>{c.completedOrders} đơn hoàn thành</small>
+          <small>
+            <AnimatedValue>{c.completedOrders}</AnimatedValue> đơn hoàn thành
+          </small>
         </Link>
       ))}
     </div>
@@ -984,7 +1015,9 @@ function DishList({ path }: { path: string }) {
           <option value="50000">Dưới 50.000đ</option>
           <option value="70000">Dưới 70.000đ</option>
         </select>
-        <span>{list.length} món đã tải</span>
+        <span>
+          <AnimatedValue>{list.length}</AnimatedValue> món đã tải
+        </span>
       </div>
       {error ? (
         <Notice error>{error}</Notice>
@@ -1082,19 +1115,28 @@ function DishDetail({ id }: { id: string }) {
               rating={d.rating}
               count={d.ratingCount}
             />
-            <span>{d.distance.toFixed(1)} km</span>
+            <span>
+              <AnimatedValue>{d.distance.toFixed(1)}</AnimatedValue> km
+            </span>
           </div>
           <div className="detail-price">
-            {money(d.price)}
-            {d.price < d.originalPrice && <del>{money(d.originalPrice)}</del>}
+            <AnimatedValue>{money(d.price)}</AnimatedValue>
+            {d.price < d.originalPrice && (
+              <del>
+                <AnimatedValue>{money(d.originalPrice)}</AnimatedValue>
+              </del>
+            )}
           </div>
           <p>{d.description}</p>
           <div className="info-pills">
             <span>
-              <Clock size={15} /> {d.prepMinutes} phút chuẩn bị
+              <Clock size={15} /> <AnimatedValue>{d.prepMinutes}</AnimatedValue>{" "}
+              phút chuẩn bị
             </span>
             <span>{MEAL_NAMES[d.meal]}</span>
-            <span>Còn {d.stock} suất</span>
+            <span>
+              Còn <AnimatedValue>{d.stock}</AnimatedValue> suất
+            </span>
           </div>
           <h3>Thành phần & lưu ý</h3>
           <p>{d.ingredients || "Liên hệ bếp nếu bạn có dị ứng thực phẩm."}</p>
@@ -1143,10 +1185,14 @@ function Chefs({ id }: { id?: string }) {
             <div className="dish-meta">
               <span>
                 <Star size={14} />
-                {Number(c.rating).toFixed(1)} ({c.rating_count})
+                <AnimatedValue>{Number(c.rating).toFixed(1)}</AnimatedValue> (
+                <AnimatedValue>{c.rating_count}</AnimatedValue>)
               </span>
               <span>{c.area}</span>
-              <span>{c.completed_orders} đơn hoàn thành</span>
+              <span>
+                <AnimatedValue>{c.completed_orders}</AnimatedValue> đơn hoàn
+                thành
+              </span>
             </div>
           </div>
         </div>
@@ -1326,7 +1372,8 @@ export function OrderCard({
           )}
           {Number(o.item_quantity) > 0 && (
             <span className="order-item-count">
-              {o.dish_count} món · {o.item_quantity} phần
+              <AnimatedValue>{o.dish_count}</AnimatedValue> món ·{" "}
+              <AnimatedValue>{o.item_quantity}</AnimatedValue> phần
             </span>
           )}
           <p>
@@ -1337,7 +1384,9 @@ export function OrderCard({
           </p>
         </div>
         <div className="order-card-total">
-          <strong>{money(o.total)}</strong>
+          <strong>
+            <AnimatedValue>{money(o.total)}</AnimatedValue>
+          </strong>
           <ChevronRight size={18} />
         </div>
       </Link>
@@ -1450,7 +1499,7 @@ function Notifications() {
                 className="notification-group-count"
                 data-unread={counts.news > 0}
               >
-                {counts.news}
+                <AnimatedValue>{counts.news}</AnimatedValue>
               </span>
             )}
           </strong>
@@ -1472,7 +1521,7 @@ function Notifications() {
                 className="notification-group-count"
                 data-unread={counts.order > 0}
               >
-                {counts.order}
+                <AnimatedValue>{counts.order}</AnimatedValue>
               </span>
             )}
           </strong>
@@ -1499,7 +1548,17 @@ function Notifications() {
         />
       )}
       <Section
-        title={`Khuyến mãi${data ? ` (${counts.promotion} chưa đọc)` : ""}`}
+        title={
+          <>
+            Khuyến mãi
+            {data && (
+              <>
+                {" "}
+                (<AnimatedValue>{counts.promotion}</AnimatedValue> chưa đọc)
+              </>
+            )}
+          </>
+        }
       >
         {data && (
           <NotificationList
@@ -1798,7 +1857,9 @@ function Cart() {
               <div>
                 <h3>{d.name}</h3>
                 <p>{MEAL_NAMES[d.meal]}</p>
-                <strong>{money(d.price)}</strong>
+                <strong>
+                  <AnimatedValue>{money(d.price)}</AnimatedValue>
+                </strong>
               </div>
               <div className="quantity">
                 <button
@@ -1807,7 +1868,9 @@ function Cart() {
                 >
                   <Minus size={14} />
                 </button>
-                <span>{q}</span>
+                <span>
+                  <AnimatedValue>{q}</AnimatedValue>
+                </span>
                 <button
                   onClick={() => setQuantity(d.menuId, q + 1)}
                   aria-label="Tăng số lượng"
@@ -1823,7 +1886,9 @@ function Cart() {
           <div>
             <span>Tiền món</span>
             <strong>
-              {money(cart.reduce((a, x) => a + x.quantity * x.dish.price, 0))}
+              <AnimatedValue>
+                {money(cart.reduce((a, x) => a + x.quantity * x.dish.price, 0))}
+              </AnimatedValue>
             </strong>
           </div>
           <p>
@@ -2009,14 +2074,16 @@ function Checkout() {
           {cart.map((x) => (
             <div key={x.dish.menuId}>
               <span>
-                {x.quantity} × {x.dish.name}
+                <AnimatedValue>{x.quantity}</AnimatedValue> × {x.dish.name}
               </span>
               <strong>
-                {money(
-                  x.quantity *
-                    (quote?.items.find((i) => i.menuId === x.dish.menuId)
-                      ?.price ?? x.dish.price),
-                )}
+                <AnimatedValue>
+                  {money(
+                    x.quantity *
+                      (quote?.items.find((i) => i.menuId === x.dish.menuId)
+                        ?.price ?? x.dish.price),
+                  )}
+                </AnimatedValue>
               </strong>
             </div>
           ))}
@@ -2024,21 +2091,29 @@ function Checkout() {
             <>
               <div>
                 <span>Tiền món</span>
-                <strong>{money(quote.subtotal)}</strong>
+                <strong>
+                  <AnimatedValue>{money(quote.subtotal)}</AnimatedValue>
+                </strong>
               </div>
               <div>
                 <span>Phí giao</span>
-                <strong>{money(quote.deliveryFee)}</strong>
+                <strong>
+                  <AnimatedValue>{money(quote.deliveryFee)}</AnimatedValue>
+                </strong>
               </div>
               {quote.discount > 0 && (
                 <div>
                   <span>Voucher</span>
-                  <strong>−{money(quote.discount)}</strong>
+                  <strong>
+                    −<AnimatedValue>{money(quote.discount)}</AnimatedValue>
+                  </strong>
                 </div>
               )}
               <div className="summary-total">
                 <span>Tổng thanh toán</span>
-                <strong>{money(quote.total)}</strong>
+                <strong>
+                  <AnimatedValue>{money(quote.total)}</AnimatedValue>
+                </strong>
               </div>
             </>
           )}
@@ -2265,7 +2340,13 @@ function OrderDetail({ id }: { id: string }) {
                     ].map(([label, value]) => (
                       <div className="bank-row" key={label}>
                         <small>{label}</small>
-                        <strong>{value}</strong>
+                        <strong>
+                          {label === "Số tiền" ? (
+                            <AnimatedValue>{value}</AnimatedValue>
+                          ) : (
+                            value
+                          )}
+                        </strong>
                         <button
                           className="icon-button"
                           aria-label={"Sao chép " + label}
@@ -2296,9 +2377,15 @@ function OrderDetail({ id }: { id: string }) {
                         </Notice>
                         {Number(o.received_amount) > 0 && (
                           <p className="muted">
-                            Đã nhận {money(Number(o.received_amount))}.{" "}
-                            {o.payment_status !== "PAYMENT_REVIEW" &&
-                              `Còn thiếu ${money(Math.max(0, o.total - Number(o.received_amount)))}.`}
+                            Đã nhận{" "}
+                            <AnimatedValue>
+                              {money(Number(o.received_amount))}
+                            </AnimatedValue>
+                            .{" "}
+                            <AnimatedValue>
+                              {o.payment_status !== "PAYMENT_REVIEW" &&
+                                `Còn thiếu ${money(Math.max(0, o.total - Number(o.received_amount)))}.`}
+                            </AnimatedValue>
                           </p>
                         )}
                         <Button secondary onClick={reload}>
@@ -2401,9 +2488,11 @@ function OrderDetail({ id }: { id: string }) {
             </p>
             <p>{o.address}</p>
             <p>
-              {o.route_distance_km
-                ? `${Number(o.route_distance_km).toFixed(1)} km theo đường đi`
-                : `Cách bếp khoảng ${Number(o.distance_km).toFixed(1)} km`}
+              <AnimatedValue>
+                {o.route_distance_km
+                  ? `${Number(o.route_distance_km).toFixed(1)} km theo đường đi`
+                  : `Cách bếp khoảng ${Number(o.distance_km).toFixed(1)} km`}
+              </AnimatedValue>
               {o.route_duration_seconds
                 ? ` · ${Math.ceil(o.route_duration_seconds / 60)} phút di chuyển ước tính`
                 : ""}
@@ -2421,26 +2510,38 @@ function OrderDetail({ id }: { id: string }) {
           {data.items.map((item: any) => (
             <div key={item.id}>
               <span>
-                {item.quantity} × {item.name}
+                <AnimatedValue>{item.quantity}</AnimatedValue> × {item.name}
               </span>
-              <strong>{money(item.quantity * item.unit_price)}</strong>
+              <strong>
+                <AnimatedValue>
+                  {money(item.quantity * item.unit_price)}
+                </AnimatedValue>
+              </strong>
             </div>
           ))}
           <div>
             <span>Tiền món</span>
-            <strong>{money(o.subtotal)}</strong>
+            <strong>
+              <AnimatedValue>{money(o.subtotal)}</AnimatedValue>
+            </strong>
           </div>
           <div>
             <span>Giảm giá</span>
-            <strong>−{money(o.discount)}</strong>
+            <strong>
+              −<AnimatedValue>{money(o.discount)}</AnimatedValue>
+            </strong>
           </div>
           <div>
             <span>Phí giao</span>
-            <strong>{money(o.delivery_fee)}</strong>
+            <strong>
+              <AnimatedValue>{money(o.delivery_fee)}</AnimatedValue>
+            </strong>
           </div>
           <div className="summary-total">
             <span>Tổng tiền</span>
-            <strong>{money(o.total)}</strong>
+            <strong>
+              <AnimatedValue>{money(o.total)}</AnimatedValue>
+            </strong>
           </div>
           <p>Chuyển trực tiếp tới tài khoản của {o.chef_name}.</p>
           {o.status === "COMPLETED" && !chef && !data.review && (
@@ -2474,7 +2575,10 @@ function OrderDetail({ id }: { id: string }) {
             </form>
           )}
           {data.review && (
-            <Notice>Đã đánh giá {data.review.rating}/5 sao.</Notice>
+            <Notice>
+              Đã đánh giá <AnimatedValue>{data.review.rating}</AnimatedValue>/5
+              sao.
+            </Notice>
           )}
           {o.status === "COMPLETED" && !chef && o.user_id === user.id && (
             <OrderReorder orderId={id} items={data.items} />
@@ -2504,7 +2608,8 @@ function Vouchers() {
             <div>
               <h3>{v.title}</h3>
               <p>
-                {v.chef_name} · Đơn từ {money(v.min_subtotal)}
+                {v.chef_name} · Đơn từ{" "}
+                <AnimatedValue>{money(v.min_subtotal)}</AnimatedValue>
               </p>
               <small>
                 Đến {new Date(v.expires_at).toLocaleDateString("vi-VN")}

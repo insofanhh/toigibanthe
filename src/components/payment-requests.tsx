@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import { useRef, useState } from "react";
 import { Phone, LoaderCircle } from "lucide-react";
 import { post, request, useApp } from "./providers";
@@ -308,7 +309,9 @@ export function PaymentRequestList({
                     : "Hệ thống đã duyệt giải quyết yêu cầu của bạn."}
               </p>
             )}
-            <p className="small">Số tiền: {money(value.amount)}</p>
+            <p className="small">
+              Số tiền: <AnimatedValue>{money(value.amount)}</AnimatedValue>
+            </p>
             <p className="payment-request-note">{value.note}</p>
             <p className="small">
               Số điện thoại liên hệ: {value.contact_phone || "Chưa có"}

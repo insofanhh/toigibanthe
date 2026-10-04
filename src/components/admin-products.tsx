@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -93,7 +94,9 @@ function Metric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>
+        <AnimatedValue>{value}</AnimatedValue>
+      </strong>
     </div>
   );
 }
@@ -164,9 +167,11 @@ function ProductDetail({
             <div>
               <State p={p} />
               <p className="small muted">
-                {p.missing
-                  ? "Giá theo từng đơn lịch sử"
-                  : "Giá gốc hiện tại: " + money(p.price)}
+                <AnimatedValue>
+                  {p.missing
+                    ? "Giá theo từng đơn lịch sử"
+                    : "Giá gốc hiện tại: " + money(p.price)}
+                </AnimatedValue>
               </p>
               <div className="actions">
                 <Button
@@ -251,31 +256,44 @@ function ProductDetail({
                     {stamp(p.last_completed_at)}
                   </p>
                   <p>
-                    Ngày có thực đơn trong kỳ: {count(p.menu_days)}. Đây không
-                    phải số ngày thực sự mở bán.
+                    Ngày có thực đơn trong kỳ:{" "}
+                    <AnimatedValue>{count(p.menu_days)}</AnimatedValue>. Đây
+                    không phải số ngày thực sự mở bán.
                   </p>
                   <p>
                     Đánh giá từ đơn có món này trong kỳ:{" "}
-                    {p.period_rating === null
-                      ? "Chưa có"
-                      : Number(p.period_rating).toFixed(1) + " ★"}{" "}
-                    · {count(p.review_count)} lượt. Toàn thời gian:{" "}
-                    {p.lifetime_rating === null
-                      ? "Chưa có"
-                      : Number(p.lifetime_rating).toFixed(1) + " ★"}{" "}
-                    · {count(p.lifetime_review_count)} lượt.
+                    <AnimatedValue>
+                      {p.period_rating === null
+                        ? "Chưa có"
+                        : Number(p.period_rating).toFixed(1) + " ★"}
+                    </AnimatedValue>{" "}
+                    · <AnimatedValue>{count(p.review_count)}</AnimatedValue>{" "}
+                    lượt. Toàn thời gian:{" "}
+                    <AnimatedValue>
+                      {p.lifetime_rating === null
+                        ? "Chưa có"
+                        : Number(p.lifetime_rating).toFixed(1) + " ★"}
+                    </AnimatedValue>{" "}
+                    ·{" "}
+                    <AnimatedValue>
+                      {count(p.lifetime_review_count)}
+                    </AnimatedValue>{" "}
+                    lượt.
                   </p>
                 </div>
                 {p.legacy_orders > 0 && (
                   <Notice>
-                    {count(p.legacy_orders)} đơn cũ dùng thời gian cập nhật thay
-                    mốc hoàn thành bị thiếu.
+                    <AnimatedValue>{count(p.legacy_orders)}</AnimatedValue> đơn
+                    cũ dùng thời gian cập nhật thay mốc hoàn thành bị thiếu.
                   </Notice>
                 )}
                 {p.allocation_warnings > 0 && (
                   <Notice error>
-                    {count(p.allocation_warnings)} đơn có tổng dòng món không
-                    khớp subtotal; cần kiểm tra dữ liệu nhập cũ.
+                    <AnimatedValue>
+                      {count(p.allocation_warnings)}
+                    </AnimatedValue>{" "}
+                    đơn có tổng dòng món không khớp subtotal; cần kiểm tra dữ
+                    liệu nhập cũ.
                   </Notice>
                 )}
                 {p.missing && (
@@ -298,7 +316,8 @@ function ProductDetail({
                     }
                   >
                     <span>
-                      {a.label} · {count(a.count)}
+                      {a.label} ·{" "}
+                      <AnimatedValue>{count(a.count)}</AnimatedValue>
                     </span>
                     <ChevronRight size={16} />
                   </button>
@@ -330,8 +349,14 @@ function ProductDetail({
                             {MEAL_NAMES[m.meal_id as keyof typeof MEAL_NAMES]}
                           </small>
                         </td>
-                        <td>{money(m.current_price)}</td>
-                        <td>{count(m.stock)}</td>
+                        <td>
+                          <AnimatedValue>
+                            {money(m.current_price)}
+                          </AnimatedValue>
+                        </td>
+                        <td>
+                          <AnimatedValue>{count(m.stock)}</AnimatedValue>
+                        </td>
                         <td>
                           <span
                             className="product-status"
@@ -390,13 +415,17 @@ function ProductDetail({
                             {m.active ? "Món bật" : "Món ẩn"}
                           </small>
                         </td>
-                        <td>{count(m.stock)}</td>
                         <td>
-                          {money(m.price)}
+                          <AnimatedValue>{count(m.stock)}</AnimatedValue>
+                        </td>
+                        <td>
+                          <AnimatedValue>{money(m.price)}</AnimatedValue>
                           <small>
-                            {m.sale_price
-                              ? "Sale nhập: " + money(m.sale_price)
-                              : "Chưa nhập sale"}
+                            <AnimatedValue>
+                              {m.sale_price
+                                ? "Sale nhập: " + money(m.sale_price)
+                                : "Chưa nhập sale"}
+                            </AnimatedValue>
                           </small>
                         </td>
                         <td>{stamp(m.cutoff_at)}</td>
@@ -476,14 +505,20 @@ function ProductDetail({
                               o.status as keyof typeof ORDER_LABELS
                             ] || o.status}
                           </span>
-                          <small>Tổng đơn: {money(o.total)}</small>
+                          <small>
+                            Tổng đơn:{" "}
+                            <AnimatedValue>{money(o.total)}</AnimatedValue>
+                          </small>
                         </td>
                         <td>
-                          {count(o.quantity)} phần
-                          <small>{money(o.gross)}</small>
+                          <AnimatedValue>{count(o.quantity)}</AnimatedValue>{" "}
+                          phần
+                          <small>
+                            <AnimatedValue>{money(o.gross)}</AnimatedValue>
+                          </small>
                         </td>
                         <td>
-                          {money(o.amount)}
+                          <AnimatedValue>{money(o.amount)}</AnimatedValue>
                           <small>
                             {o.status === "COMPLETED"
                               ? "Đã hoàn thành"
@@ -545,11 +580,13 @@ function ProductDetail({
                   {[5, 4, 3, 2, 1].map((star) => (
                     <span key={star}>
                       {star} ★ ·{" "}
-                      {count(
-                        report.data!.distribution.find(
-                          (r: R) => r.rating === star,
-                        )?.count,
-                      )}
+                      <AnimatedValue>
+                        {count(
+                          report.data!.distribution.find(
+                            (r: R) => r.rating === star,
+                          )?.count,
+                        )}
+                      </AnimatedValue>
                     </span>
                   ))}
                 </div>
@@ -578,7 +615,9 @@ function ProductDetail({
                     {report.data.items.map((r: R) => (
                       <tr key={r.id}>
                         <td>{r.user_name}</td>
-                        <td>{r.rating} ★</td>
+                        <td>
+                          <AnimatedValue>{r.rating}</AnimatedValue> ★
+                        </td>
                         <td>
                           {r.dishes}
                           <small>
@@ -656,7 +695,10 @@ function ProductDetail({
                           <td>
                             {d?.name}
                             {d?.price !== undefined && (
-                              <small>Giá gốc: {money(d.price)}</small>
+                              <small>
+                                Giá gốc:{" "}
+                                <AnimatedValue>{money(d.price)}</AnimatedValue>
+                              </small>
                             )}
                             {d?.active !== undefined && (
                               <small>{d.active ? "Đang bật" : "Đã ẩn"}</small>
@@ -900,7 +942,7 @@ export function AdminProducts({
                 apply({ from: shiftDate(today, 1 - n), to: today }, !!selected)
               }
             >
-              {n} ngày
+              <AnimatedValue>{n}</AnimatedValue> ngày
             </button>
           ))}
         </div>
@@ -1054,18 +1096,22 @@ export function AdminProducts({
                       <Icon size={18} />
                     </span>
                     <strong>
-                      {key === "gmv"
-                        ? money(summary.data!.metrics[key])
-                        : count(summary.data!.metrics[key])}
+                      <AnimatedValue>
+                        {key === "gmv"
+                          ? money(summary.data!.metrics[key])
+                          : count(summary.data!.metrics[key])}
+                      </AnimatedValue>
                     </strong>
                     <small>{hint}</small>
                     {["sold", "servings", "gmv", "new"].includes(key) && (
                       <small>
-                        {summary.data!.delta[key] === null
-                          ? "Chưa có kỳ đối chiếu"
-                          : (summary.data!.delta[key] > 0 ? "+" : "") +
-                            summary.data!.delta[key].toFixed(1) +
-                            "% so kỳ trước"}
+                        <AnimatedValue>
+                          {summary.data!.delta[key] === null
+                            ? "Chưa có kỳ đối chiếu"
+                            : (summary.data!.delta[key] > 0 ? "+" : "") +
+                              summary.data!.delta[key].toFixed(1) +
+                              "% so kỳ trước"}
+                        </AnimatedValue>
                       </small>
                     )}
                     <span className="users-filter-hint">
@@ -1077,8 +1123,10 @@ export function AdminProducts({
               </div>
               {summary.data.missingProducts > 0 && (
                 <Notice>
-                  {count(summary.data.missingProducts)} món có doanh số nhưng
-                  thiếu liên kết catalog.{" "}
+                  <AnimatedValue>
+                    {count(summary.data.missingProducts)}
+                  </AnimatedValue>{" "}
+                  món có doanh số nhưng thiếu liên kết catalog.{" "}
                   <button
                     className="text-button"
                     onClick={() =>
@@ -1151,17 +1199,20 @@ export function AdminProducts({
                             <span>
                               <strong>{a.productName}</strong>
                               <small>
-                                {a.chefName} · {a.label} · {count(a.count)}
-                                {a.waitingSince
-                                  ? " · Chờ " +
-                                    Math.max(
-                                      0,
-                                      (Date.now() -
-                                        parseUTC(a.waitingSince).getTime()) /
-                                        3600000,
-                                    ).toFixed(1) +
-                                    " giờ"
-                                  : ""}
+                                {a.chefName} · {a.label} ·{" "}
+                                <AnimatedValue>{count(a.count)}</AnimatedValue>
+                                <AnimatedValue>
+                                  {a.waitingSince
+                                    ? " · Chờ " +
+                                      Math.max(
+                                        0,
+                                        (Date.now() -
+                                          parseUTC(a.waitingSince).getTime()) /
+                                          3600000,
+                                      ).toFixed(1) +
+                                      " giờ"
+                                    : ""}
+                                </AnimatedValue>
                               </small>
                             </span>
                             <ChevronRight size={16} />
@@ -1169,9 +1220,15 @@ export function AdminProducts({
                         ))}
                     </div>
                     <p className="analytics-footnote">
-                      {count(operations.data.products)} món ·{" "}
-                      {count(operations.data.total)} cảnh báo. Hiển thị tối đa
-                      30 cảnh báo ưu tiên trong nhóm đã chọn.
+                      <AnimatedValue>
+                        {count(operations.data.products)}
+                      </AnimatedValue>{" "}
+                      món ·{" "}
+                      <AnimatedValue>
+                        {count(operations.data.total)}
+                      </AnimatedValue>{" "}
+                      cảnh báo. Hiển thị tối đa 30 cảnh báo ưu tiên trong nhóm
+                      đã chọn.
                     </p>
                     {!operations.data.alerts.filter(
                       (a: R) => category === "all" || a.category === category,
@@ -1207,14 +1264,18 @@ export function AdminProducts({
                       />
                       {trends.data.quality.legacyOrders > 0 && (
                         <p className="analytics-footnote">
-                          {count(trends.data.quality.legacyOrders)} đơn dùng mốc
-                          hoàn thành thay thế.
+                          <AnimatedValue>
+                            {count(trends.data.quality.legacyOrders)}
+                          </AnimatedValue>{" "}
+                          đơn dùng mốc hoàn thành thay thế.
                         </p>
                       )}
                       {trends.data.quality.allocationWarnings > 0 && (
                         <Notice error>
-                          {count(trends.data.quality.allocationWarnings)} đơn
-                          nhập cũ có tổng dòng món không khớp subtotal.
+                          <AnimatedValue>
+                            {count(trends.data.quality.allocationWarnings)}
+                          </AnimatedValue>{" "}
+                          đơn nhập cũ có tổng dòng món không khớp subtotal.
                         </Notice>
                       )}
                     </>
@@ -1253,12 +1314,14 @@ export function AdminProducts({
                                   <small>{p.chef_name}</small>
                                 </span>
                                 <strong>
-                                  {topMetric === "gmv"
-                                    ? money(p.gmv)
-                                    : count(p[topMetric]) +
-                                      (topMetric === "orders"
-                                        ? " đơn"
-                                        : " phần")}
+                                  <AnimatedValue>
+                                    {topMetric === "gmv"
+                                      ? money(p.gmv)
+                                      : count(p[topMetric]) +
+                                        (topMetric === "orders"
+                                          ? " đơn"
+                                          : " phần")}
+                                  </AnimatedValue>
                                 </strong>
                               </span>
                               <span className="users-group-track">
@@ -1324,12 +1387,14 @@ export function AdminProducts({
                         <td>{String(label)}</td>
                         {Object.keys(MEAL_NAMES).map((meal) => (
                           <td key={meal}>
-                            {count(
-                              supply.data!.cells.find(
-                                (c: R) =>
-                                  c.region === region && c.meal_id === meal,
-                              )?.[supplyMetric],
-                            )}
+                            <AnimatedValue>
+                              {count(
+                                supply.data!.cells.find(
+                                  (c: R) =>
+                                    c.region === region && c.meal_id === meal,
+                                )?.[supplyMetric],
+                              )}
+                            </AnimatedValue>
                           </td>
                         ))}
                       </tr>
@@ -1378,7 +1443,7 @@ export function AdminProducts({
                                   background: `rgba(33,113,93,${v ? 0.08 + (v / max) * 0.35 : 0})`,
                                 }}
                               >
-                                {count(v)}
+                                <AnimatedValue>{count(v)}</AnimatedValue>
                               </span>
                             </td>
                           );
@@ -1409,10 +1474,16 @@ export function AdminProducts({
               {view === "behavior" && summary.data && (
                 <p className="analytics-footnote">
                   Theo dõi đầu ghi nhận: {stamp(summary.data.trackingStartedAt)}
-                  . {count(summary.data.trackingCoverage.tracked)}/
-                  {count(summary.data.trackingCoverage.orders)} đơn tạo trong kỳ
-                  có analytics context; dữ liệu tài chính vẫn gồm đơn không có
-                  context.
+                  .{" "}
+                  <AnimatedValue>
+                    {count(summary.data.trackingCoverage.tracked)}
+                  </AnimatedValue>
+                  /
+                  <AnimatedValue>
+                    {count(summary.data.trackingCoverage.orders)}
+                  </AnimatedValue>{" "}
+                  đơn tạo trong kỳ có analytics context; dữ liệu tài chính vẫn
+                  gồm đơn không có context.
                 </p>
               )}
               <div className="users-list-filters">
@@ -1476,7 +1547,8 @@ export function AdminProducts({
               ) : (
                 <>
                   <p className="analytics-meta">
-                    {count(list.data.total)} món phù hợp
+                    <AnimatedValue>{count(list.data.total)}</AnimatedValue> món
+                    phù hợp
                   </p>
                   <p className="users-table-hint">
                     Vuốt ngang để xem đầy đủ số liệu và thao tác.
@@ -1522,23 +1594,44 @@ export function AdminProducts({
                           </td>
                           {view === "behavior" ? (
                             <>
-                              <td>{count(p.views)}</td>
-                              <td>{count(p.adds)}</td>
-                              <td>{count(p.favorites)}</td>
-                              <td>{count(p.servings)}</td>
-                              <td>{money(p.gmv)}</td>
+                              <td>
+                                <AnimatedValue>{count(p.views)}</AnimatedValue>
+                              </td>
+                              <td>
+                                <AnimatedValue>{count(p.adds)}</AnimatedValue>
+                              </td>
+                              <td>
+                                <AnimatedValue>
+                                  {count(p.favorites)}
+                                </AnimatedValue>
+                              </td>
+                              <td>
+                                <AnimatedValue>
+                                  {count(p.servings)}
+                                </AnimatedValue>
+                              </td>
+                              <td>
+                                <AnimatedValue>{money(p.gmv)}</AnimatedValue>
+                              </td>
                               <td>{stamp(p.tracking_started_at)}</td>
                             </>
                           ) : (
                             <>
                               <td>
-                                {p.missing ? "Theo đơn" : money(p.price)}
+                                <AnimatedValue>
+                                  {p.missing ? "Theo đơn" : money(p.price)}
+                                </AnimatedValue>
                                 {p.price_min !== null && (
                                   <small>
-                                    Đang bán: {money(p.price_min)}
-                                    {p.price_max !== p.price_min
-                                      ? " – " + money(p.price_max)
-                                      : ""}
+                                    Đang bán:{" "}
+                                    <AnimatedValue>
+                                      {money(p.price_min)}
+                                    </AnimatedValue>
+                                    <AnimatedValue>
+                                      {p.price_max !== p.price_min
+                                        ? " – " + money(p.price_max)
+                                        : ""}
+                                    </AnimatedValue>
                                   </small>
                                 )}
                               </td>
@@ -1553,34 +1646,68 @@ export function AdminProducts({
                                   )
                                   .join(", ") || "—"}
                                 <small>
-                                  {count(p.available_stock)} suất khả dụng
+                                  <AnimatedValue>
+                                    {count(p.available_stock)}
+                                  </AnimatedValue>{" "}
+                                  suất khả dụng
                                 </small>
                               </td>
-                              <td>{count(p.servings)}</td>
-                              <td>{money(p.gmv)}</td>
                               <td>
-                                {p.period_rating === null
-                                  ? "Chưa có"
-                                  : Number(p.period_rating).toFixed(1) + " ★"}
+                                <AnimatedValue>
+                                  {count(p.servings)}
+                                </AnimatedValue>
+                              </td>
+                              <td>
+                                <AnimatedValue>{money(p.gmv)}</AnimatedValue>
+                              </td>
+                              <td>
+                                <AnimatedValue>
+                                  {p.period_rating === null
+                                    ? "Chưa có"
+                                    : Number(p.period_rating).toFixed(1) + " ★"}
+                                </AnimatedValue>
                                 <small>
-                                  {count(p.review_count)} lượt trong kỳ
+                                  <AnimatedValue>
+                                    {count(p.review_count)}
+                                  </AnimatedValue>{" "}
+                                  lượt trong kỳ
                                 </small>
                               </td>
                               {advanced && (
                                 <>
                                   <td>
-                                    {count(p.orders)} đơn
-                                    <small>{count(p.buyers)} khách</small>
+                                    <AnimatedValue>
+                                      {count(p.orders)}
+                                    </AnimatedValue>{" "}
+                                    đơn
+                                    <small>
+                                      <AnimatedValue>
+                                        {count(p.buyers)}
+                                      </AnimatedValue>{" "}
+                                      khách
+                                    </small>
                                   </td>
                                   <td>
-                                    {count(p.favorites)} thích
+                                    <AnimatedValue>
+                                      {count(p.favorites)}
+                                    </AnimatedValue>{" "}
+                                    thích
                                     <small>
-                                      {count(p.views)} xem · {count(p.adds)}{" "}
+                                      <AnimatedValue>
+                                        {count(p.views)}
+                                      </AnimatedValue>{" "}
+                                      xem ·{" "}
+                                      <AnimatedValue>
+                                        {count(p.adds)}
+                                      </AnimatedValue>{" "}
                                       thêm giỏ
                                     </small>
                                   </td>
                                   <td>
-                                    {count(p.menu_days)} ngày có thực đơn
+                                    <AnimatedValue>
+                                      {count(p.menu_days)}
+                                    </AnimatedValue>{" "}
+                                    ngày có thực đơn
                                     <small>{stamp(p.last_completed_at)}</small>
                                   </td>
                                 </>
@@ -1600,7 +1727,10 @@ export function AdminProducts({
                                       )
                                     }
                                   >
-                                    {a.label} · {count(a.count)}
+                                    {a.label} ·{" "}
+                                    <AnimatedValue>
+                                      {count(a.count)}
+                                    </AnimatedValue>
                                   </button>
                                 ))}
                               </td>

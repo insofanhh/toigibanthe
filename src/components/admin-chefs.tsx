@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -144,8 +145,9 @@ function Pager({
         <ChevronLeft size={16} /> Trước
       </Button>
       <span>
-        Trang {count(data.page)} / {count(data.pages)} · {count(data.total)} bản
-        ghi
+        Trang <AnimatedValue>{count(data.page)}</AnimatedValue> /{" "}
+        <AnimatedValue>{count(data.pages)}</AnimatedValue> ·{" "}
+        <AnimatedValue>{count(data.total)}</AnimatedValue> bản ghi
       </span>
       <Button
         secondary
@@ -198,7 +200,7 @@ function GrowthChart({ days }: { days: Row[] }) {
                 stroke="#e7ede9"
               />
               <text x="36" y={y(n * max) + 4} textAnchor="end">
-                {Math.round(n * max)}
+                <AnimatedValue as="tspan">{Math.round(n * max)}</AnimatedValue>
               </text>
             </g>
           ))}
@@ -250,8 +252,9 @@ function GrowthChart({ days }: { days: Row[] }) {
         </svg>
         {hover !== null && days[hover] && (
           <div className="analytics-chart-tooltip">
-            {days[hover].day} · Hồ sơ: {count(days[hover].submitted)} · Duyệt:{" "}
-            {count(days[hover].approved)}
+            {days[hover].day} · Hồ sơ:{" "}
+            <AnimatedValue>{count(days[hover].submitted)}</AnimatedValue> ·
+            Duyệt: <AnimatedValue>{count(days[hover].approved)}</AnimatedValue>
           </div>
         )}
       </div>
@@ -261,9 +264,15 @@ function GrowthChart({ days }: { days: Row[] }) {
           {days.map((d) => (
             <tr key={d.day}>
               <td>{d.day}</td>
-              <td>{count(d.submitted)}</td>
-              <td>{count(d.approved)}</td>
-              <td>{count(d.resubmitted)}</td>
+              <td>
+                <AnimatedValue>{count(d.submitted)}</AnimatedValue>
+              </td>
+              <td>
+                <AnimatedValue>{count(d.approved)}</AnimatedValue>
+              </td>
+              <td>
+                <AnimatedValue>{count(d.resubmitted)}</AnimatedValue>
+              </td>
             </tr>
           ))}
         </Table>
@@ -446,13 +455,16 @@ function Detail({
                 ].map(([label, value]) => (
                   <div key={label}>
                     <span>{label}</span>
-                    <strong>{value}</strong>
+                    <strong>
+                      <AnimatedValue>{value}</AnimatedValue>
+                    </strong>
                   </div>
                 ))}
               </div>
               <p className="analytics-footnote">
                 Trong kỳ và bữa đã chọn; đơn đang xử lý là hiện tại. Thời gian
-                nhận có {count(c!.accept_samples)} mẫu.
+                nhận có{" "}
+                <AnimatedValue>{count(c!.accept_samples)}</AnimatedValue> mẫu.
               </p>
               <div className="chefs-facts">
                 <p>Duyệt đầu tiên ghi nhận: {stamp(c!.approved_at)}</p>
@@ -468,25 +480,40 @@ function Detail({
                 </p>
                 <p>Lần có thực đơn gần nhất: {c!.last_menu || "Chưa có"}</p>
                 <p>
-                  Từ chối bởi chef: {count(c!.chef_rejected)} /{" "}
-                  {count(c!.paid_outcomes)} đơn trả tiền có kết quả trong kỳ{" "}
-                  {c!.paid_outcomes
-                    ? "(" +
-                      pct((c!.chef_rejected / c!.paid_outcomes) * 100) +
-                      ")"
-                    : ""}
+                  Từ chối bởi chef:{" "}
+                  <AnimatedValue>{count(c!.chef_rejected)}</AnimatedValue> /{" "}
+                  <AnimatedValue>{count(c!.paid_outcomes)}</AnimatedValue> đơn
+                  trả tiền có kết quả trong kỳ{" "}
+                  <AnimatedValue>
+                    {c!.paid_outcomes
+                      ? "(" +
+                        pct((c!.chef_rejected / c!.paid_outcomes) * 100) +
+                        ")"
+                      : ""}
+                  </AnimatedValue>
                 </p>
                 <p>
                   Mua lại tại bếp trong 30 ngày:{" "}
-                  {pct(result.data.retention.rate)} ·{" "}
-                  {count(result.data.retention.returned)} /{" "}
-                  {count(result.data.retention.eligible)} khách đủ 30 ngày
+                  <AnimatedValue>
+                    {pct(result.data.retention.rate)}
+                  </AnimatedValue>{" "}
+                  ·{" "}
+                  <AnimatedValue>
+                    {count(result.data.retention.returned)}
+                  </AnimatedValue>{" "}
+                  /{" "}
+                  <AnimatedValue>
+                    {count(result.data.retention.eligible)}
+                  </AnimatedValue>{" "}
+                  khách đủ 30 ngày
                 </p>
               </div>
               {result.data.legacyCompletions > 0 && (
                 <Notice>
-                  {count(result.data.legacyCompletions)} đơn cũ dùng thời gian
-                  cập nhật thay mốc hoàn thành bị thiếu.
+                  <AnimatedValue>
+                    {count(result.data.legacyCompletions)}
+                  </AnimatedValue>{" "}
+                  đơn cũ dùng thời gian cập nhật thay mốc hoàn thành bị thiếu.
                 </Notice>
               )}
               {c!.active_orders > 0 && (
@@ -554,7 +581,9 @@ function Detail({
                               ] || m.meal_id}
                             </small>
                           </td>
-                          <td>{count(m.stock)}</td>
+                          <td>
+                            <AnimatedValue>{count(m.stock)}</AnimatedValue>
+                          </td>
                           <td>{stamp(m.cutoff_at)}</td>
                           <td>
                             {!m.active
@@ -572,11 +601,21 @@ function Detail({
                         </>
                       ) : (
                         <>
-                          <td>{money(Number(m.price))}</td>
+                          <td>
+                            <AnimatedValue>
+                              {money(Number(m.price))}
+                            </AnimatedValue>
+                          </td>
                           <td>{m.active ? "Đang dùng" : "Đã ẩn"}</td>
                           <td>
-                            {Number(m.rating).toFixed(1)} ★ ·{" "}
-                            {count(m.rating_count)} lượt
+                            <AnimatedValue>
+                              {Number(m.rating).toFixed(1)}
+                            </AnimatedValue>{" "}
+                            ★ ·{" "}
+                            <AnimatedValue>
+                              {count(m.rating_count)}
+                            </AnimatedValue>{" "}
+                            lượt
                           </td>
                         </>
                       )}
@@ -630,7 +669,8 @@ function Detail({
                     data-status={s.status}
                     key={s.status}
                   >
-                    {ORDER_LABELS[s.status] || s.status}: {count(s.count)}
+                    {ORDER_LABELS[s.status] || s.status}:{" "}
+                    <AnimatedValue>{count(s.count)}</AnimatedValue>
                   </span>
                 ))}
               </div>
@@ -656,7 +696,9 @@ function Detail({
                       <td>
                         <OrderStatus value={o.status} />
                       </td>
-                      <td>{money(Number(o.total))}</td>
+                      <td>
+                        <AnimatedValue>{money(Number(o.total))}</AnimatedValue>
+                      </td>
                       <td>{stamp(o.created_at)}</td>
                       <td>
                         {stamp(o.paid_at)}
@@ -704,7 +746,9 @@ function Detail({
                 ].map(([label, value]) => (
                   <div key={label}>
                     <span>{label}</span>
-                    <strong>{count(value)}</strong>
+                    <strong>
+                      <AnimatedValue>{count(value)}</AnimatedValue>
+                    </strong>
                   </div>
                 ))}
               </div>
@@ -714,25 +758,30 @@ function Detail({
               </p>
               <div className="chefs-rating-summary">
                 <span>
-                  Trọn đời: {c!.rating.toFixed(1)} ★ · {count(c!.rating_count)}{" "}
-                  lượt
+                  Trọn đời:{" "}
+                  <AnimatedValue>{c!.rating.toFixed(1)}</AnimatedValue> ★ ·{" "}
+                  <AnimatedValue>{count(c!.rating_count)}</AnimatedValue> lượt
                 </span>
                 <span>
                   Trong kỳ:{" "}
-                  {result.data.ratings.reduce(
-                    (n: number, r: Row) => n + Number(r.count),
-                    0,
-                  )}{" "}
+                  <AnimatedValue>
+                    {result.data.ratings.reduce(
+                      (n: number, r: Row) => n + Number(r.count),
+                      0,
+                    )}
+                  </AnimatedValue>{" "}
                   lượt
                 </span>
                 {[5, 4, 3, 2, 1].map((star) => (
                   <span key={star}>
                     {star} ★:{" "}
-                    {count(
-                      result.data!.ratings.find(
-                        (r: Row) => Number(r.rating) === star,
-                      )?.count,
-                    )}
+                    <AnimatedValue>
+                      {count(
+                        result.data!.ratings.find(
+                          (r: Row) => Number(r.rating) === star,
+                        )?.count,
+                      )}
+                    </AnimatedValue>
                   </span>
                 ))}
               </div>
@@ -761,7 +810,9 @@ function Detail({
                   {result.data.items.map((r: Row) => (
                     <tr key={r.id}>
                       <td>{r.user_name}</td>
-                      <td>{r.rating} ★</td>
+                      <td>
+                        <AnimatedValue>{r.rating}</AnimatedValue> ★
+                      </td>
                       <td>
                         {r.dishes}
                         <small>{r.code}</small>
@@ -826,7 +877,11 @@ function Detail({
                       </td>
                       <td>
                         {PAYMENT_REQUEST_KINDS[r.kind] || r.kind}
-                        <small>{money(Number(r.amount))}</small>
+                        <small>
+                          <AnimatedValue>
+                            {money(Number(r.amount))}
+                          </AnimatedValue>
+                        </small>
                       </td>
                       <td>
                         <span className="status" data-status={r.status}>
@@ -884,7 +939,10 @@ function Detail({
             <>
               <div className="chefs-facts">
                 <p>Địa chỉ: {c!.address || "Chưa có"}</p>
-                <p>Bán kính giao: {c!.radius_km} km</p>
+                <p>
+                  Bán kính giao: <AnimatedValue>{c!.radius_km}</AnimatedValue>{" "}
+                  km
+                </p>
                 <p>{c!.bio}</p>
                 <p>Gửi gần nhất: {stamp(c!.submitted_at)}</p>
                 <p>
@@ -1192,7 +1250,7 @@ export function AdminChefs({
                 )
               }
             >
-              {days} ngày
+              <AnimatedValue>{days}</AnimatedValue> ngày
             </button>
           ))}
         </div>
@@ -1335,7 +1393,11 @@ export function AdminChefs({
                       {label}
                       <Icon size={18} />
                     </span>
-                    <strong>{count(summary.data!.metrics[key])}</strong>
+                    <strong>
+                      <AnimatedValue>
+                        {count(summary.data!.metrics[key])}
+                      </AnimatedValue>
+                    </strong>
                     <small>{hint}</small>
                     <span className="users-filter-hint">
                       Lọc danh sách <ChevronRight size={12} />
@@ -1345,11 +1407,25 @@ export function AdminChefs({
               </div>
               <p className="analytics-footnote">
                 Kích hoạt trong {summary.data.activation.days} ngày từ duyệt:{" "}
-                {pct(summary.data.activation.rate)} ·{" "}
-                {count(summary.data.activation.activated)}/
-                {count(summary.data.activation.eligible)} bếp đủ thời gian trong
-                nhóm duyệt của kỳ; {count(summary.data.activation.waiting)} bếp
-                đang chờ đủ thời gian. {count(summary.data.activation.unknown)}{" "}
+                <AnimatedValue>
+                  {pct(summary.data.activation.rate)}
+                </AnimatedValue>{" "}
+                ·{" "}
+                <AnimatedValue>
+                  {count(summary.data.activation.activated)}
+                </AnimatedValue>
+                /
+                <AnimatedValue>
+                  {count(summary.data.activation.eligible)}
+                </AnimatedValue>{" "}
+                bếp đủ thời gian trong nhóm duyệt của kỳ;{" "}
+                <AnimatedValue>
+                  {count(summary.data.activation.waiting)}
+                </AnimatedValue>{" "}
+                bếp đang chờ đủ thời gian.{" "}
+                <AnimatedValue>
+                  {count(summary.data.activation.unknown)}
+                </AnimatedValue>{" "}
                 hồ sơ thiếu mốc duyệt hợp lệ. Chỉ số nhận đơn và cảnh báo là
                 hiện tại.
               </p>
@@ -1385,23 +1461,26 @@ export function AdminChefs({
                       <span>
                         <strong>{a.chefName}</strong>
                         <small>
-                          {a.label} · {count(a.count)}
+                          {a.label} ·{" "}
+                          <AnimatedValue>{count(a.count)}</AnimatedValue>
                           {a.key === "late" && a.oldestPaidAt
                             ? " · Trả tiền từ " + stamp(a.oldestPaidAt)
                             : ""}
                           {a.key.startsWith("refund") && a.refundOverdue
                             ? " · Có yêu cầu quá hạn"
                             : ""}
-                          {a.waitingSince
-                            ? " · Chờ " +
-                              Math.max(
-                                0,
-                                (Date.now() -
-                                  parseUTC(a.waitingSince).getTime()) /
-                                  3600000,
-                              ).toFixed(1) +
-                              " giờ"
-                            : ""}
+                          <AnimatedValue>
+                            {a.waitingSince
+                              ? " · Chờ " +
+                                Math.max(
+                                  0,
+                                  (Date.now() -
+                                    parseUTC(a.waitingSince).getTime()) /
+                                    3600000,
+                                ).toFixed(1) +
+                                " giờ"
+                              : ""}
+                          </AnimatedValue>
                         </small>
                       </span>
                       <ChevronRight size={16} />
@@ -1409,9 +1488,10 @@ export function AdminChefs({
                   ))}
                 </div>
                 <p className="analytics-footnote">
-                  {count(operations.data.chefs)} bếp ·{" "}
-                  {count(operations.data.total)} loại cảnh báo. Hiển thị tối đa
-                  30 cảnh báo ưu tiên.
+                  <AnimatedValue>{count(operations.data.chefs)}</AnimatedValue>{" "}
+                  bếp ·{" "}
+                  <AnimatedValue>{count(operations.data.total)}</AnimatedValue>{" "}
+                  loại cảnh báo. Hiển thị tối đa 30 cảnh báo ưu tiên.
                 </p>
               </>
             ) : (
@@ -1460,9 +1540,11 @@ export function AdminChefs({
                         <span>
                           {c.name}
                           <strong>
-                            {topMetric === "gmv"
-                              ? money(Number(c.gmv))
-                              : count(c.completed) + " đơn"}
+                            <AnimatedValue>
+                              {topMetric === "gmv"
+                                ? money(Number(c.gmv))
+                                : count(c.completed) + " đơn"}
+                            </AnimatedValue>
                           </strong>
                         </span>
                         <span className="users-group-track">
@@ -1509,7 +1591,11 @@ export function AdminChefs({
                   apply({ view: "approvals", status: "pending", group: "all" })
                 }
               >
-                Duyệt hồ sơ ({count(summary.data?.metrics.pending)})
+                Duyệt hồ sơ (
+                <AnimatedValue>
+                  {count(summary.data?.metrics.pending)}
+                </AnimatedValue>
+                )
               </button>
             </div>
             <div className="users-list-filters">
@@ -1581,7 +1667,8 @@ export function AdminChefs({
             ) : (
               <>
                 <p className="analytics-meta">
-                  {count(list.data.total)} bếp phù hợp
+                  <AnimatedValue>{count(list.data.total)}</AnimatedValue> bếp
+                  phù hợp
                 </p>
                 <p className="users-table-hint">
                   Vuốt ngang để xem đầy đủ chỉ số và thao tác.
@@ -1648,18 +1735,36 @@ export function AdminChefs({
                               </span>
                             </td>
                             <td>
-                              {count(c.ready ? c.dishes : 0)}
+                              <AnimatedValue>
+                                {count(c.ready ? c.dishes : 0)}
+                              </AnimatedValue>
                               <small>
-                                {count(c.ready ? c.servings : 0)} suất hiện tại
+                                <AnimatedValue>
+                                  {count(c.ready ? c.servings : 0)}
+                                </AnimatedValue>{" "}
+                                suất hiện tại
                               </small>
                             </td>
-                            <td>{count(c.completed)}</td>
-                            <td>{money(c.gmv)}</td>
                             <td>
-                              {c.rating_count
-                                ? c.rating.toFixed(1) + " ★"
-                                : "Chưa có"}
-                              <small>{count(c.rating_count)} lượt</small>
+                              <AnimatedValue>
+                                {count(c.completed)}
+                              </AnimatedValue>
+                            </td>
+                            <td>
+                              <AnimatedValue>{money(c.gmv)}</AnimatedValue>
+                            </td>
+                            <td>
+                              <AnimatedValue>
+                                {c.rating_count
+                                  ? c.rating.toFixed(1) + " ★"
+                                  : "Chưa có"}
+                              </AnimatedValue>
+                              <small>
+                                <AnimatedValue>
+                                  {count(c.rating_count)}
+                                </AnimatedValue>{" "}
+                                lượt
+                              </small>
                             </td>
                             <td>
                               {c.alerts.length
@@ -1668,7 +1773,10 @@ export function AdminChefs({
                                       className="chefs-alert-tag"
                                       key={a.key}
                                     >
-                                      {a.label}: {count(a.count)}
+                                      {a.label}:{" "}
+                                      <AnimatedValue>
+                                        {count(a.count)}
+                                      </AnimatedValue>
                                     </span>
                                   ))
                                 : "—"}
@@ -1869,10 +1977,11 @@ export function AdminChefs({
             ))}
             <p className="analytics-footnote">
               Ngưỡng nhận đơn, duyệt hồ sơ và đối soát dùng SLA ở Tổng quan:{" "}
-              {summary.data.sla.acceptMinutes} phút /{" "}
-              {summary.data.sla.profileHours} giờ /{" "}
-              {summary.data.sla.refundHours} giờ. Cảnh báo để theo dõi; không tự
-              tạm ngưng bếp.
+              <AnimatedValue>{summary.data.sla.acceptMinutes}</AnimatedValue>{" "}
+              phút /{" "}
+              <AnimatedValue>{summary.data.sla.profileHours}</AnimatedValue> giờ
+              / <AnimatedValue>{summary.data.sla.refundHours}</AnimatedValue>{" "}
+              giờ. Cảnh báo để theo dõi; không tự tạm ngưng bếp.
             </p>
             {error && <Notice error>{error}</Notice>}
             <Button type="submit" disabled={busy}>

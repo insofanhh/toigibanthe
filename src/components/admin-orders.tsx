@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -115,12 +116,12 @@ function Tags({ o }: { o: R }) {
       </span>
       {Number(o.refund_open) > 0 && (
         <span className="status" data-status="OPEN">
-          {count(o.refund_open)} chờ xử lý
+          <AnimatedValue>{count(o.refund_open)}</AnimatedValue> chờ xử lý
         </span>
       )}
       {Number(o.refund_review) > 0 && (
         <span className="status" data-status="REVIEW">
-          {count(o.refund_review)} chờ hệ thống
+          <AnimatedValue>{count(o.refund_review)}</AnimatedValue> chờ hệ thống
         </span>
       )}
     </div>
@@ -166,7 +167,9 @@ function Transactions({
             {t.chef_name || "—"}
             <small>{t.account_mask}</small>
           </td>
-          <td>{money(t.amount)}</td>
+          <td>
+            <AnimatedValue>{money(t.amount)}</AnimatedValue>
+          </td>
           <td>
             <span className="order-payment-tag" data-status={t.result}>
               {TRANSACTION_RESULTS[t.result] || t.result}
@@ -229,7 +232,8 @@ function OrdersTable({
                   </button>
                   <small>{o.dish_names || "Thiếu món snapshot"}</small>
                   <small>
-                    {count(o.dish_count)} món · {count(o.item_quantity)} phần
+                    <AnimatedValue>{count(o.dish_count)}</AnimatedValue> món ·{" "}
+                    <AnimatedValue>{count(o.item_quantity)}</AnimatedValue> phần
                   </small>
                   <small>
                     {stamp(
@@ -256,16 +260,22 @@ function OrdersTable({
               <Tags o={o} />
             </td>
             <td>
-              {money(o.subtotal - o.discount)}
+              <AnimatedValue>{money(o.subtotal - o.discount)}</AnimatedValue>
               <small>Món sau voucher</small>
-              <small>Tổng: {money(o.total)}</small>
-              <small>Giao: {money(o.delivery_fee)}</small>
+              <small>
+                Tổng: <AnimatedValue>{money(o.total)}</AnimatedValue>
+              </small>
+              <small>
+                Giao: <AnimatedValue>{money(o.delivery_fee)}</AnimatedValue>
+              </small>
               <small>{source(o.payment_source)}</small>
             </td>
             <td>
-              {ACTIVE_ORDER_STATUSES.includes(o.status)
-                ? minutes(o.age_minutes)
-                : "Đã kết thúc"}
+              <AnimatedValue>
+                {ACTIVE_ORDER_STATUSES.includes(o.status)
+                  ? minutes(o.age_minutes)
+                  : "Đã kết thúc"}
+              </AnimatedValue>
               {o.alerts?.map((a: R) => (
                 <button
                   key={a.key}
@@ -278,19 +288,23 @@ function OrdersTable({
             </td>
             {advanced && (
               <td>
-                Voucher: {money(o.discount)}
+                Voucher: <AnimatedValue>{money(o.discount)}</AnimatedValue>
                 <small>Vùng: {o.region}</small>
                 <small>
                   Đường thẳng:{" "}
-                  {o.distance_km == null
-                    ? "—"
-                    : Number(o.distance_km).toFixed(2) + " km"}
+                  <AnimatedValue>
+                    {o.distance_km == null
+                      ? "—"
+                      : Number(o.distance_km).toFixed(2) + " km"}
+                  </AnimatedValue>
                 </small>
                 <small>
                   Đường bộ:{" "}
-                  {o.route_distance_km == null
-                    ? "—"
-                    : Number(o.route_distance_km).toFixed(2) + " km"}
+                  <AnimatedValue>
+                    {o.route_distance_km == null
+                      ? "—"
+                      : Number(o.route_distance_km).toFixed(2) + " km"}
+                  </AnimatedValue>
                 </small>
                 <small>Tiền: {stamp(o.paid_at)}</small>
                 <small>Nhận: {stamp(o.accepted_at)}</small>
@@ -390,18 +404,26 @@ function OrderDetail({
           <Tags o={o!} />
           <div className="orders-detail-metrics">
             <span>
-              Tổng cần trả <strong>{money(o!.total)}</strong>
+              Tổng cần trả{" "}
+              <strong>
+                <AnimatedValue>{money(o!.total)}</AnimatedValue>
+              </strong>
             </span>
             <span>
               Tiền ngân hàng ghi nhận{" "}
               <strong>
-                {o!.valid_transactions
-                  ? money(o!.bank_received)
-                  : "Chưa có dữ liệu ngân hàng"}
+                <AnimatedValue>
+                  {o!.valid_transactions
+                    ? money(o!.bank_received)
+                    : "Chưa có dữ liệu ngân hàng"}
+                </AnimatedValue>
               </strong>
             </span>
             <span>
-              Tuổi giai đoạn <strong>{minutes(o!.age_minutes)}</strong>
+              Tuổi giai đoạn{" "}
+              <strong>
+                <AnimatedValue>{minutes(o!.age_minutes)}</AnimatedValue>
+              </strong>
             </span>
           </div>
           {o!.alerts?.length > 0 && (
@@ -445,15 +467,25 @@ function OrderDetail({
                           <span>{i.name}</span>
                         </div>
                       </td>
-                      <td>{money(i.unit_price)}</td>
-                      <td>{count(i.quantity)}</td>
-                      <td>{money(i.unit_price * i.quantity)}</td>
+                      <td>
+                        <AnimatedValue>{money(i.unit_price)}</AnimatedValue>
+                      </td>
+                      <td>
+                        <AnimatedValue>{count(i.quantity)}</AnimatedValue>
+                      </td>
+                      <td>
+                        <AnimatedValue>
+                          {money(i.unit_price * i.quantity)}
+                        </AnimatedValue>
+                      </td>
                     </tr>
                   ))}
                 </Table>
                 <p>
-                  Món: {money(o!.subtotal)} · Voucher: {money(o!.discount)} ·
-                  Giao: {money(o!.delivery_fee)} · Tổng: {money(o!.total)}
+                  Món: <AnimatedValue>{money(o!.subtotal)}</AnimatedValue> ·
+                  Voucher: <AnimatedValue>{money(o!.discount)}</AnimatedValue> ·
+                  Giao: <AnimatedValue>{money(o!.delivery_fee)}</AnimatedValue>{" "}
+                  · Tổng: <AnimatedValue>{money(o!.total)}</AnimatedValue>
                 </p>
                 {o!.note && <p>Ghi chú: {o!.note}</p>}
               </Block>
@@ -560,9 +592,11 @@ function OrderDetail({
                 </p>
                 {o!.valid_transactions > 0 && (
                   <p>
-                    {o!.bank_received < o!.total
-                      ? "Thiếu: " + money(o!.total - o!.bank_received)
-                      : "Thừa: " + money(o!.bank_received - o!.total)}
+                    <AnimatedValue>
+                      {o!.bank_received < o!.total
+                        ? "Thiếu: " + money(o!.total - o!.bank_received)
+                        : "Thừa: " + money(o!.bank_received - o!.total)}
+                    </AnimatedValue>
                   </p>
                 )}
                 <Transactions items={d.transactions.items} />
@@ -584,7 +618,7 @@ function OrderDetail({
                       </span>
                     </div>
                     <p>
-                      {money(r.amount)} ·{" "}
+                      <AnimatedValue>{money(r.amount)}</AnimatedValue> ·{" "}
                       {r.origin === "customer"
                         ? "Khách gửi"
                         : "Ngoại lệ hệ thống"}{" "}
@@ -653,7 +687,8 @@ function OrderDetail({
                 {d.reviews.map((r: R) => (
                   <div className="panel" key={r.id}>
                     <h3>
-                      {r.user_name || "Khách"} · {r.rating}/5
+                      {r.user_name || "Khách"} ·{" "}
+                      <AnimatedValue>{r.rating}</AnimatedValue>/5
                     </h3>
                     <small>{stamp(r.created_at)}</small>
                     <p>{r.body || "Không có nội dung"}</p>
@@ -933,7 +968,7 @@ export function AdminOrders({
                 apply({ from: shiftDate(today, 1 - n), to: today }, !!selected)
               }
             >
-              {n} ngày
+              <AnimatedValue>{n}</AnimatedValue> ngày
             </button>
           ))}
         </div>
@@ -1053,15 +1088,20 @@ export function AdminOrders({
                     <Icon size={19} strokeWidth={1.6} aria-hidden="true" />
                   </span>
                   <strong>
-                    {k === "gmv"
-                      ? money(summary.data!.metrics[k])
-                      : count(summary.data!.metrics[k])}
+                    <AnimatedValue>
+                      {k === "gmv"
+                        ? money(summary.data!.metrics[k])
+                        : count(summary.data!.metrics[k])}
+                    </AnimatedValue>
                   </strong>
                   <small>{caption}</small>
                   {summary.data!.delta[k] != null && (
                     <small>
                       {summary.data!.delta[k] > 0 ? "+" : ""}
-                      {Number(summary.data!.delta[k]).toFixed(1)}% so kỳ trước
+                      <AnimatedValue>
+                        {Number(summary.data!.delta[k]).toFixed(1)}
+                      </AnimatedValue>
+                      % so kỳ trước
                     </small>
                   )}
                 </button>
@@ -1069,9 +1109,14 @@ export function AdminOrders({
             </div>
             <p className="muted small">
               Cập nhật: {stamp(summary.data.updatedAt)} ·{" "}
-              {count(summary.data.quality.legacy)} đơn dùng mốc hoàn thành cũ ·{" "}
-              {count(summary.data.quality.sourceMissing)} đơn chưa rõ nguồn
-              tiền. KPI không đổi theo bộ lọc của bảng.
+              <AnimatedValue>
+                {count(summary.data.quality.legacy)}
+              </AnimatedValue>{" "}
+              đơn dùng mốc hoàn thành cũ ·{" "}
+              <AnimatedValue>
+                {count(summary.data.quality.sourceMissing)}
+              </AnimatedValue>{" "}
+              đơn chưa rõ nguồn tiền. KPI không đổi theo bộ lọc của bảng.
             </p>
           </>
         )
@@ -1200,7 +1245,9 @@ export function AdminOrders({
                                   : ORDER_LABELS[r.status] || "Chưa xác định"}
                               </button>
                             </td>
-                            <td>{count(r.count)}</td>
+                            <td>
+                              <AnimatedValue>{count(r.count)}</AnimatedValue>
+                            </td>
                             <td>
                               <meter
                                 aria-label={"Tỷ trọng " + r.status}
@@ -1208,7 +1255,11 @@ export function AdminOrders({
                                 max={Math.max(total, 1)}
                                 value={r.count}
                               />{" "}
-                              {total ? ((100 * r.count) / total).toFixed(1) : 0}
+                              <AnimatedValue>
+                                {total
+                                  ? ((100 * r.count) / total).toFixed(1)
+                                  : 0}
+                              </AnimatedValue>
                               %
                             </td>
                           </tr>
@@ -1262,10 +1313,20 @@ export function AdminOrders({
                                 {ORDER_LABELS[s]}
                               </button>
                             </td>
-                            <td>{count(r.count)}</td>
-                            <td>{count(r.overdue)}</td>
-                            <td>{minutes(r.oldest_minutes)}</td>
-                            <td>{count(r.missing)}</td>
+                            <td>
+                              <AnimatedValue>{count(r.count)}</AnimatedValue>
+                            </td>
+                            <td>
+                              <AnimatedValue>{count(r.overdue)}</AnimatedValue>
+                            </td>
+                            <td>
+                              <AnimatedValue>
+                                {minutes(r.oldest_minutes)}
+                              </AnimatedValue>
+                            </td>
+                            <td>
+                              <AnimatedValue>{count(r.missing)}</AnimatedValue>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1298,30 +1359,54 @@ export function AdminOrders({
                     <div className="orders-detail-metrics">
                       <span>
                         Đơn{" "}
-                        <strong>{count(payments.data.confirmed.count)}</strong>
+                        <strong>
+                          <AnimatedValue>
+                            {count(payments.data.confirmed.count)}
+                          </AnimatedValue>
+                        </strong>
                       </span>
                       <span>
                         Giá trị{" "}
                         <strong>
-                          {money(payments.data.confirmed.paid_value)}
+                          <AnimatedValue>
+                            {money(payments.data.confirmed.paid_value)}
+                          </AnimatedValue>
                         </strong>
                       </span>
                       <span>
                         Tự động / thủ công / chưa rõ{" "}
                         <strong>
-                          {count(payments.data.confirmed.auto_count)} /{" "}
-                          {count(payments.data.confirmed.manual_count)} /{" "}
-                          {count(payments.data.confirmed.unknown_count)}
+                          <AnimatedValue>
+                            {count(payments.data.confirmed.auto_count)}
+                          </AnimatedValue>{" "}
+                          /{" "}
+                          <AnimatedValue>
+                            {count(payments.data.confirmed.manual_count)}
+                          </AnimatedValue>{" "}
+                          /{" "}
+                          <AnimatedValue>
+                            {count(payments.data.confirmed.unknown_count)}
+                          </AnimatedValue>
                         </strong>
                       </span>
                     </div>
                   </Block>
                   {payments.data.requests && (
                     <Notice>
-                      Đối soát hiện tại: {count(payments.data.requests.orders)}{" "}
-                      đơn · {count(payments.data.requests.count)} yêu cầu ·{" "}
-                      {money(payments.data.requests.claimed_amount)} được yêu
-                      cầu xử lý. Đây chưa phải số tiền phải hoàn hoặc đã hoàn.
+                      Đối soát hiện tại:{" "}
+                      <AnimatedValue>
+                        {count(payments.data.requests.orders)}
+                      </AnimatedValue>{" "}
+                      đơn ·{" "}
+                      <AnimatedValue>
+                        {count(payments.data.requests.count)}
+                      </AnimatedValue>{" "}
+                      yêu cầu ·{" "}
+                      <AnimatedValue>
+                        {money(payments.data.requests.claimed_amount)}
+                      </AnimatedValue>{" "}
+                      được yêu cầu xử lý. Đây chưa phải số tiền phải hoàn hoặc
+                      đã hoàn.
                     </Notice>
                   )}
                   <Block
@@ -1374,15 +1459,25 @@ export function AdminOrders({
                       </Notice>
                     )}
                     <p>
-                      Hợp lệ: {money(payments.data.totals.valid_amount)} · Cần
-                      kiểm tra: {money(payments.data.totals.invalid_amount)} ·
-                      Chưa gắn đơn:{" "}
-                      {money(payments.data.totals.unmatched_amount)}
+                      Hợp lệ:{" "}
+                      <AnimatedValue>
+                        {money(payments.data.totals.valid_amount)}
+                      </AnimatedValue>{" "}
+                      · Cần kiểm tra:{" "}
+                      <AnimatedValue>
+                        {money(payments.data.totals.invalid_amount)}
+                      </AnimatedValue>{" "}
+                      · Chưa gắn đơn:{" "}
+                      <AnimatedValue>
+                        {money(payments.data.totals.unmatched_amount)}
+                      </AnimatedValue>
                     </p>
                     <p className="small muted">
-                      {count(payments.data.totals.mismatched_dates)} giao dịch
-                      có ngày ngân hàng khác ngày webhook. Dữ liệu ngân hàng có
-                      thể chưa đầy đủ; chưa có ledger tiền hoàn.
+                      <AnimatedValue>
+                        {count(payments.data.totals.mismatched_dates)}
+                      </AnimatedValue>{" "}
+                      giao dịch có ngày ngân hàng khác ngày webhook. Dữ liệu
+                      ngân hàng có thể chưa đầy đủ; chưa có ledger tiền hoàn.
                     </p>
                     <Transactions
                       items={payments.data.transactions}
@@ -1436,7 +1531,7 @@ export function AdminOrders({
                                 }}
                               >
                                 <small>{hour}h</small>
-                                {count(n)}
+                                <AnimatedValue>{count(n)}</AnimatedValue>
                               </div>
                             );
                           })}
@@ -1484,17 +1579,27 @@ export function AdminOrders({
                                 ][i]
                               }
                             </td>
-                            <td>{count(r.samples)}</td>
                             <td>
-                              {r.median == null
-                                ? "Chưa đủ dữ liệu"
-                                : minutes(r.median)}
+                              <AnimatedValue>{count(r.samples)}</AnimatedValue>
                             </td>
                             <td>
-                              {r.p90 == null ? "Chưa đủ mẫu" : minutes(r.p90)}
+                              <AnimatedValue>
+                                {r.median == null
+                                  ? "Chưa đủ dữ liệu"
+                                  : minutes(r.median)}
+                              </AnimatedValue>
                             </td>
-                            <td>{count(r.missing)}</td>
-                            <td>{count(r.excluded)}</td>
+                            <td>
+                              <AnimatedValue>
+                                {r.p90 == null ? "Chưa đủ mẫu" : minutes(r.p90)}
+                              </AnimatedValue>
+                            </td>
+                            <td>
+                              <AnimatedValue>{count(r.missing)}</AnimatedValue>
+                            </td>
+                            <td>
+                              <AnimatedValue>{count(r.excluded)}</AnimatedValue>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1532,49 +1637,81 @@ export function AdminOrders({
                               </button>
                             </td>
                             <td>
-                              {count(r.placed)} / {count(r.incomplete)}
+                              <AnimatedValue>{count(r.placed)}</AnimatedValue> /{" "}
+                              <AnimatedValue>
+                                {count(r.incomplete)}
+                              </AnimatedValue>
                               <small>
-                                Toàn bộ đang chờ: {count(r.current)}
+                                Toàn bộ đang chờ:{" "}
+                                <AnimatedValue>
+                                  {count(r.current)}
+                                </AnimatedValue>
                               </small>
                             </td>
                             <td>
-                              {count(r.completed)} / {count(closed)}
+                              <AnimatedValue>
+                                {count(r.completed)}
+                              </AnimatedValue>{" "}
+                              / <AnimatedValue>{count(closed)}</AnimatedValue>
                               <small>
                                 Trên nhóm tạo:{" "}
-                                {r.placed
-                                  ? ((100 * r.completed) / r.placed).toFixed(1)
-                                  : "—"}
+                                <AnimatedValue>
+                                  {r.placed
+                                    ? ((100 * r.completed) / r.placed).toFixed(
+                                        1,
+                                      )
+                                    : "—"}
+                                </AnimatedValue>
                                 %
                               </small>
                               <small>
                                 Trên đã chốt:{" "}
-                                {closed
-                                  ? ((100 * r.completed) / closed).toFixed(1)
-                                  : "—"}
+                                <AnimatedValue>
+                                  {closed
+                                    ? ((100 * r.completed) / closed).toFixed(1)
+                                    : "—"}
+                                </AnimatedValue>
                                 %{closed < 20 ? " · Ít mẫu" : ""}
                               </small>
                             </td>
                             <td>
-                              {count(r.cancelled)} / {count(r.rejected)} /{" "}
-                              {count(r.expired)}
+                              <AnimatedValue>
+                                {count(r.cancelled)}
+                              </AnimatedValue>{" "}
+                              /{" "}
+                              <AnimatedValue>{count(r.rejected)}</AnimatedValue>{" "}
+                              /{" "}
+                              <AnimatedValue>{count(r.expired)}</AnimatedValue>
                             </td>
                             <td>
-                              {count(r.overdue)} / {count(r.requests)}
+                              <AnimatedValue>{count(r.overdue)}</AnimatedValue>{" "}
+                              /{" "}
+                              <AnimatedValue>{count(r.requests)}</AnimatedValue>
                             </td>
                             <td>
                               Median:{" "}
-                              {r.latency.median == null
-                                ? "—"
-                                : minutes(r.latency.median)}
+                              <AnimatedValue>
+                                {r.latency.median == null
+                                  ? "—"
+                                  : minutes(r.latency.median)}
+                              </AnimatedValue>
                               <small>
                                 P90:{" "}
-                                {r.latency.p90 == null
-                                  ? "Chưa đủ mẫu"
-                                  : minutes(r.latency.p90)}{" "}
-                                · {count(r.latency.samples)} mẫu
+                                <AnimatedValue>
+                                  {r.latency.p90 == null
+                                    ? "Chưa đủ mẫu"
+                                    : minutes(r.latency.p90)}
+                                </AnimatedValue>{" "}
+                                ·{" "}
+                                <AnimatedValue>
+                                  {count(r.latency.samples)}
+                                </AnimatedValue>{" "}
+                                mẫu
                               </small>
                             </td>
-                            <td>{money(r.gmv)}</td>
+                            <td>
+                              <AnimatedValue>{money(r.gmv)}</AnimatedValue>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1613,27 +1750,36 @@ export function AdminOrders({
                             </small>
                           </td>
                           <td>
-                            {count(r.placed)} / {count(r.completed)} /{" "}
-                            {count(r.incomplete)}
+                            <AnimatedValue>{count(r.placed)}</AnimatedValue> /{" "}
+                            <AnimatedValue>{count(r.completed)}</AnimatedValue>{" "}
+                            /{" "}
+                            <AnimatedValue>{count(r.incomplete)}</AnimatedValue>
                           </td>
                           <td>
-                            {count(r.cancelled)} / {count(r.rejected)} /{" "}
-                            {count(r.expired)}
+                            <AnimatedValue>{count(r.cancelled)}</AnimatedValue>{" "}
+                            / <AnimatedValue>{count(r.rejected)}</AnimatedValue>{" "}
+                            / <AnimatedValue>{count(r.expired)}</AnimatedValue>
                           </td>
                           <td>
                             Thẳng:{" "}
-                            {r.distance_km == null
-                              ? "—"
-                              : Number(r.distance_km).toFixed(2) + " km"}
+                            <AnimatedValue>
+                              {r.distance_km == null
+                                ? "—"
+                                : Number(r.distance_km).toFixed(2) + " km"}
+                            </AnimatedValue>
                             <small>
                               Đường bộ:{" "}
-                              {r.route_distance_km == null
-                                ? "—"
-                                : Number(r.route_distance_km).toFixed(2) +
-                                  " km"}
+                              <AnimatedValue>
+                                {r.route_distance_km == null
+                                  ? "—"
+                                  : Number(r.route_distance_km).toFixed(2) +
+                                    " km"}
+                              </AnimatedValue>
                             </small>
                           </td>
-                          <td>{money(r.gmv)}</td>
+                          <td>
+                            <AnimatedValue>{money(r.gmv)}</AnimatedValue>
+                          </td>
                         </tr>
                       ))}
                     </Table>
@@ -1678,30 +1824,49 @@ export function AdminOrders({
                               }
                             </button>
                           </td>
-                          <td>{count(r.count)}</td>
-                          <td>{count(r.paid)}</td>
+                          <td>
+                            <AnimatedValue>{count(r.count)}</AnimatedValue>
+                          </td>
+                          <td>
+                            <AnimatedValue>{count(r.paid)}</AnimatedValue>
+                          </td>
                         </tr>
                       ))}
                     </Table>
                   </Block>
                   <Block title="Thông tin bổ sung">
                     <p>
-                      {count(performance.data.secondary.buyers)} khách đặt ·{" "}
-                      {count(performance.data.secondary.chefs)} chef có đơn tạo
-                      · {count(performance.data.secondary.servings)} phần hoàn
-                      thành
+                      <AnimatedValue>
+                        {count(performance.data.secondary.buyers)}
+                      </AnimatedValue>{" "}
+                      khách đặt ·{" "}
+                      <AnimatedValue>
+                        {count(performance.data.secondary.chefs)}
+                      </AnimatedValue>{" "}
+                      chef có đơn tạo ·{" "}
+                      <AnimatedValue>
+                        {count(performance.data.secondary.servings)}
+                      </AnimatedValue>{" "}
+                      phần hoàn thành
                     </p>
                     <p>
                       Phí giao trên đơn hoàn thành:{" "}
-                      {money(performance.data.secondary.delivery)} · Voucher:{" "}
-                      {money(performance.data.secondary.voucher)} · Giá trị món
-                      bình quân:{" "}
-                      {performance.data.secondary.completed
-                        ? money(
-                            performance.data.secondary.gmv /
-                              performance.data.secondary.completed,
-                          )
-                        : "Chưa có đơn hoàn thành"}
+                      <AnimatedValue>
+                        {money(performance.data.secondary.delivery)}
+                      </AnimatedValue>{" "}
+                      · Voucher:{" "}
+                      <AnimatedValue>
+                        {money(performance.data.secondary.voucher)}
+                      </AnimatedValue>{" "}
+                      · Giá trị món bình quân:{" "}
+                      <AnimatedValue>
+                        {performance.data.secondary.completed
+                          ? money(
+                              performance.data.secondary.gmv /
+                                performance.data.secondary.completed,
+                            )
+                          : "Chưa có đơn hoàn thành"}
+                      </AnimatedValue>
                     </p>
                   </Block>
                 </>
@@ -1901,8 +2066,10 @@ export function AdminOrders({
           >
             <p className="small muted">
               Ngưỡng chỉ tạo cảnh báo. SLA chậm nhận{" "}
-              {summary.data.sla.acceptMinutes} phút và đối soát{" "}
-              {summary.data.sla.refundHours} giờ dùng cài đặt chung.
+              <AnimatedValue>{summary.data.sla.acceptMinutes}</AnimatedValue>{" "}
+              phút và đối soát{" "}
+              <AnimatedValue>{summary.data.sla.refundHours}</AnimatedValue> giờ
+              dùng cài đặt chung.
             </p>
             {[
               ["acceptedMinutes", "Bếp đã nhận (phút)", 1440],

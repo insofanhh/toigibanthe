@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -99,7 +100,8 @@ function Pager({
         <ChevronLeft size={16} /> Trước
       </Button>
       <span>
-        Trang {count(page)} / {count(pages)}
+        Trang <AnimatedValue>{count(page)}</AnimatedValue> /{" "}
+        <AnimatedValue>{count(pages)}</AnimatedValue>
       </span>
       <Button
         secondary
@@ -145,7 +147,7 @@ function RegistrationChart({ days }: { days: UsersReport["days"] }) {
                 stroke="#e7ede9"
               />
               <text x="36" y={y(n * max) + 4} textAnchor="end">
-                {Math.round(n * max)}
+                <AnimatedValue as="tspan">{Math.round(n * max)}</AnimatedValue>
               </text>
             </g>
           ))}
@@ -197,8 +199,9 @@ function RegistrationChart({ days }: { days: UsersReport["days"] }) {
         </svg>
         {hover !== null && days[hover] && (
           <div className="analytics-chart-tooltip">
-            {days[hover].day} · Đăng ký: {count(days[hover].registered)} · Mua
-            lần đầu: {count(days[hover].first)}
+            {days[hover].day} · Đăng ký:{" "}
+            <AnimatedValue>{count(days[hover].registered)}</AnimatedValue> · Mua
+            lần đầu: <AnimatedValue>{count(days[hover].first)}</AnimatedValue>
           </div>
         )}
       </div>
@@ -217,8 +220,12 @@ function RegistrationChart({ days }: { days: UsersReport["days"] }) {
               {days.map((d) => (
                 <tr key={d.day}>
                   <td>{d.day}</td>
-                  <td>{d.registered}</td>
-                  <td>{d.first}</td>
+                  <td>
+                    <AnimatedValue>{d.registered}</AnimatedValue>
+                  </td>
+                  <td>
+                    <AnimatedValue>{d.first}</AnimatedValue>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -291,20 +298,32 @@ function Profile({
               <p>Đăng ký: {stamp(result.data.user.created_at)}</p>
             </div>
             <div>
-              <p>{count(result.data.user.completed_orders)} đơn hoàn thành</p>
-              <p>Giá trị món: {money(result.data.user.food_value)}</p>
+              <p>
+                <AnimatedValue>
+                  {count(result.data.user.completed_orders)}
+                </AnimatedValue>{" "}
+                đơn hoàn thành
+              </p>
+              <p>
+                Giá trị món:{" "}
+                <AnimatedValue>
+                  {money(result.data.user.food_value)}
+                </AnimatedValue>
+              </p>
               <p>Mua gần nhất: {stamp(result.data.user.last_purchase)}</p>
             </div>
           </div>
           <div className="users-order-counts">
             {result.data.counts.map((c) => (
               <span key={c.status} className="status" data-status={c.status}>
-                {ORDER_LABELS[c.status] || c.status}: {count(c.count)}
+                {ORDER_LABELS[c.status] || c.status}:{" "}
+                <AnimatedValue>{count(c.count)}</AnimatedValue>
               </span>
             ))}
           </div>
           <h3 className="users-subheading">
-            Lịch sử đơn ({count(result.data.total)})
+            Lịch sử đơn (
+            <AnimatedValue>{count(result.data.total)}</AnimatedValue>)
           </h3>
           {result.data.orders.length ? (
             <>
@@ -337,7 +356,11 @@ function Profile({
                             {ORDER_LABELS[o.status] || o.status}
                           </span>
                         </td>
-                        <td>{money(Number(o.total))}</td>
+                        <td>
+                          <AnimatedValue>
+                            {money(Number(o.total))}
+                          </AnimatedValue>
+                        </td>
                         <td>{stamp(o.created_at)}</td>
                       </tr>
                     ))}
@@ -380,7 +403,9 @@ function Profile({
                         </Link>
                       </td>
                       <td>{PAYMENT_REQUEST_KINDS[r.kind] || r.kind}</td>
-                      <td>{money(Number(r.amount))}</td>
+                      <td>
+                        <AnimatedValue>{money(Number(r.amount))}</AnimatedValue>
+                      </td>
                       <td>
                         <span className="status" data-status={r.status}>
                           {PAYMENT_REQUEST_STATUSES[r.status] || r.status}
@@ -547,7 +572,7 @@ export function AdminUsers() {
                 apply({ from: shiftDate(today, 1 - days), to: today })
               }
             >
-              {days} ngày
+              <AnimatedValue>{days}</AnimatedValue> ngày
             </button>
           ))}
         </div>
@@ -656,7 +681,11 @@ export function AdminUsers() {
                   {c.label}
                   <c.icon size={18} />
                 </span>
-                <strong>{count(report.data!.metrics[c.key])}</strong>
+                <strong>
+                  <AnimatedValue>
+                    {count(report.data!.metrics[c.key])}
+                  </AnimatedValue>
+                </strong>
                 <small>{c.hint}</small>
                 <span className="users-filter-hint">
                   Lọc danh sách <ChevronRight size={12} />
@@ -690,7 +719,10 @@ export function AdminUsers() {
                       <span>
                         {USER_GROUPS[key]}
                         <b>
-                          {count(n)} <small>({pct.toFixed(1)}%)</small>
+                          <AnimatedValue>{count(n)}</AnimatedValue>{" "}
+                          <small>
+                            (<AnimatedValue>{pct.toFixed(1)}</AnimatedValue>%)
+                          </small>
                         </b>
                       </span>
                       <span className="users-group-track">
@@ -799,10 +831,13 @@ export function AdminUsers() {
               Vuốt ngang bảng để xem đầy đủ thông tin và thao tác.
             </p>
             <p className="analytics-meta" aria-live="polite">
-              {count(list.data.total)} tài khoản phù hợp
-              {list.data.total > 0
-                ? ` · ${count((list.data.page - 1) * list.data.pageSize + 1)}–${count(Math.min(list.data.page * list.data.pageSize, list.data.total))}`
-                : ""}
+              <AnimatedValue>{count(list.data.total)}</AnimatedValue> tài khoản
+              phù hợp
+              <AnimatedValue>
+                {list.data.total > 0
+                  ? ` · ${count((list.data.page - 1) * list.data.pageSize + 1)}–${count(Math.min(list.data.page * list.data.pageSize, list.data.total))}`
+                  : ""}
+              </AnimatedValue>
             </p>
             {list.data.users.length ? (
               <div className="analytics-table-wrap">
@@ -873,8 +908,14 @@ export function AdminUsers() {
                                 : USER_GROUPS.repeat}
                           </span>
                         </td>
-                        <td>{count(u.completed_orders)}</td>
-                        <td>{money(u.food_value)}</td>
+                        <td>
+                          <AnimatedValue>
+                            {count(u.completed_orders)}
+                          </AnimatedValue>
+                        </td>
+                        <td>
+                          <AnimatedValue>{money(u.food_value)}</AnimatedValue>
+                        </td>
                         <td>{stamp(u.last_purchase)}</td>
                         <td>
                           <Button

@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 
 import { useState } from "react";
 import { Star } from "lucide-react";
@@ -23,7 +24,15 @@ export function ChefReviews({ chefId }: { chefId: string }) {
   return (
     <section className="chef-reviews">
       <div className="chef-reviews-heading">
-        <h2>Đánh giá{data ? ` (${data.total})` : ""}</h2>
+        <h2>
+          Đánh giá
+          {data && (
+            <>
+              {" "}
+              (<AnimatedValue>{data.total}</AnimatedValue>)
+            </>
+          )}
+        </h2>
         <label>
           Sắp xếp
           <select
@@ -46,7 +55,8 @@ export function ChefReviews({ chefId }: { chefId: string }) {
           <div className="spread">
             <strong>{r.name}</strong>
             <span className="review-stars">
-              <Star size={14} fill="currentColor" /> {r.rating}/5
+              <Star size={14} fill="currentColor" />{" "}
+              <AnimatedValue>{r.rating}</AnimatedValue>/5
             </span>
           </div>
           <time dateTime={r.createdAt}>

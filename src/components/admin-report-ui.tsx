@@ -1,4 +1,5 @@
 "use client";
+import { AnimatedValue } from "./animated-value";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Notice, PageLoading } from "./app";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -97,8 +98,9 @@ export function ReportPager({
         Trước
       </Button>
       <span>
-        Trang {count(data.page)} / {count(data.pages)} · {count(data.total)} bản
-        ghi
+        Trang <AnimatedValue>{count(data.page)}</AnimatedValue> /{" "}
+        <AnimatedValue>{count(data.pages)}</AnimatedValue> ·{" "}
+        <AnimatedValue>{count(data.total)}</AnimatedValue> bản ghi
       </span>
       <Button
         secondary
@@ -202,9 +204,11 @@ export function SalesChart({
                 stroke="#e7ede9"
               />
               <text x="36" y={y(n * max) + 4} textAnchor="end">
-                {metric === "gmv"
-                  ? count(Math.round((n * max) / 1000)) + "k"
-                  : count(Math.round(n * max))}
+                <AnimatedValue as="tspan">
+                  {metric === "gmv"
+                    ? count(Math.round((n * max) / 1000)) + "k"
+                    : count(Math.round(n * max))}
+                </AnimatedValue>
               </text>
             </g>
           ))}
@@ -259,8 +263,12 @@ export function SalesChart({
         </svg>
         {hover !== null && days[hover] && (
           <div className="analytics-chart-tooltip">
-            {days[hover].day} · {format(days[hover][metric])} · Kỳ trước{" "}
-            {format(days[hover]["previous_" + metric])}
+            {days[hover].day} ·{" "}
+            <AnimatedValue>{format(days[hover][metric])}</AnimatedValue> · Kỳ
+            trước{" "}
+            <AnimatedValue>
+              {format(days[hover]["previous_" + metric])}
+            </AnimatedValue>
           </div>
         )}
       </div>
@@ -270,9 +278,13 @@ export function SalesChart({
           {days.map((d) => (
             <tr key={d.day}>
               <td>{d.day}</td>
-              <td>{format(d[metric])}</td>
+              <td>
+                <AnimatedValue>{format(d[metric])}</AnimatedValue>
+              </td>
               <td>{d.previous_day}</td>
-              <td>{format(d["previous_" + metric])}</td>
+              <td>
+                <AnimatedValue>{format(d["previous_" + metric])}</AnimatedValue>
+              </td>
             </tr>
           ))}
         </ReportTable>
