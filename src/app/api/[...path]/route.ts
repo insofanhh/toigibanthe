@@ -474,7 +474,13 @@ async function dispatch(req: Request) {
     await requireRole("chef");
     if (!action && method === "GET") return chefOverview(user);
     if (action === "orders" && method === "GET")
-      return { orders: await listOrders(user, true) };
+      return {
+        orders: await listOrders(
+          user,
+          true,
+          url.searchParams.get("filter") === "active",
+        ),
+      };
     if (action === "sepay") {
       const c = await ownedChef(user);
       if (!id && method === "GET")

@@ -8,6 +8,7 @@ import {
   effectivePrice,
   ORDER_NEXT,
   TERMINAL,
+  ACTIVE_ORDER_STATUSES,
   type Actor,
 } from "./domain";
 import { notify } from "./notifications";
@@ -469,17 +470,29 @@ export async function createOrder(user: Actor, input: Checkout) {
     throw error;
   }
 }
-export async function listOrders(user: Actor, chefMode = false) {
+export async function listOrders(
+  user: Actor,
+  chefMode = false,
+  activeOnly = false,
+) {
   await expireOrders();
+  const conditions: string[] = [],
+    values: unknown[] = [];
+  if (!(user.role === "admin" && chefMode)) {
+    conditions.push(chefMode ? "c.user_id=?" : "o.user_id=?");
+    values.push(user.id);
+  }
+  if (activeOnly) {
+    conditions.push(
+      `o.status IN (${ACTIVE_ORDER_STATUSES.map(() => "?").join(",")})`,
+    );
+    values.push(...ACTIVE_ORDER_STATUSES);
+  }
   return rows<OrderRecord>(
     orderSQL +
-      (user.role === "admin" && chefMode
-        ? ""
-        : chefMode
-          ? " WHERE c.user_id=?"
-          : " WHERE o.user_id=?") +
+      (conditions.length ? " WHERE " + conditions.join(" AND ") : "") +
       " ORDER BY o.created_at DESC LIMIT 100",
-    user.role === "admin" && chefMode ? [] : [user.id],
+    values,
   );
 }
 export async function transition(

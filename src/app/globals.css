@@ -2047,6 +2047,48 @@ hr {
   color: var(--muted);
   font-weight: 300;
 }
+.stat-link {
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.stat-link > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.stat-link > span svg {
+  flex-shrink: 0;
+}
+.stat-link:hover {
+  border-color: var(--green);
+  background: var(--mint);
+}
+.stat-link:focus-visible,
+.order-filters a:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+.order-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.order-filters a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 12px;
+}
+.order-filters a.active {
+  border-color: var(--green);
+  background: var(--mint);
+  color: var(--green);
+}
 .dashboard-product {
   display: flex;
   align-items: center;

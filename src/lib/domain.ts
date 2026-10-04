@@ -59,6 +59,14 @@ export const ORDER_NEXT: Record<string, string> = {
   DELIVERING: "DELIVERED",
 };
 export const TERMINAL = ["COMPLETED", "REJECTED", "EXPIRED", "CANCELLED"];
+export const ACTIVE_ORDER_STATUSES = [
+  "PLACED",
+  "PAID",
+  "ACCEPTED",
+  "PREPARING",
+  "DELIVERING",
+  "DELIVERED",
+] as const;
 export const PAYMENT_REQUEST_KINDS: Record<string, string> = {
   LATE: "Chuyển khoản sau hạn",
   UNDERPAID: "Chuyển thiếu",

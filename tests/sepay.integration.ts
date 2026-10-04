@@ -264,6 +264,57 @@ try {
     "PASS: cấu hình riêng theo chef, key băm/không lộ, ngân hàng và QR mẫu SePay",
   );
 
+  const activeStatuses = [
+    "PLACED",
+    "PAID",
+    "ACCEPTED",
+    "PREPARING",
+    "DELIVERING",
+    "DELIVERED",
+  ];
+  const fixtureOrders = [];
+  for (const status of [
+    ...activeStatuses,
+    "COMPLETED",
+    "CANCELLED",
+    "REJECTED",
+    "EXPIRED",
+  ])
+    fixtureOrders.push({ ...(await order({ status })), status });
+  const activeList = await api("chef/orders?filter=active");
+  assert.equal(activeList.status, 200);
+  assert.equal(activeList.data.orders.length, activeStatuses.length);
+  assert.deepEqual(
+    activeList.data.orders.map((o: any) => o.status).sort(),
+    [...activeStatuses].sort(),
+  );
+  assert.equal(
+    (await api("chef/orders")).data.orders.length,
+    fixtureOrders.length,
+  );
+  assert.equal(
+    (await api("chef")).data.stats.active_orders,
+    activeStatuses.length,
+  );
+  assert.equal(
+    (await api("chef/orders?filter=active", undefined, 2)).data.orders.length,
+    0,
+  );
+  assert.equal(
+    (await api("chef/orders?filter=active", undefined, 1)).status,
+    403,
+  );
+  await exec("UPDATE orders SET status='COMPLETED' WHERE id=?", [
+    fixtureOrders[1].id,
+  ]);
+  assert.equal(
+    (await api("chef/orders?filter=active")).data.orders.length,
+    activeStatuses.length - 1,
+  );
+  console.log(
+    "PASS: bộ lọc chef chỉ lấy đơn đang xử lý của bếp, bao gồm đã giao chưa xác nhận; số thống kê khớp và đơn hoàn thành tự ra khỏi danh sách",
+  );
+
   const requestOrder = await order({
     status: "DELIVERED",
     payment: "PAID_AUTO",

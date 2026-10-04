@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { Link } from "./page-motion";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   ChefHat,
   Plus,
@@ -21,6 +21,7 @@ import {
   LoaderCircle,
   Upload,
   Check,
+  ChevronRight,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
 import { KitchenLocationPicker } from "./kitchen-location-picker";
@@ -286,29 +287,59 @@ function Tabs({
     </div>
   );
 }
-function Stats({ items }: { items: [string, string, string][] }) {
+function Stats({ items }: { items: [string, string, string, string?][] }) {
   return (
     <div className="stats-grid">
-      {items.map(([label, value, note]) => (
-        <div className="stat" key={label}>
-          <span>{label}</span>
-          <strong>{value}</strong>
-          <small>{note}</small>
-        </div>
-      ))}
+      {items.map(([label, value, note, href]) =>
+        href ? (
+          <Link
+            className="stat stat-link"
+            href={href}
+            key={label}
+            aria-label={"Xem " + label.toLowerCase()}
+          >
+            <span>
+              {label}
+              <ChevronRight size={13} />
+            </span>
+            <strong>{value}</strong>
+            <small>{note}</small>
+          </Link>
+        ) : (
+          <div className="stat" key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+            <small>{note}</small>
+          </div>
+        ),
+      )}
     </div>
   );
 }
 export function ChefDashboard() {
   const { user, chef, revision, toast, refresh } = useApp(),
     params = useSearchParams(),
-    [tab, setTab] = useState(params.get("tab") || "overview"),
+    router = useRouter(),
+    tab = params.get("tab") || "overview",
+    orderFilter = params.get("filter") === "active" ? "active" : "all",
     { data, error, reload } = useLoad(user?.role === "chef" ? "chef" : null, [
       revision,
     ]),
-    { data: orders } = useLoad(user?.role === "chef" ? "chef/orders" : null, [
-      revision,
-    ]),
+    {
+      data: orders,
+      error: ordersError,
+      loading: ordersLoading,
+    } = useLoad(user?.role === "chef" ? "chef/orders" : null, [revision]),
+    {
+      data: activeOrders,
+      error: activeError,
+      loading: activeLoading,
+    } = useLoad(
+      user?.role === "chef" && tab === "orders" && orderFilter === "active"
+        ? "chef/orders?filter=active"
+        : null,
+      [revision],
+    ),
     [productForm, setProductForm] = useState<any | null>(null),
     [menuForm, setMenuForm] = useState<any | null>(null);
   if (!user) return <NeedLogin />;
@@ -328,6 +359,16 @@ export function ChefDashboard() {
       </div>
     );
   const c = data.chef;
+  const displayedOrders =
+    (orderFilter === "active" ? activeOrders?.orders : orders?.orders) || [];
+  const listLoading = orderFilter === "active" ? activeLoading : ordersLoading;
+  const listError = orderFilter === "active" ? activeError : ordersError;
+  function setTab(next: string) {
+    const query = new URLSearchParams(params.toString());
+    query.set("tab", next);
+    query.delete("filter");
+    router.push("/chef?" + query.toString(), { scroll: false });
+  }
   async function run(path: string, body: unknown) {
     try {
       await post(path, body);
@@ -374,6 +415,7 @@ export function ChefDashboard() {
                 "Đơn đang xử lý",
                 String(data.stats.active_orders || 0),
                 "Bao gồm đơn chờ thanh toán",
+                "/chef?tab=orders&filter=active",
               ],
               [
                 "Doanh số hoàn thành",
@@ -412,15 +454,47 @@ export function ChefDashboard() {
       )}
       {tab === "orders" && (
         <>
+          <div className="order-filters" aria-label="Lọc đơn hàng">
+            <Link
+              href="/chef?tab=orders"
+              className={orderFilter === "all" ? "active" : ""}
+              aria-current={orderFilter === "all" ? "page" : undefined}
+              scroll={false}
+            >
+              Tất cả
+            </Link>
+            <Link
+              href="/chef?tab=orders&filter=active"
+              className={orderFilter === "active" ? "active" : ""}
+              aria-current={orderFilter === "active" ? "page" : undefined}
+              scroll={false}
+            >
+              Đang xử lý
+            </Link>
+          </div>
           <Notice>
             Đơn đã thanh toán qua SePay sẽ chờ bếp nhận. Mở chi tiết đơn để
             nhận, chuẩn bị và cập nhật giao hàng.
           </Notice>
           <div style={{ marginTop: 18 }}>
-            {orders?.orders.length ? (
-              orders.orders.map((o: any) => <OrderCard key={o.id} order={o} />)
+            {listError ? (
+              <Notice error>{listError}</Notice>
+            ) : listLoading ? (
+              <div className="loading">
+                <LoaderCircle className="spin" /> Đang tải đơn…
+              </div>
+            ) : displayedOrders.length ? (
+              displayedOrders.map((o: any) => (
+                <OrderCard key={o.id} order={o} />
+              ))
             ) : (
-              <Empty title="Bếp chưa có đơn" />
+              <Empty
+                title={
+                  orderFilter === "active"
+                    ? "Không có đơn đang xử lý"
+                    : "Bếp chưa có đơn"
+                }
+              />
             )}
           </div>
         </>

@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { rows, exec, transaction, sqlDate, type DB } from "./db";
-import { type Actor, cutoffAt, serviceDate } from "./domain";
+import {
+  type Actor,
+  cutoffAt,
+  serviceDate,
+  ACTIVE_ORDER_STATUSES,
+} from "./domain";
 import { AppError } from "./http";
 import { notify } from "./notifications";
 import { chefSchema, productSchema, bankSchema } from "./validation";
@@ -60,8 +65,8 @@ export async function chefOverview(user: Actor) {
   );
   const stats = (
     await rows(
-      'SELECT COUNT(*) orders_count,COALESCE(SUM(CASE WHEN status="COMPLETED" THEN total ELSE 0 END),0) revenue,SUM(CASE WHEN status IN ("PLACED","PAID","ACCEPTED","PREPARING","DELIVERING") THEN 1 ELSE 0 END) active_orders FROM orders WHERE chef_id=?',
-      [c.id],
+      `SELECT COUNT(*) orders_count,COALESCE(SUM(CASE WHEN status="COMPLETED" THEN total ELSE 0 END),0) revenue,SUM(CASE WHEN status IN (${ACTIVE_ORDER_STATUSES.map(() => "?").join(",")}) THEN 1 ELSE 0 END) active_orders FROM orders WHERE chef_id=?`,
+      [...ACTIVE_ORDER_STATUSES, c.id],
     )
   )[0];
   return {
