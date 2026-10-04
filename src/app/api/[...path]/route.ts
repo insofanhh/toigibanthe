@@ -56,6 +56,7 @@ import { queueBroadcast, processBroadcasts } from "@/lib/jobs";
 import { quoteOrder } from "@/lib/quote";
 import { getReorderOptions } from "@/lib/reorder";
 import { getProductReviews } from "@/lib/product-reviews";
+import { getChefReviews } from "@/lib/chef-reviews";
 import { sepayBanks, sepayQR } from "@/lib/sepay-qr";
 import {
   generateWebhookKey,
@@ -165,6 +166,19 @@ async function dispatch(req: Request) {
     );
   }
   if (section === "chefs" && method === "GET") {
+    if (action && id === "reviews")
+      return getChefReviews(
+        z.string().min(1).max(36).parse(action),
+        z
+          .enum(["highest", "lowest", "recent"])
+          .parse(url.searchParams.get("sort") || "highest"),
+        z.coerce
+          .number()
+          .int()
+          .min(0)
+          .max(10000)
+          .parse(url.searchParams.get("cursor") || 0),
+      );
     const c = (
       await rows(
         'SELECT id,name,bio,area,avatar_url,cover_url,rating,rating_count,completed_orders FROM chefs WHERE id=? AND status="approved"',
@@ -174,10 +188,6 @@ async function dispatch(req: Request) {
     if (!c) throw new AppError("Bếp chưa hoạt động.", 404);
     return {
       chef: c,
-      reviews: await rows(
-        "SELECT r.rating,r.body,r.created_at,u.name FROM reviews r JOIN users u ON u.id=r.user_id WHERE r.chef_id=? ORDER BY r.created_at DESC LIMIT 20",
-        [action],
-      ),
     };
   }
   if (

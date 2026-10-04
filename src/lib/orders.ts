@@ -495,13 +495,35 @@ export async function listOrders(
     );
     values.push(...ACTIVE_ORDER_STATUSES);
   }
+  const orders = await rows<OrderRecord>(
+    orderSQL +
+      (conditions.length ? " WHERE " + conditions.join(" AND ") : "") +
+      " ORDER BY o.created_at DESC LIMIT 100",
+    values,
+  );
+  const items = orders.length
+    ? await rows<{
+        order_id: string;
+        product_id: string;
+        name: string;
+        image_url: string;
+        quantity: number;
+      }>(
+        `SELECT order_id,product_id,name,image_url,quantity FROM order_items WHERE order_id IN (${orders.map(() => "?").join(",")}) ORDER BY id`,
+        orders.map((o) => o.id),
+      )
+    : [];
   return attachPaymentRequestSummaries(
-    await rows<OrderRecord>(
-      orderSQL +
-        (conditions.length ? " WHERE " + conditions.join(" AND ") : "") +
-        " ORDER BY o.created_at DESC LIMIT 100",
-      values,
-    ),
+    orders.map((o) => {
+      const dishes = items.filter((i) => i.order_id === o.id);
+      return {
+        ...o,
+        dish_image: dishes.find((i) => i.image_url)?.image_url || null,
+        dish_names: [...new Set(dishes.map((i) => i.name))],
+        dish_count: new Set(dishes.map((i) => i.product_id)).size,
+        item_quantity: dishes.reduce((sum, i) => sum + Number(i.quantity), 0),
+      };
+    }),
   );
 }
 export async function transition(

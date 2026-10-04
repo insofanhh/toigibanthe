@@ -1327,6 +1327,73 @@ try {
   await exec("UPDATE products SET active=FALSE WHERE id=?", [ids.product]);
   assert.equal((await api(reviewsPath, undefined, 3)).status, 404);
   await exec("UPDATE products SET active=TRUE WHERE id=?", [ids.product]);
+  const history = await api("orders", undefined, 1);
+  const historyOrder = history.data.orders.find(
+    (o: any) => o.id === reordered.id,
+  );
+  assert.equal(historyOrder.dish_image, "https://example.com/fixture.png");
+  assert.equal(historyOrder.dish_count, 1);
+  assert.equal(historyOrder.item_quantity, 2);
+  assert.deepEqual(historyOrder.dish_names, ["TEST"]);
+  // Ratings are sorted across every review before paging, including older low ratings.
+  for (let i = 0; i < 21; i++) {
+    const fixture = await order({ status: "COMPLETED", payment: "PAID_AUTO" });
+    await exec("INSERT INTO reviews VALUES (?,?,?,?,?,?,?)", [
+      randomUUID(),
+      fixture.id,
+      users[1].id,
+      ids.chef,
+      i === 0 ? 1 : 5,
+      `Đánh giá fixture ${i}`,
+      sqlDate(new Date(Date.now() - (21 - i) * 60000)),
+    ]);
+  }
+  const chefReviewsPath = `chefs/${ids.chef}/reviews`;
+  const highest = await api(chefReviewsPath + "?sort=highest", undefined, 3);
+  assert.equal(highest.status, 200);
+  assert.equal(highest.data.total, 22);
+  assert.equal(highest.data.reviews.length, 20);
+  assert.ok(highest.data.reviews.every((r: any) => r.rating === 5));
+  assert.equal(highest.data.nextCursor, 20);
+  const remaining = await api(
+    chefReviewsPath + "?sort=highest&cursor=20",
+    undefined,
+    3,
+  );
+  assert.deepEqual(
+    remaining.data.reviews.map((r: any) => r.rating),
+    [4, 1],
+  );
+  const lowest = await api(chefReviewsPath + "?sort=lowest", undefined, 3);
+  assert.equal(lowest.data.reviews[0].rating, 1);
+  assert.equal(lowest.data.reviews[1].rating, 4);
+  assert.deepEqual(lowest.data.reviews[1].dishes, [
+    { id: ids.product, name: "TEST" },
+  ]);
+  assert.equal(lowest.data.reviews[1].name, users[1].name);
+  assert.ok(!Number.isNaN(Date.parse(lowest.data.reviews[1].createdAt)));
+  assert.deepEqual(
+    Object.keys(lowest.data.reviews[1]).sort(),
+    ["id", "name", "rating", "body", "createdAt", "dishes"].sort(),
+  );
+  const recent = await api(chefReviewsPath + "?sort=recent", undefined, 3);
+  assert.equal(recent.data.reviews[0].body, "Món ngon, giao đúng giờ.");
+  assert.equal(
+    (await api(chefReviewsPath + "?sort=wrong", undefined, 3)).status,
+    400,
+  );
+  assert.equal(
+    (await api(chefReviewsPath + "?cursor=-1", undefined, 3)).status,
+    400,
+  );
+  assert.equal(
+    (await api(`chefs/${randomUUID()}/reviews`, undefined, 3)).status,
+    404,
+  );
+  console.log(
+    "PASS: lịch sử có ảnh snapshot/tên món/số món/số phần; đánh giá chef sắp xếp toàn bộ trước phân trang, đúng món/thời gian, không lặp và không lộ thông tin liên hệ",
+  );
+
   console.log(
     "PASS: đánh giá đúng món, không lặp khi nhiều dòng món, phân trang, không trả thông tin riêng tư, chặn món ngừng bán",
   );

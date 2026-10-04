@@ -62,6 +62,7 @@ import { AddressPicker } from "./address-picker";
 import { OrderReorder, HistoryReorder } from "./order-reorder";
 import { OrderProgress } from "./order-progress";
 import { DishReviews } from "./dish-reviews";
+import { ChefReviews } from "./chef-reviews";
 import {
   CustomerPaymentRequestForm,
   PaymentRequestList,
@@ -1107,20 +1108,7 @@ function Chefs({ id }: { id?: string }) {
           <Empty title="Bếp chưa có món phù hợp lúc này" />
         )}
       </Section>
-      {profile?.reviews?.length > 0 && (
-        <Section title="Đánh giá">
-          {profile.reviews.map((r: any, i: number) => (
-            <div className="review panel" key={i}>
-              <strong>{r.name}</strong>
-              <span>
-                <Star size={13} />
-                {r.rating}
-              </span>
-              <p>{r.body}</p>
-            </div>
-          ))}
-        </Section>
-      )}
+      {c && <ChefReviews key={id} chefId={id} />}
     </>
   );
 }
@@ -1262,39 +1250,60 @@ export function OrderCard({
     <article className="panel order-card-container">
       <Link className="order-card" href={"/orders/" + o.id}>
         <div className="order-card-icon">
-          <ShoppingBag size={22} />
+          {o.dish_image ? (
+            <img
+              src={o.dish_image}
+              alt={o.dish_names?.[0] || "Món đã đặt"}
+              loading="lazy"
+              onError={(e) => {
+                if (!e.currentTarget.src.endsWith("/icon.svg"))
+                  e.currentTarget.src = "/icon.svg";
+              }}
+            />
+          ) : (
+            <ShoppingBag size={22} />
+          )}
         </div>
         <div className="order-card-info">
           <strong>{o.chef_name}</strong>
+          {o.dish_names?.length > 0 && (
+            <p className="order-dish-names">{o.dish_names.join(" · ")}</p>
+          )}
+          {Number(o.item_quantity) > 0 && (
+            <span className="order-item-count">
+              {o.dish_count} món · {o.item_quantity} phần
+            </span>
+          )}
           <p>
             #{o.code} ·{" "}
             {new Date(o.created_at.replace(" ", "T") + "Z").toLocaleString(
               "vi-VN",
             )}
           </p>
-          <div className="order-card-statuses">
-            <span className="status" data-status={o.status}>
-              {ORDER_LABELS[o.status]}
-            </span>
-            {o.payment_request_status && (
-              <span
-                className="status order-request-status"
-                data-status={o.payment_request_status}
-              >
-                {o.payment_request_kind === "REFUND" ? "Hoàn tiền" : "Đối soát"}{" "}
-                ·{" "}
-                {PAYMENT_REQUEST_STATUSES[o.payment_request_status] ||
-                  o.payment_request_status}
-              </span>
-            )}
-          </div>
         </div>
         <div className="order-card-total">
           <strong>{money(o.total)}</strong>
           <ChevronRight size={18} />
         </div>
       </Link>
-      {reorder && !chef && <HistoryReorder orderId={o.id} />}
+      <div className="order-card-footer">
+        <div className="order-card-statuses">
+          <span className="status" data-status={o.status}>
+            {ORDER_LABELS[o.status]}
+          </span>
+          {o.payment_request_status && (
+            <span
+              className="status order-request-status"
+              data-status={o.payment_request_status}
+            >
+              {o.payment_request_kind === "REFUND" ? "Hoàn tiền" : "Đối soát"} ·{" "}
+              {PAYMENT_REQUEST_STATUSES[o.payment_request_status] ||
+                o.payment_request_status}
+            </span>
+          )}
+        </div>
+        {reorder && !chef && <HistoryReorder orderId={o.id} />}
+      </div>
     </article>
   );
 }
