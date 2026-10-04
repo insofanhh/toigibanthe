@@ -839,7 +839,15 @@ export function AdminUsers() {
                           <small>Đăng ký: {stamp(u.created_at)}</small>
                         </td>
                         <td>
-                          <span className="users-role">{u.role}</span>
+                          <span className="users-role" data-role={u.role}>
+                            {u.role === "admin"
+                              ? "Admin"
+                              : u.role === "chef"
+                                ? "Chef"
+                                : u.role === "user"
+                                  ? "User"
+                                  : u.role}
+                          </span>
                           <span
                             className="users-account-status"
                             data-open={!!u.active}

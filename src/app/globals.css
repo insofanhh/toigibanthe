@@ -4806,8 +4806,28 @@ hr {
 }
 .users-role {
   display: block;
+  width: max-content;
   margin-bottom: 5px;
-  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: nowrap;
+  background: #eef1ef;
+  color: #64746b;
+}
+.users-role[data-role="user"] {
+  background: #eaf2ff;
+  color: #2b5c9c;
+}
+.users-role[data-role="chef"] {
+  background: #fff0e2;
+  color: #995117;
+}
+.users-role[data-role="admin"] {
+  background: #f1eaff;
+  color: #7043a4;
 }
 .users-account-status,
 .users-purchase-tag {
