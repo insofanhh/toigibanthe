@@ -96,3 +96,15 @@ test("evicts unused entries and stops displaying expired cached data", async () 
   expired.set("catalog", "yesterday");
   assert.equal(expired.read("catalog"), pendingLoad);
 });
+test("invalidating a dish discards its stale response without clearing other pages", async () => {
+  const cache = new ClientLoadCache();
+  cache.set("orders", "history");
+  const next = deferred<string>();
+  const request = cache.load("dish", () => next.promise);
+  await Promise.resolve();
+  cache.invalidate("dish");
+  next.resolve("old menu");
+  await request;
+  assert.equal(cache.read("dish").data, null);
+  assert.equal(cache.read("orders").data, "history");
+});

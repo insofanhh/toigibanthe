@@ -115,6 +115,11 @@ export class ClientLoadCache {
     this.entries.clear();
     this.listeners.forEach((_, key) => this.emit(key));
   }
+  invalidate(key: string) {
+    this.entries.get(key)?.controller?.abort();
+    this.entries.delete(key);
+    this.emit(key);
+  }
 
   private prune() {
     if (this.entries.size <= this.maxEntries) return;

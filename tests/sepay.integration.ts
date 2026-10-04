@@ -21,6 +21,8 @@ const ids = {
   product: randomUUID(),
   menu: randomUUID(),
   kitchen: randomUUID(),
+  reorderKitchen: randomUUID(),
+  reorderMenu: randomUUID(),
 };
 const users: Actor[] = [],
   cookies: string[] = [],
@@ -1150,6 +1152,139 @@ try {
   const rotated = (await api("chef/sepay/key", {})).data.apiKey;
   await api("chef/sepay", { enabled: true, apiKey: rotated });
   assert.equal((await webhook(payload(exact.code))).status, 401);
+  const reordered = await order({ status: "COMPLETED", payment: "PAID_AUTO" });
+  const reorderPath = `orders/${reordered.id}/reorder?lat=10.78&lng=106.68`;
+  assert.equal((await api(reorderPath, undefined, 0)).status, 403);
+  assert.equal((await api(reorderPath, undefined, 2)).status, 403);
+  assert.equal((await api(reorderPath, undefined, 3)).status, 403);
+  assert.equal(
+    (await api(`orders/${reordered.id}/reorder`, undefined, 1)).status,
+    400,
+  );
+  const incomplete = await order();
+  assert.equal(
+    (
+      await api(
+        `orders/${incomplete.id}/reorder?lat=10.78&lng=106.68`,
+        undefined,
+        1,
+      )
+    ).status,
+    409,
+  );
+  const readReorder = async () => {
+    const response = await api(reorderPath, undefined, 1);
+    assert.equal(response.status, 200, JSON.stringify(response.data));
+    assert.equal(response.data.options.length, 1);
+    return response.data.options[0];
+  };
+  const futureCutoff = sqlDate(new Date(Date.now() + 3600000));
+  await exec(
+    "UPDATE daily_menu SET stock=100,cutoff_at=?,enabled=TRUE WHERE id=?",
+    [futureCutoff, ids.menu],
+  );
+  let candidate = await readReorder();
+  assert.equal(candidate.eligible, true);
+  assert.equal(candidate.menuId, ids.menu);
+  assert.equal(candidate.href, `/dishes/${ids.product}?menu=${ids.menu}`);
+  const expectBlocked = async (reason: string) => {
+    const option = await readReorder();
+    assert.equal(option.eligible, false);
+    assert.equal(option.href, null);
+    assert.ok(option.reason.includes(reason), option.reason);
+  };
+  await exec("UPDATE daily_menu SET cutoff_at=? WHERE id=?", [
+    sqlDate(new Date(Date.now() - 1000)),
+    ids.menu,
+  ]);
+  await expectBlocked("hết giờ");
+  await exec("UPDATE daily_menu SET cutoff_at=?,stock=0 WHERE id=?", [
+    futureCutoff,
+    ids.menu,
+  ]);
+  await expectBlocked("hết suất");
+  await exec("UPDATE daily_menu SET stock=100,enabled=FALSE WHERE id=?", [
+    ids.menu,
+  ]);
+  await expectBlocked("chưa được bật");
+  await exec("UPDATE daily_menu SET enabled=TRUE WHERE id=?", [ids.menu]);
+  await exec("UPDATE kitchen_sessions SET is_open=FALSE WHERE id=?", [
+    ids.kitchen,
+  ]);
+  await expectBlocked("đang đóng");
+  await exec("UPDATE kitchen_sessions SET is_open=TRUE WHERE id=?", [
+    ids.kitchen,
+  ]);
+  await exec("UPDATE products SET active=FALSE WHERE id=?", [ids.product]);
+  await expectBlocked("ngừng bán");
+  await exec("UPDATE products SET active=TRUE WHERE id=?", [ids.product]);
+  await exec("UPDATE chefs SET status='suspended' WHERE id=?", [ids.chef]);
+  await expectBlocked("không hoạt động");
+  await exec("UPDATE chefs SET status='approved' WHERE id=?", [ids.chef]);
+  await exec("UPDATE users SET active=FALSE WHERE id=?", [users[0].id]);
+  await expectBlocked("không hoạt động");
+  await exec("UPDATE users SET active=TRUE WHERE id=?", [users[0].id]);
+  candidate = (
+    await api(
+      `orders/${reordered.id}/reorder?lat=21.03&lng=105.85`,
+      undefined,
+      1,
+    )
+  ).data.options[0];
+  assert.equal(candidate.eligible, false);
+  assert.ok(candidate.reason.includes("bán kính"));
+  await exec("UPDATE chefs SET account_name='' WHERE id=?", [ids.chef]);
+  await expectBlocked("tài khoản");
+  await exec("UPDATE chefs SET account_name=? WHERE id=?", [
+    bank.accountName,
+    ids.chef,
+  ]);
+  const oldDate = new Date();
+  oldDate.setUTCDate(oldDate.getUTCDate() - 2);
+  await exec("UPDATE kitchen_sessions SET service_date=? WHERE id=?", [
+    serviceDate(oldDate),
+    ids.kitchen,
+  ]);
+  await expectBlocked("thực đơn");
+  await exec("INSERT INTO kitchen_sessions VALUES (?,?,?,?,?)", [
+    ids.reorderKitchen,
+    ids.chef,
+    serviceDate(),
+    true,
+    sqlDate(),
+  ]);
+  await exec("INSERT INTO daily_menu VALUES (?,?,?,?,?,?,?,?,?)", [
+    ids.reorderMenu,
+    ids.reorderKitchen,
+    ids.product,
+    "late",
+    futureCutoff,
+    5,
+    null,
+    null,
+    true,
+  ]);
+  await exec("UPDATE products SET price=47000 WHERE id=?", [ids.product]);
+  candidate = await readReorder();
+  assert.equal(candidate.eligible, true);
+  assert.equal(candidate.menuId, ids.reorderMenu);
+  assert.equal(candidate.price, 47000);
+  assert.equal(
+    candidate.href,
+    `/dishes/${ids.product}?menu=${ids.reorderMenu}`,
+  );
+  assert.equal(
+    (
+      await rows<any>("SELECT stock FROM daily_menu WHERE id=?", [
+        ids.reorderMenu,
+      ])
+    )[0].stock,
+    5,
+  );
+  assert.equal((await read(reordered.id)).total, 50000);
+  console.log(
+    "PASS: đặt lại chỉ cho chủ đơn hoàn thành; kiểm tra giờ, suất, bếp, bán kính, ngân hàng; dùng thực đơn và giá mới, không trừ suất/tạo đơn",
+  );
   console.log(
     "PASS: snapshot ngân hàng/automatic cho đơn mới, mã 10 ký tự, đổi key vô hiệu key cũ",
   );
@@ -1196,8 +1331,11 @@ try {
     ids.otherChef,
   ]);
   for (const id of orders) await exec("DELETE FROM orders WHERE id=?", [id]);
-  await exec("DELETE FROM daily_menu WHERE id=?", [ids.menu]);
-  await exec("DELETE FROM kitchen_sessions WHERE id=?", [ids.kitchen]);
+  await exec("DELETE FROM daily_menu WHERE product_id=?", [ids.product]);
+  await exec("DELETE FROM kitchen_sessions WHERE id IN (?,?)", [
+    ids.kitchen,
+    ids.reorderKitchen,
+  ]);
   await exec("DELETE FROM products WHERE id=?", [ids.product]);
   await exec("DELETE FROM chefs WHERE id IN (?,?)", [ids.chef, ids.otherChef]);
   for (const u of users) {

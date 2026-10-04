@@ -59,6 +59,7 @@ import {
   type LoadSnapshot,
 } from "@/lib/client-load-cache";
 import { AddressPicker } from "./address-picker";
+import { OrderReorder } from "./order-reorder";
 import {
   CustomerPaymentRequestForm,
   PaymentRequestList,
@@ -975,12 +976,16 @@ function DishList({ path }: { path: string }) {
   );
 }
 function DishDetail({ id }: { id: string }) {
-  const { location, revision, add } = useApp(),
+  const params = useSearchParams(),
+    menuId = params.get("menu"),
+    { location, revision, add } = useApp(),
     { data, error, loading } = useLoad<Feed>(
       feedPath(location, "&product=" + encodeURIComponent(id)),
       [revision],
     );
-  const d = data?.dishes.find((d) => d.id === id);
+  const d = data?.dishes.find(
+    (d) => d.id === id && (!menuId || d.menuId === menuId),
+  );
   if (loading && !data) return <LoadingCards />;
   if (error) return <Notice error>{error}</Notice>;
   if (!d)
@@ -2315,6 +2320,9 @@ function OrderDetail({ id }: { id: string }) {
           )}
           {data.review && (
             <Notice>Đã đánh giá {data.review.rating}/5 sao.</Notice>
+          )}
+          {o.status === "COMPLETED" && !chef && o.user_id === user.id && (
+            <OrderReorder orderId={id} items={data.items} />
           )}
         </div>
       </div>

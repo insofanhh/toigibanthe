@@ -1496,6 +1496,34 @@ hr {
 .summary > .button {
   width: 100%;
 }
+.order-reorder {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+.order-reorder-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.order-reorder-item + .order-reorder-item {
+  margin-top: 16px;
+}
+.order-reorder-item > strong {
+  font-size: 12px;
+}
+.order-reorder-item > p {
+  margin: 0;
+  line-height: 1.7;
+}
+.reorder-button {
+  width: 100%;
+}
+.reorder-button.unavailable {
+  background: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+}
 .address-select {
   display: flex;
   gap: 8px;

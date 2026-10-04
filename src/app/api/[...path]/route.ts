@@ -54,6 +54,7 @@ import { cutoffAt, serviceDate } from "@/lib/domain";
 import { goong } from "@/lib/goong";
 import { queueBroadcast, processBroadcasts } from "@/lib/jobs";
 import { quoteOrder } from "@/lib/quote";
+import { getReorderOptions } from "@/lib/reorder";
 import { sepayBanks, sepayQR } from "@/lib/sepay-qr";
 import {
   generateWebhookKey,
@@ -362,6 +363,17 @@ async function dispatch(req: Request) {
     if (!action && method === "GET") return { orders: await listOrders(user) };
     if (!action && method === "POST")
       return createOrder(user, checkoutSchema.parse(await req.json()));
+    if (action && id === "reorder" && method === "GET") {
+      const location = point.parse({
+        lat: url.searchParams.has("lat")
+          ? Number(url.searchParams.get("lat"))
+          : undefined,
+        lng: url.searchParams.has("lng")
+          ? Number(url.searchParams.get("lng"))
+          : undefined,
+      });
+      return getReorderOptions(user, action, location);
+    }
     if (action && id === "qr" && method === "GET") {
       const order = await getOrder(action, user);
       if (
