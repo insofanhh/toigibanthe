@@ -232,10 +232,34 @@ try {
     "admin/users",
     "admin/users/report",
     "admin/users/" + users[1].id,
+    "admin/chef-analytics/summary",
+    "admin/chef-analytics/trends",
+    "admin/chef-analytics/operations",
+    "admin/chef-analytics/list",
+    "admin/chef-analytics/detail/" + ids.chef + "?panel=profile",
   ]) {
     assert.equal((await api(path, undefined, 1)).status, 403);
     assert.equal((await api(path, undefined, 3)).status, 200);
   }
+  assert.equal(
+    (await api("admin/chef-analytics/list?sort=toString", undefined, 3)).status,
+    400,
+  );
+  assert.equal(
+    (await api("admin/chef-analytics/settings", { minReviews: 0 }, 3)).status,
+    400,
+  );
+  assert.equal((await api("admin/chef-analytics/settings", {}, 1)).status, 403);
+  assert.equal(
+    (
+      await api(
+        "admin/chefs/" + ids.chef,
+        { status: "suspended", reason: "  " },
+        3,
+      )
+    ).status,
+    400,
+  );
   key = (await api("chef/sepay/key", {})).data.apiKey;
   assert.ok(key.length >= 32);
   assert.equal(

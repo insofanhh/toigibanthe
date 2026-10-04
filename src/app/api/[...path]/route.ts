@@ -66,12 +66,19 @@ import {
   adminAnalytics,
   mutateAnalytics,
   recordAnalyticsEvent,
+  analyticsLive,
 } from "@/lib/analytics";
 import {
   adminUsersReport,
   adminUsersList,
   adminUserDetail,
 } from "@/lib/admin-users";
+import {
+  adminChefAnalytics,
+  adminChefDetailReport,
+  saveChefThresholds,
+  clearChefReports,
+} from "@/lib/admin-chefs";
 import {
   generateWebhookKey,
   sepayConfig,
@@ -602,6 +609,13 @@ async function dispatch(req: Request) {
   }
   if (section === "admin") {
     const user = await requireRole("admin");
+    if (action === "chef-analytics" && method === "GET") {
+      if (id === "detail")
+        return adminChefDetailReport(path[3] || "", url.searchParams);
+      return adminChefAnalytics(id || "summary", url.searchParams);
+    }
+    if (action === "chef-analytics" && id === "settings" && method === "POST")
+      return saveChefThresholds(user, await req.json());
     if (action === "users" && method === "GET") {
       if (id === "report") return adminUsersReport(url.searchParams);
       if (id) return adminUserDetail(id, url.searchParams);
@@ -638,9 +652,11 @@ async function dispatch(req: Request) {
             "needs_changes",
             "suspended",
           ]),
-          reason: z.string().max(1000).default(""),
+          reason: z.string().trim().max(1000).default(""),
         })
         .parse(await req.json());
+      if (b.status !== "approved" && b.reason.length < 3)
+        throw new AppError("Nhập lý do ít nhất 3 ký tự.");
       await transaction(async (db) => {
         const c = (
           await rows<{ id: string; user_id: string; name: string }>(
@@ -676,7 +692,9 @@ async function dispatch(req: Request) {
           "/chef",
         );
         await audit(db, user, "chef.status", id!, b);
+        await analyticsLive(db, id!);
       });
+      clearChefReports();
       return { ok: true };
     }
     if (action === "users" && method === "POST") {

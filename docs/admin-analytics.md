@@ -50,7 +50,19 @@
 - Hồ sơ hiển thị liên hệ, thống kê và lịch sử toàn thời gian có phân trang, cùng tối đa 20 yêu cầu đối soát/hoàn tiền gần nhất. Không trả password hash hoặc session.
 - `npm run test:users`: fixture local hơn 100 tài khoản, ngày tạo/hoàn thành khác kỳ, lần mua trùng thời gian, đơn cũ, nhóm, tìm kiếm literal, phân trang và hồ sơ/đối soát. Tự dọn fixture.
 
-## Kiểm tra
+## Phân tích Chefs
+
+- `GET /api/admin/chef-analytics/{summary,trends,operations,list}` và `/api/admin/chef-analytics/detail/:id?panel=overview|menu|orders|customers|payments|profile`. Tất cả yêu cầu admin đang hoạt động. Duyệt/tạm ngưng dùng API chef hiện có, bắt buộc lý do cho từ chối/bổ sung/tạm ngưng, ghi audit và thông báo realtime.
+- Tám KPI; bộ lọc ngày/khu vực **vị trí bếp**/bữa/tìm kiếm; cảnh báo hiện tại, tăng trưởng và top doanh số/đơn; danh sách 20 bếp/trang. Trạng thái, nhóm, thứ tự và trang chỉ lọc bảng; không đổi tổng báo cáo. URL giữ riêng tham số `c*` và chef đang xem.
+- Tổng hợp mọi hồ sơ trong phạm vi, không giới hạn 100. Lọc/sắp xếp/phân trang aggregate trên server sau truy vấn; chi tiết menu/đơn/đánh giá/đối soát dùng COUNT và LIMIT SQL. Thứ tự có ID phá hòa.
+- Readiness xét hồ sơ approved, chủ mở, ngân hàng hợp lệ, bếp bật và món hoạt động/enabled/còn suất/chưa cutoff. Bữa qua nửa đêm lấy cả ngày dịch vụ trước. Số liệu hiện tại và chi tiết tự làm mới mỗi phút khi trang đang hiển thị; làm mới giữ nội dung đã tải để tránh nháy UI. Cache lịch sử 20 giây, version request làm mới khi nhận sự kiện hoặc bấm làm mới.
+- Duyệt mới theo lần approved đầu ghi nhận trong audit. Tỷ lệ kích hoạt chỉ xét nhóm duyệt trong kỳ đã đủ thời gian; bếp có first paid trước mốc duyệt hoặc thiếu audit được ghi là thiếu mốc hợp lệ. Lượt gửi lại đếm riêng. Mua lại 30 ngày tính tại chính bếp, chỉ xét khách đã đủ tuổi.
+- Doanh số theo COMPLETED, sau voucher và tách phí giao; đơn thiếu sự kiện dùng updated_at và có chú thích. Thời gian nhận là trung vị PAID → ACCEPTED hợp lệ. Từ chối chef theo actor; hủy khách/admin/hết hạn được tách trong chi tiết. Tồn đọng đơn/đối soát không bị giấu bởi khoảng ngày.
+- `POST /api/admin/chef-analytics/settings` lưu ngưỡng kích hoạt/rating/từ chối vào platform_settings có audit và realtime. Ngưỡng SLA nhận đơn/duyệt/đối soát dùng cấu hình Tổng quan. Không tự tạm ngưng từ cảnh báo, không trả key SePay/password.
+- Không thêm bảng/dịch vụ/biến môi trường. Xem định nghĩa, giới hạn lịch sử và lộ trình bổ sung tại `docs/admin-chefs-plan.md`.
+- `npm run test:chefs`: hơn 100 bếp, phân trang đầy đủ, readiness/qua nửa đêm, hồ sơ nộp lại, cohort duyệt, doanh số/giảm giá/phí giao, trung vị lẻ/chẵn, actor từ chối/hủy, đối soát cũ/trùng/tuổi giai đoạn, review sorting/sample, sáu tab và validation. Chỉ cho MySQL local và tự dọn fixture. Kiểm tra quyền API tích hợp trong `test:sepay`.
+
+## Bộ kiểm tra chung
 
 `npm test`: ngày Việt Nam, kỳ đối chiếu, CSV, domain và cache.
 

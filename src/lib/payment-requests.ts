@@ -25,7 +25,7 @@ export async function listPaymentRequests(orderId: string) {
 
 export async function listAdminPaymentExceptions() {
   await ensurePaymentRequestSchema();
-  return rows(`SELECT e.*,o.code,c.name chef_name,u.name customer_name,
+  return rows(`SELECT e.*,o.code,o.chef_id,c.name chef_name,u.name customer_name,
     d.exception_id customer_request_id,d.contact_phone,d.resolution_note,d.evidence_asset_id,
     d.resolution_type,d.submitted_at,d.review_note,d.reviewed_at,a.original_name evidence_name
     FROM payment_exceptions e JOIN orders o ON o.id=e.order_id

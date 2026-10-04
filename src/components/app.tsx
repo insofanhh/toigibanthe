@@ -104,11 +104,20 @@ const fallbackLocation = {
 export function useLoad<T = any>(
   path: string | null,
   dependencies: unknown[] = [],
+  requestVersion?: string,
 ) {
   const { loadCache, user, storageReady, authReady, location } = useApp();
   // Never fetch a fallback city before the saved delivery location is restored.
   const enabledPath =
     path?.startsWith("catalog") && (!storageReady || !authReady) ? null : path;
+  // Refresh report data without replacing the visible cache entry with a loader.
+  const requestPath =
+    enabledPath && requestVersion !== undefined
+      ? enabledPath +
+        (enabledPath.includes("?") ? "&" : "?") +
+        "v=" +
+        encodeURIComponent(requestVersion)
+      : enabledPath;
   const key = enabledPath
     ? `${user?.id || "guest"}:${user?.role || "guest"}:${enabledPath}`
     : null;
@@ -161,17 +170,17 @@ export function useLoad<T = any>(
   const missing = snapshot === pendingLoad;
   const loading = !!path && (!enabledPath || snapshot.loading);
   const reload = useCallback(() => {
-    if (key && enabledPath)
+    if (key && requestPath)
       void loadCache.load(
         key,
-        (signal) => request<T>(enabledPath, { signal }),
+        (signal) => request<T>(requestPath, { signal }),
         true,
       );
-  }, [loadCache, key, enabledPath]);
+  }, [loadCache, key, requestPath]);
   const previous = useRef<{ key: string | null; dependencies: string } | null>(
     null,
   );
-  const dependencyKey = JSON.stringify(dependencies);
+  const dependencyKey = JSON.stringify([dependencies, requestVersion]);
   useEffect(() => {
     const force =
       previous.current?.key === key &&
@@ -179,13 +188,13 @@ export function useLoad<T = any>(
     const shouldLoad =
       missing || !previous.current || previous.current.key !== key || force;
     previous.current = { key, dependencies: dependencyKey };
-    if (key && enabledPath && shouldLoad)
+    if (key && requestPath && shouldLoad)
       void loadCache.load(
         key,
-        (signal) => request<T>(enabledPath, { signal }),
+        (signal) => request<T>(requestPath, { signal }),
         force,
       );
-  }, [loadCache, key, enabledPath, dependencyKey, missing]);
+  }, [loadCache, key, requestPath, dependencyKey, missing]);
   useEffect(() => {
     if (!path?.startsWith("catalog")) return;
     const interval = setInterval(reload, 30000);

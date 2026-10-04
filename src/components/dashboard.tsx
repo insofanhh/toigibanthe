@@ -43,6 +43,10 @@ const AdminUsers = dynamic(
   () => import("./admin-users").then((m) => m.AdminUsers),
   { loading: () => <div className="loading">Đang tải tài khoản…</div> },
 );
+const AdminChefs = dynamic(
+  () => import("./admin-chefs").then((m) => m.AdminChefs),
+  { loading: () => <div className="loading">Đang tải bếp…</div> },
+);
 import {
   useLoad,
   Button,
@@ -756,103 +760,6 @@ function SectionTitle({ title }: { title: string }) {
     </div>
   );
 }
-function ChefProfileStatus({ status }: { status: string }) {
-  const labels: Record<string, string> = {
-    pending: "Chờ duyệt",
-    approved: "Đã duyệt",
-    needs_changes: "Cần bổ sung",
-    rejected: "Từ chối",
-    suspended: "Tạm ngưng",
-  };
-  return (
-    <span className="status chef-profile-status" data-chef-status={status}>
-      {labels[status] || status}
-    </span>
-  );
-}
-function AdminChefDetails({
-  id,
-  onClose,
-}: {
-  id: string;
-  onClose: () => void;
-}) {
-  const { revision } = useApp(),
-    { data, error } = useLoad("admin/chefs/" + id, [revision]);
-  if (error) return <Notice error>{error}</Notice>;
-  if (!data) return <div className="loading">Đang tải hồ sơ…</div>;
-  const c = data.chef;
-  return (
-    <div className="panel form">
-      <div className="spread">
-        <h2>Hồ sơ: {c.name}</h2>
-        <button className="text-button" onClick={onClose}>
-          Đóng hồ sơ
-        </button>
-      </div>
-      <ChefProfileStatus status={c.status} />
-      <p>
-        {c.owner_name} · {c.email} · {c.phone || "Chưa có số điện thoại"}
-      </p>
-      <p>
-        {c.address} · Bán kính {c.radius_km} km
-      </p>
-      <p>{c.bio}</p>
-      {c.rejection_reason && <Notice>{c.rejection_reason}</Notice>}
-      <h3>Tài liệu xác minh</h3>
-      {data.assets.length ? (
-        data.assets.map((a: any) => (
-          <a
-            key={a.id}
-            href={"/api/files/" + a.id}
-            target="_blank"
-            rel="noreferrer"
-            className="text-button"
-          >
-            {a.original_name} ·{" "}
-            {new Date(a.created_at + "Z").toLocaleDateString("vi-VN")}
-          </a>
-        ))
-      ) : (
-        <p className="muted">Chef chưa tải tài liệu lên.</p>
-      )}
-      <h3>Tài khoản nhận tiền</h3>
-      <p>
-        {c.bank_name || "Chưa cấu hình"} · {c.account_no || ""} ·{" "}
-        {c.account_name || ""}
-      </p>
-      <p className="muted small">
-        Tên tài khoản do chef cung cấp. Kiểm tra hồ sơ trước khi duyệt.
-      </p>
-      <Stats
-        items={[
-          ["Tổng đơn", String(data.stats.orders_count), "Toàn bộ đơn của bếp"],
-          [
-            "Doanh số hoàn thành",
-            money(Number(data.stats.revenue)),
-            "Chuyển trực tiếp tới bếp",
-          ],
-          ["Sản phẩm", String(data.products.length), "Danh sách món của bếp"],
-        ]}
-      />
-      <h3>Sản phẩm</h3>
-      {data.products.map((p: any) => (
-        <div key={p.id} className="spread">
-          <span>
-            {p.name} · {p.active ? "Đang dùng" : "Đã ẩn"}
-          </span>
-          <strong>{money(p.price)}</strong>
-        </div>
-      ))}
-      <h3>Đơn gần đây</h3>
-      {data.orders.length ? (
-        data.orders.map((o: any) => <OrderCard key={o.id} order={o} />)
-      ) : (
-        <p className="muted">Chưa có đơn.</p>
-      )}
-    </div>
-  );
-}
 function ProductForm({
   initial,
   onClose,
@@ -1145,7 +1052,7 @@ export function AdminDashboard() {
     adminRouter = useRouter(),
     [tab, setTab] = useState(params.get("tab") || "overview"),
     { data, error, reload } = useLoad(
-      user?.role === "admin" && !["overview", "users"].includes(tab)
+      user?.role === "admin" && !["overview", "users", "chefs"].includes(tab)
         ? "admin"
         : null,
       [revision],
@@ -1158,27 +1065,25 @@ export function AdminDashboard() {
       [revision],
     ),
     [chefFilter, setChefFilter] = useState(params.get("chef") || ""),
-    [detailChef, setDetailChef] = useState<string | null>(params.get("chef")),
     [form, setForm] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     setTab(params.get("tab") || "overview");
-    setDetailChef(params.get("chef"));
-    if (["orders", "products"].includes(params.get("tab") || ""))
+    if (["orders", "products", "payments"].includes(params.get("tab") || ""))
       setChefFilter(params.get("chef") || "");
   }, [params]);
   function navigateAdmin(next: string, chef?: string, orderFilter?: string) {
     const p = new URLSearchParams(params.toString());
     p.set("tab", next);
     p.delete("chef");
-    if (["chefs", "orders", "products"].includes(next) && chef)
+    if (["chefs", "orders", "products", "payments"].includes(next) && chef)
       p.set("chef", chef);
     p.delete("filter");
     if (next === "orders" && orderFilter === "active")
       p.set("filter", "active");
-    if (next === "orders" || next === "products") setChefFilter(chef || "");
+    if (["orders", "products", "payments"].includes(next))
+      setChefFilter(chef || "");
     setTab(next);
-    setDetailChef(next === "chefs" ? chef || null : null);
     adminRouter.push("/admin?" + p.toString(), { scroll: false });
   }
   useEffect(() => {
@@ -1286,7 +1191,7 @@ export function AdminDashboard() {
           title={items.find(([id]) => id === tab)?.[1] || "Quản trị"}
           subtitle="Quản trị hệ thống"
         />
-        {!["overview", "users"].includes(tab) && (error || !data) ? (
+        {!["overview", "users", "chefs"].includes(tab) && (error || !data) ? (
           error ? (
             <Notice error>{error}</Notice>
           ) : (
@@ -1294,138 +1199,9 @@ export function AdminDashboard() {
           )
         ) : (
           <>
-            {tab === "chefs" && detailChef && (
-              <AdminChefDetails
-                id={detailChef}
-                onClose={() => navigateAdmin("chefs")}
-              />
-            )}
             {tab === "overview" && <AdminOverview onNavigate={navigateAdmin} />}
             {tab === "users" && <AdminUsers />}
-            {tab === "chefs" && (
-              <>
-                <SectionTitle title="Hồ sơ chờ duyệt" />
-                {data.chefs
-                  .filter((c: any) => c.status === "pending")
-                  .map((c: any) => (
-                    <div className="panel admin-chef" key={c.id}>
-                      <div>
-                        <h3>{c.name}</h3>
-                        <ChefProfileStatus status={c.status} />
-                        <p>
-                          {c.owner_name} · {c.email}
-                        </p>
-                        <p>{c.address}</p>
-                        <p>{c.bio}</p>
-                        <p>Bán kính: {c.radius_km} km</p>
-                        <button
-                          className="text-button"
-                          onClick={() => navigateAdmin("chefs", c.id)}
-                        >
-                          Thông tin hồ sơ
-                        </button>
-                      </div>
-                      <div className="actions">
-                        <Button
-                          onClick={() =>
-                            void run("admin/chefs/" + c.id, {
-                              status: "approved",
-                            })
-                          }
-                        >
-                          Duyệt
-                        </Button>
-                        <Button
-                          secondary
-                          onClick={() => {
-                            const reason = prompt("Nội dung cần bổ sung:");
-                            if (reason)
-                              void run("admin/chefs/" + c.id, {
-                                status: "needs_changes",
-                                reason,
-                              });
-                          }}
-                        >
-                          Bổ sung
-                        </Button>
-                        <Button
-                          secondary
-                          onClick={() => {
-                            const reason = prompt("Lý do từ chối:");
-                            if (reason)
-                              void run("admin/chefs/" + c.id, {
-                                status: "rejected",
-                                reason,
-                              });
-                          }}
-                        >
-                          Từ chối
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                {!data.chefs.some((c: any) => c.status === "pending") && (
-                  <div className="quiet-empty">Không có hồ sơ chờ duyệt.</div>
-                )}
-                <SectionTitle title="Danh sách bếp" />
-                {data.chefs
-                  .filter((c: any) => c.status !== "pending")
-                  .map((c: any) => (
-                    <div className="panel admin-chef" key={c.id}>
-                      <img src={c.avatar_url || "/icon.svg"} alt={c.name} />
-                      <div>
-                        <h3>{c.name}</h3>
-                        <p>
-                          {c.area} · {c.completed_orders} đơn hoàn thành
-                        </p>
-                        <ChefProfileStatus status={c.status} />
-                      </div>
-                      {["approved", "suspended"].includes(c.status) && (
-                        <div className="actions">
-                          <Button
-                            secondary
-                            onClick={() => navigateAdmin("chefs", c.id)}
-                          >
-                            Hồ sơ
-                          </Button>
-                          <Button
-                            secondary
-                            onClick={() => {
-                              navigateAdmin("products", c.id);
-                            }}
-                          >
-                            Sản phẩm
-                          </Button>
-                          <Button
-                            secondary
-                            onClick={() => {
-                              navigateAdmin("orders", c.id);
-                            }}
-                          >
-                            Đơn & doanh số
-                          </Button>
-                          <Button
-                            secondary
-                            onClick={() =>
-                              void run("admin/chefs/" + c.id, {
-                                status:
-                                  c.status === "suspended"
-                                    ? "approved"
-                                    : "suspended",
-                                reason: "Quản trị cập nhật trạng thái bếp.",
-                              })
-                            }
-                          >
-                            {c.status === "suspended"
-                              ? "Cho hoạt động"
-                              : "Tạm ngưng"}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </>
-            )}
+            {tab === "chefs" && <AdminChefs onNavigate={navigateAdmin} />}
             {(tab === "orders" || tab === "products") && (
               <div className="filter-row">
                 <select
@@ -1772,87 +1548,100 @@ export function AdminDashboard() {
             )}
             {tab === "payments" && (
               <>
-                {data.exceptions.map((e: any) => (
-                  <div className="panel" key={e.id}>
-                    <div className="spread">
-                      <h3>Đơn #{e.code}</h3>
-                      <span className="status" data-status={e.status}>
-                        {PAYMENT_REQUEST_STATUSES[e.status] || e.status}
-                      </span>
-                    </div>
-                    <p className="muted small">
-                      {PAYMENT_REQUEST_KINDS[e.kind] || e.kind} ·{" "}
-                      {money(e.amount)}
-                    </p>
-                    <p className="muted small">
-                      {e.customer_name} · {e.chef_name}
-                    </p>
-                    {e.contact_phone && (
-                      <p className="small">
-                        Số điện thoại liên hệ: {e.contact_phone}
-                      </p>
-                    )}
-                    <p style={{ margin: "12px 0", fontSize: 12 }}>{e.note}</p>
-                    <Link
+                {chefFilter && (
+                  <Notice>
+                    Đang xem đối soát của bếp đã chọn.{" "}
+                    <button
                       className="text-button"
-                      href={"/orders/" + e.order_id}
+                      onClick={() => navigateAdmin("payments")}
                     >
-                      Xem đơn
-                    </Link>
-                    {e.customer_request_id && (
-                      <>
-                        <PaymentRequestEvidence value={e} />
-                        {e.review_note && (
-                          <Notice>Hệ thống: {e.review_note}</Notice>
-                        )}
-                        {e.status === "OPEN" && (
-                          <p className="muted small">
-                            Đang chờ bếp gửi bằng chứng giải quyết.
-                          </p>
-                        )}
-                        {e.status === "REVIEW" && (
-                          <AdminPaymentRequestReview
-                            value={e}
-                            onChange={reload}
-                          />
-                        )}
-                      </>
-                    )}
-                    {!e.customer_request_id && e.status === "OPEN" && (
-                      <div className="form-row">
-                        <Button
-                          secondary
-                          onClick={() =>
-                            void run("admin/exceptions/" + e.id, {
-                              status: "RESOLVED",
-                              note: "Quản trị đã kiểm tra và giải quyết.",
-                            })
-                          }
-                        >
-                          Đã giải quyết
-                        </Button>
-                        <Button
-                          secondary
-                          onClick={() => {
-                            const note = prompt(
-                              "Thông tin đã kiểm tra tiền hoàn:",
-                            );
-                            if (note)
-                              void run("admin/exceptions/" + e.id, {
-                                status: "REFUNDED",
-                                note,
-                              });
-                          }}
-                        >
-                          Đã xác nhận hoàn tiền
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {!data.exceptions.length && (
-                  <Empty icon={Wallet} title="Chưa có yêu cầu đối soát" />
+                      Xem tất cả
+                    </button>
+                  </Notice>
                 )}
+                {data.exceptions
+                  .filter((e: any) => !chefFilter || e.chef_id === chefFilter)
+                  .map((e: any) => (
+                    <div className="panel" key={e.id}>
+                      <div className="spread">
+                        <h3>Đơn #{e.code}</h3>
+                        <span className="status" data-status={e.status}>
+                          {PAYMENT_REQUEST_STATUSES[e.status] || e.status}
+                        </span>
+                      </div>
+                      <p className="muted small">
+                        {PAYMENT_REQUEST_KINDS[e.kind] || e.kind} ·{" "}
+                        {money(e.amount)}
+                      </p>
+                      <p className="muted small">
+                        {e.customer_name} · {e.chef_name}
+                      </p>
+                      {e.contact_phone && (
+                        <p className="small">
+                          Số điện thoại liên hệ: {e.contact_phone}
+                        </p>
+                      )}
+                      <p style={{ margin: "12px 0", fontSize: 12 }}>{e.note}</p>
+                      <Link
+                        className="text-button"
+                        href={"/orders/" + e.order_id}
+                      >
+                        Xem đơn
+                      </Link>
+                      {e.customer_request_id && (
+                        <>
+                          <PaymentRequestEvidence value={e} />
+                          {e.review_note && (
+                            <Notice>Hệ thống: {e.review_note}</Notice>
+                          )}
+                          {e.status === "OPEN" && (
+                            <p className="muted small">
+                              Đang chờ bếp gửi bằng chứng giải quyết.
+                            </p>
+                          )}
+                          {e.status === "REVIEW" && (
+                            <AdminPaymentRequestReview
+                              value={e}
+                              onChange={reload}
+                            />
+                          )}
+                        </>
+                      )}
+                      {!e.customer_request_id && e.status === "OPEN" && (
+                        <div className="form-row">
+                          <Button
+                            secondary
+                            onClick={() =>
+                              void run("admin/exceptions/" + e.id, {
+                                status: "RESOLVED",
+                                note: "Quản trị đã kiểm tra và giải quyết.",
+                              })
+                            }
+                          >
+                            Đã giải quyết
+                          </Button>
+                          <Button
+                            secondary
+                            onClick={() => {
+                              const note = prompt(
+                                "Thông tin đã kiểm tra tiền hoàn:",
+                              );
+                              if (note)
+                                void run("admin/exceptions/" + e.id, {
+                                  status: "REFUNDED",
+                                  note,
+                                });
+                            }}
+                          >
+                            Đã xác nhận hoàn tiền
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                {!data.exceptions.some(
+                  (e: any) => !chefFilter || e.chef_id === chefFilter,
+                ) && <Empty icon={Wallet} title="Chưa có yêu cầu đối soát" />}
               </>
             )}
           </>
