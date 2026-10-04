@@ -350,6 +350,79 @@ try {
     "PASS: auth, khớp tài khoản/mã/thời gian; webhook đồng thời chỉ thanh toán một lần; chef nhận đơn đã trả tiền",
   );
 
+  const unreferenced = await order();
+  await exec("UPDATE orders SET total=62000 WHERE id=?", [unreferenced.id]);
+  const unrelated = payload(unreferenced.code, {
+    code: null,
+    content: "HA VAN ANH chuyen tien",
+    description: "BankAPINotify HA VAN ANH chuyen tien",
+    transferAmount: 70000,
+    accountNumber: "000000007101",
+  });
+  const unmatched = await webhook(unrelated);
+  assert.equal(unmatched.data.result, "UNMATCHED");
+  assert.equal(unmatched.data.reason, "ACCOUNT_NOT_CONFIGURED");
+  assert.equal((await read(unreferenced.id)).payment_status, "PENDING");
+  // Editing a failed receipt must never turn a different amount/account into a payment.
+  assert.equal(
+    (
+      await webhook({
+        ...unrelated,
+        accountNumber: bank.accountNo,
+        transferAmount: 62000,
+        code: unreferenced.code,
+      })
+    ).data.result,
+    "DUPLICATE",
+  );
+  assert.equal((await read(unreferenced.id)).status, "PLACED");
+  const diagnostic = (await api("chef/sepay")).data.transactions.find(
+    (t: any) => t.transaction_id === unrelated.id,
+  );
+  assert.equal(diagnostic.description, unrelated.description);
+  assert.equal(diagnostic.receiver_last4, "7101");
+  assert.equal(diagnostic.failure_reason, "ACCOUNT_NOT_CONFIGURED");
+  assert.equal(diagnostic.account_number, undefined);
+
+  const enriched = await order(),
+    initial = payload(enriched.code, {
+      content: "Chuyen khoan",
+      code: null,
+      description: null,
+    });
+  assert.equal((await webhook(initial)).data.result, "UNMATCHED");
+  const retried = await Promise.all([
+    webhook({ ...initial, code: enriched.code }),
+    webhook({ ...initial, code: enriched.code }),
+  ]);
+  assert.deepEqual(retried.map((r) => r.data.result).sort(), [
+    "DUPLICATE",
+    "PAID",
+  ]);
+  assert.equal(
+    (
+      await rows<any>(
+        'SELECT COUNT(*) n FROM order_events WHERE order_id=? AND status="PAID"',
+        [enriched.id],
+      )
+    )[0].n,
+    1,
+  );
+  assert.equal(
+    sepayOrderCode({ code: enriched.code, content: "Chuyen khoan" }),
+    enriched.code,
+  );
+  assert.equal(
+    sepayOrderCode({
+      code: enriched.code,
+      content: `TGBD${unreferenced.code}`,
+    }),
+    null,
+  );
+  console.log(
+    "PASS: thiếu mã/sai tài khoản không ghi nhận nhầm; lưu chẩn đoán; retry bổ sung mã chỉ nhận đúng một lần, không sửa số tiền/tài khoản",
+  );
+
   const partial = await order();
   assert.equal(
     (await webhook(payload(partial.code, { transferAmount: 20000 }))).data
@@ -504,6 +577,10 @@ try {
     "PASS: snapshot ngân hàng/automatic cho đơn mới, mã 10 ký tự, đổi key vô hiệu key cũ",
   );
 } finally {
+  await exec("DELETE FROM sepay_transaction_details WHERE chef_id IN (?,?)", [
+    ids.chef,
+    ids.otherChef,
+  ]);
   for (const id of orders)
     for (const table of [
       "sepay_order_settings",

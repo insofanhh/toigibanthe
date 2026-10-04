@@ -82,11 +82,17 @@ QR dùng renderer SePay theo snapshot ngân hàng, số tiền và nội dung c�
 4. Bật tự xác nhận và lưu tại app. Dùng **Gửi thử** của SePay kiểm tra HTTP 200 và `success: true`; dùng **Render mã QR mẫu** kiểm tra ảnh. QR mẫu `TGBDTEST` không khớp đơn thật.
 5. Tạo đơn mới, chuyển đúng số tiền/nội dung. Khi webhook hợp lệ, đơn chuyển **Đã thanh toán** (`PAID_AUTO`), chef bấm **Nhận đơn** để bắt đầu xử lý.
 
-Schema bổ sung tại `database/004_sepay.sql` tự khởi tạo khi tính năng được dùng lần đầu; tài khoản DB cần quyền CREATE TABLE. Có thể chạy SQL này trước nếu DB chỉ cho quyền đọc/ghi. `SITE_URL` phải là URL production HTTPS; không cần biến API key chung vì mỗi chef có key riêng.
+Schema bổ sung tại `database/004_sepay.sql` và `database/005_sepay_details.sql` tự khởi tạo khi tính năng được dùng lần đầu; tài khoản DB cần quyền CREATE TABLE. Có thể chạy các SQL này trước nếu DB chỉ cho quyền đọc/ghi. `SITE_URL` phải là URL production HTTPS; không cần biến API key chung vì mỗi chef có key riêng.
 
 Webhook khớp chef, mã đơn, BIN ngân hàng, số tài khoản snapshot, thời gian và số tiền; chống trùng transaction ID/reference bằng unique indexes trong transaction. Tiền thiếu được cộng dồn, tiền thừa cần đối soát; tiền tới sau hạn/hủy đưa vào chờ hoàn tiền, không mở lại đơn. Đơn hoàn thành nhận thêm tiền tạo yêu cầu đối soát nhưng không đổi trạng thái thanh toán cũ. Chưa hỗ trợ tài khoản ảo VA. Hoàn tiền vẫn do bếp xử lý ngoài ứng dụng. Đơn tạo trước khi bật SePay giữ cách xác nhận cũ; admin có thể đối soát thủ công khi cần. Key mới phải cập nhật đồng thời ở SePay. WebSocket đẩy thông báo, màn hình đơn chờ kiểm tra thêm mỗi 10 giây khi đang mở.
 
 Tài liệu: [Webhook SePay](https://docs.sepay.vn/tich-hop-webhooks.html), [QR renderer SePay](https://docs.sepay.vn/tao-qr-code-vietqr-dong.html).
+
+### Webhook 200 nhưng đơn chưa thanh toán
+
+`success: true` xác nhận hệ thống đã tiếp nhận webhook. Chỉ `result: PAID` xác nhận đã khớp đủ tiền với đơn. Với `UNMATCHED`, mở **Bếp → Cài đặt → Giao dịch gần đây** để xem số tiền, tài khoản nhận (4 số cuối), nội dung, mã/mô tả SePay và lý do. SePay phải theo dõi tài khoản nhận tiền trên QR của đơn, không phải tài khoản chuyển tiền. Khách cần giữ nguyên số tiền và nội dung `TGBD` kèm mã đơn. Không tự gán giao dịch không có mã theo số tiền hoặc tên người chuyển.
+
+Các webhook mới lưu thêm code/description để chẩn đoán. Có thể xử lý lại receipt UNMATCHED nếu SePay bổ sung mã qua code/description, nhưng ngân hàng, tài khoản, số tiền, thời gian, reference và nội dung gốc phải giữ nguyên; receipt đã ghi nhận vào đơn không thể dùng lần hai. Các mã trích riêng trong trường code (10/12 ký tự hex) được hỗ trợ, mã mâu thuẫn vẫn bị từ chối.
 
 ## Vercel và TiDB production
 

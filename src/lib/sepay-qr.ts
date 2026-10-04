@@ -51,6 +51,9 @@ export function sepayOrderCode(payload: {
   description?: string | null;
 }) {
   const codes = new Set<string>();
+  // Some provider configurations return only the extracted suffix in code.
+  if (/^(?:[A-F0-9]{10}|[A-F0-9]{12})$/i.test(payload.code || ""))
+    codes.add(payload.code!.toUpperCase());
   for (const text of [payload.code, payload.content, payload.description]) {
     for (const match of (text || "")
       .toUpperCase()

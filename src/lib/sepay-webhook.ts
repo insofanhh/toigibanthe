@@ -44,7 +44,9 @@ function authenticate(header: string | null, hash: string | null) {
 
 export async function receiveSePay(chefId: string, request: Request) {
   // Seeded kitchens use IDs such as chef-1; new kitchens use UUIDs.
-  z.string().regex(/^[A-Za-z0-9_-]{1,36}$/).parse(chefId);
+  z.string()
+    .regex(/^[A-Za-z0-9_-]{1,36}$/)
+    .parse(chefId);
   await ensureSePaySchema();
   const config = (
     await rows<{ enabled: number; key_hash: string }>(
@@ -108,7 +110,49 @@ export async function receiveSePay(chefId: string, request: Request) {
       ],
       db,
     );
-    if (!inserted.affectedRows) return { success: true, result: "DUPLICATE" };
+    if (!inserted.affectedRows) {
+      const previous = (
+        await rows<{
+          bank_bin: string;
+          account_number: string;
+          amount: number;
+          transaction_date: string;
+          reference_code: string | null;
+          content: string;
+          result: string;
+          order_id: string | null;
+        }>(
+          "SELECT * FROM sepay_transactions WHERE chef_id=? AND transaction_id=? FOR UPDATE",
+          [chefId, b.id],
+          db,
+        )
+      )[0];
+      // A retry may include provider fields previously missing from an unmatched
+      // receipt. Never change its financial identity or reuse an allocated receipt.
+      if (
+        !previous ||
+        previous.result !== "UNMATCHED" ||
+        previous.order_id ||
+        previous.bank_bin !== bankBin ||
+        previous.account_number !== b.accountNumber ||
+        Number(previous.amount) !== b.transferAmount ||
+        previous.transaction_date !== sqlDate(date) ||
+        previous.content !== b.content ||
+        (previous.reference_code || null) !== (b.referenceCode?.trim() || null)
+      )
+        return { success: true, result: "DUPLICATE" };
+    }
+    await exec(
+      "INSERT INTO sepay_transaction_details (chef_id,transaction_id,payment_code,description,sub_account) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE payment_code=VALUES(payment_code),description=VALUES(description),sub_account=VALUES(sub_account)",
+      [
+        chefId,
+        b.id,
+        b.code || null,
+        b.description || null,
+        b.subAccount || null,
+      ],
+      db,
+    );
     const code = sepayOrderCode(b);
     const order = code
       ? (
@@ -119,15 +163,40 @@ export async function receiveSePay(chefId: string, request: Request) {
           )
         )[0]
       : null;
-    async function result(value: string) {
+    async function result(value: string, reason: string | null = null) {
       await exec(
         "UPDATE sepay_transactions SET order_id=?,result=? WHERE chef_id=? AND transaction_id=?",
         [order?.id || null, value, chefId, b.id],
         db,
       );
-      return { success: true, result: value };
+      await exec(
+        "UPDATE sepay_transaction_details SET failure_reason=? WHERE chef_id=? AND transaction_id=?",
+        [reason, chefId, b.id],
+        db,
+      );
+      return { success: true, result: value, ...(reason ? { reason } : {}) };
     }
-    if (!order) return result("UNMATCHED");
+    if (!order) {
+      const kitchen = (
+        await rows<{ bank_bin: string; account_no: string }>(
+          "SELECT bank_bin,account_no FROM chefs WHERE id=?",
+          [chefId],
+          db,
+        )
+      )[0];
+      const differentAccount =
+        kitchen &&
+        (kitchen.bank_bin !== bankBin ||
+          kitchen.account_no !== b.accountNumber);
+      return result(
+        "UNMATCHED",
+        differentAccount
+          ? "ACCOUNT_NOT_CONFIGURED"
+          : code
+            ? "ORDER_NOT_FOUND"
+            : "MISSING_OR_AMBIGUOUS_CODE",
+      );
+    }
     if (
       order.bank_bin !== bankBin ||
       order.account_no !== b.accountNumber ||

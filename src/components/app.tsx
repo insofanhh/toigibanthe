@@ -1983,7 +1983,7 @@ function OrderDetail({ id }: { id: string }) {
                         <Notice>
                           {o.payment_status === "PAYMENT_REVIEW"
                             ? "Số tiền chuyển cần đối soát. Hãy liên hệ bếp, không chuyển thêm."
-                            : "Chuyển đúng số tiền và nội dung. Trạng thái tự cập nhật khi SePay xác nhận tiền vào."}
+                            : `Giữ nguyên nội dung ${o.transfer_content} và chuyển đúng số tiền hiển thị. Trạng thái tự cập nhật khi SePay khớp tiền vào với đơn này.`}
                         </Notice>
                         {Number(o.received_amount) > 0 && (
                           <p className="muted">

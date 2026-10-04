@@ -3,6 +3,7 @@ import { z } from "zod";
 import { exec, rows, sqlDate, transaction, type DB } from "./db";
 import { AppError } from "./http";
 import { ensureSePaySchema } from "./sepay-schema";
+import { sepayBanks } from "./sepay-qr";
 export const webhookKeyHash = (key: string) =>
   createHash("sha256").update(key).digest("hex");
 export const generateWebhookKey = () => "sp_" + randomBytes(32).toString("hex");
@@ -29,10 +30,17 @@ export async function sepayConfig(chefId: string, origin: string) {
     configured: Boolean(setting?.configured),
     lastReceivedAt: setting?.last_received_at || null,
     webhookUrl: `${origin}/api/webhooks/sepay/${chefId}`,
-    transactions: await rows(
-      "SELECT transaction_id,order_id,amount,content,result,created_at FROM sepay_transactions WHERE chef_id=? ORDER BY created_at DESC LIMIT 10",
-      [chefId],
-    ),
+    transactions: (
+      await rows<{ bank_bin: string }>(
+        'SELECT t.transaction_id,t.order_id,t.amount,t.content,t.result,t.created_at,t.transaction_date,t.bank_bin,RIGHT(t.account_number,4) receiver_last4,d.payment_code,d.description,COALESCE(d.failure_reason,CASE WHEN t.result="UNMATCHED" AND (c.bank_bin<>t.bank_bin OR c.account_no<>t.account_number) THEN "ACCOUNT_NOT_CONFIGURED" ELSE NULL END) failure_reason,o.code order_code,o.total order_total FROM sepay_transactions t JOIN chefs c ON c.id=t.chef_id LEFT JOIN sepay_transaction_details d ON d.chef_id=t.chef_id AND d.transaction_id=t.transaction_id LEFT JOIN orders o ON o.id=t.order_id WHERE t.chef_id=? ORDER BY t.created_at DESC LIMIT 10',
+        [chefId],
+      )
+    ).map((t) => ({
+      ...t,
+      bank_name:
+        sepayBanks.find((bank) => bank.bin === t.bank_bin)?.shortName ||
+        t.bank_bin,
+    })),
   };
 }
 export async function saveSePayConfig(

@@ -3203,4 +3203,5 @@ hr {
 }
 .sepay-transactions small {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }

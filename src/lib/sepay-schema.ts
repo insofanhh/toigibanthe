@@ -2,6 +2,10 @@ import { exec } from "./db";
 
 // Additive, idempotent DDL: also upgrades existing MySQL/TiDB deployments.
 const statements = [
+  `CREATE TABLE IF NOT EXISTS sepay_transaction_details (
+    chef_id VARCHAR(36) NOT NULL, transaction_id VARCHAR(80) NOT NULL,
+    payment_code VARCHAR(100), description TEXT, sub_account VARCHAR(100), failure_reason VARCHAR(40),
+    PRIMARY KEY(chef_id,transaction_id))`,
   `CREATE TABLE IF NOT EXISTS sepay_integrations (
     chef_id VARCHAR(36) PRIMARY KEY, key_hash VARCHAR(64), enabled BOOLEAN NOT NULL DEFAULT FALSE,
     last_received_at DATETIME(3), created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL)`,

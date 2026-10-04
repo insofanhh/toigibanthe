@@ -223,6 +223,30 @@ export function SePaySettings() {
                     #{t.transaction_id} · {money(Number(t.amount))}
                   </span>
                   <small>{results[t.result] || t.result}</small>
+                  {t.receiver_last4 && (
+                    <small>
+                      Tài khoản nhận: {t.bank_name} · ••••{t.receiver_last4}
+                    </small>
+                  )}
+                  <small>Nội dung: {t.content || "(trống)"}</small>
+                  {t.payment_code && <small>Mã SePay: {t.payment_code}</small>}
+                  {t.description && t.description !== t.content && (
+                    <small>Mô tả: {t.description}</small>
+                  )}
+                  {t.order_code && (
+                    <small>
+                      Đơn #{t.order_code} · Tổng {money(Number(t.order_total))}
+                    </small>
+                  )}
+                  {t.result === "UNMATCHED" && (
+                    <small>
+                      {t.failure_reason === "ACCOUNT_NOT_CONFIGURED"
+                        ? "Tài khoản nhận khác tài khoản bếp đang cài. Kiểm tra tài khoản được chọn trong webhook SePay và mã đơn trong nội dung chuyển khoản."
+                        : t.failure_reason === "ORDER_NOT_FOUND"
+                          ? "Mã thanh toán không thuộc đơn của bếp này. Kiểm tra URL webhook."
+                          : "Chưa nhận diện được một mã TGBD duy nhất. Kiểm tra nội dung chuyển khoản và dữ liệu SePay gửi; tiền vào chưa đồng nghĩa đơn đã thanh toán."}
+                    </small>
+                  )}
                 </div>
               ))}
             </div>
