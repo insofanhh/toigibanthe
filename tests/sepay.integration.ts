@@ -272,7 +272,7 @@ try {
     "DELIVERING",
     "DELIVERED",
   ];
-  const fixtureOrders = [];
+  const fixtureOrders: { id: string; code: string; status: string }[] = [];
   for (const status of [
     ...activeStatuses,
     "COMPLETED",
@@ -366,6 +366,22 @@ try {
   assert.equal(requests[0].note, refundRequest.note);
   assert.equal(requests[0].status, "OPEN");
   assert.equal(requests[0].contact_phone, refundRequest.phone);
+  const listedOpen = (await api("chef/orders")).data.orders.find(
+    (o: any) => o.id === requestOrder.id,
+  );
+  assert.equal(listedOpen.payment_request_status, "OPEN");
+  assert.equal(listedOpen.payment_request_kind, "REFUND");
+  assert.equal(
+    (await api("orders", undefined, 1)).data.orders.find(
+      (o: any) => o.id === requestOrder.id,
+    ).payment_request_status,
+    "OPEN",
+  );
+  const noRequest = (await api("chef/orders")).data.orders.find(
+    (o: any) => o.id === fixtureOrders[0].id,
+  );
+  assert.equal(noRequest.payment_request_status, null);
+  assert.equal(noRequest.payment_request_kind, null);
   assert.equal(
     (await api(`orders/${requestOrder.id}/exception`, refundRequest, 1)).status,
     409,
@@ -467,6 +483,12 @@ try {
   const reviewRequest = (await api(`orders/${requestOrder.id}`, undefined, 1))
     .data.paymentRequests[0];
   assert.equal(reviewRequest.status, "REVIEW");
+  assert.equal(
+    (await api("chef/orders")).data.orders.find(
+      (o: any) => o.id === requestOrder.id,
+    ).payment_request_status,
+    "REVIEW",
+  );
   assert.equal(reviewRequest.evidence_asset_id, proofId);
   assert.equal(reviewRequest.resolution_note, resolution.note);
   assert.equal(await canReadPaymentEvidence(users[1].id, proofId), true);
@@ -545,6 +567,11 @@ try {
       .data.paymentRequests;
     assert.equal(updated.length, 1);
     assert.equal(updated[0].status, "REFUNDED");
+    const listed = (
+      await api(who === 0 ? "chef/orders" : "orders", undefined, who)
+    ).data.orders.find((o: any) => o.id === requestOrder.id);
+    assert.equal(listed.payment_request_status, "REFUNDED");
+    assert.equal(listed.payment_request_kind, "REFUND");
     assert.ok(
       (await api("notifications", undefined, who)).data.notifications.some(
         (n: any) => n.title === "Yêu cầu đã xử lý",
@@ -623,6 +650,11 @@ try {
   assert.equal(autoRequests[0].status, "OPEN");
   assert.equal(autoRequests[0].contact_phone, "0909999999");
   assert.equal(autoRequests[0].amount, 50000);
+  const listedCancelled = (await api("chef/orders")).data.orders.find(
+    (o: any) => o.id === beforeAcceptance.id,
+  );
+  assert.equal(listedCancelled.status, "CANCELLED");
+  assert.equal(listedCancelled.payment_request_status, "OPEN");
   assert.ok(autoRequests[0].note.includes(cancellation.note));
   const chefRefundNotices = (
     await api("notifications")

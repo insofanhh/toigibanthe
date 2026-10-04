@@ -18,6 +18,7 @@ import { automaticPayment } from "./sepay-config";
 import {
   ensurePaymentRequestSchema,
   createCancellationRefundRequest,
+  attachPaymentRequestSummaries,
 } from "./payment-request-store";
 export type Checkout = {
   items: { menuId: string; quantity: number }[];
@@ -69,6 +70,8 @@ export type OrderRecord = {
   phone: string;
   recipient: string;
   voucher_id: string | null;
+  payment_request_status?: string | null;
+  payment_request_kind?: string | null;
   items?: unknown[];
   events?: unknown[];
 };
@@ -492,11 +495,13 @@ export async function listOrders(
     );
     values.push(...ACTIVE_ORDER_STATUSES);
   }
-  return rows<OrderRecord>(
-    orderSQL +
-      (conditions.length ? " WHERE " + conditions.join(" AND ") : "") +
-      " ORDER BY o.created_at DESC LIMIT 100",
-    values,
+  return attachPaymentRequestSummaries(
+    await rows<OrderRecord>(
+      orderSQL +
+        (conditions.length ? " WHERE " + conditions.join(" AND ") : "") +
+        " ORDER BY o.created_at DESC LIMIT 100",
+      values,
+    ),
   );
 }
 export async function transition(

@@ -1188,6 +1188,20 @@ hr {
   color: var(--green);
   flex-shrink: 0;
 }
+.order-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.order-card-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.order-request-status {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.5;
+}
 .order-card p {
   font-size: 10px;
   color: var(--muted);

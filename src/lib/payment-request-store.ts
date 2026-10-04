@@ -31,6 +31,29 @@ export async function backfillPaymentRequests() {
       AND (older.created_at<e.created_at OR (older.created_at=e.created_at AND older.id<e.id)))`);
 }
 
+export async function attachPaymentRequestSummaries<T extends { id: string }>(
+  orders: T[],
+) {
+  if (!orders.length) return [];
+  await ensurePaymentRequestSchema();
+  const requests = await rows<{
+    order_id: string;
+    status: string;
+    kind: string;
+  }>(
+    `SELECT d.order_id,e.status,e.kind FROM payment_request_details d
+     JOIN payment_exceptions e ON e.id=d.exception_id
+     WHERE d.order_id IN (${orders.map(() => "?").join(",")})`,
+    orders.map((o) => o.id),
+  );
+  const byOrder = new Map(requests.map((r) => [r.order_id, r]));
+  return orders.map((o) => ({
+    ...o,
+    payment_request_status: byOrder.get(o.id)?.status || null,
+    payment_request_kind: byOrder.get(o.id)?.kind || null,
+  }));
+}
+
 type RefundOrder = {
   id: string;
   code: string;

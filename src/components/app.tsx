@@ -62,6 +62,7 @@ import {
   MEAL_NAMES,
   ORDER_LABELS,
   ORDER_NEXT,
+  PAYMENT_REQUEST_STATUSES,
   type Dish,
   type Feed,
   type MealId,
@@ -1163,7 +1164,7 @@ export function OrderCard({
       <div className="order-card-icon">
         <ShoppingBag size={22} />
       </div>
-      <div>
+      <div className="order-card-info">
         <strong>{o.chef_name}</strong>
         <p>
           #{o.code} ·{" "}
@@ -1171,9 +1172,21 @@ export function OrderCard({
             "vi-VN",
           )}
         </p>
-        <span className="status" data-status={o.status}>
-          {ORDER_LABELS[o.status]}
-        </span>
+        <div className="order-card-statuses">
+          <span className="status" data-status={o.status}>
+            {ORDER_LABELS[o.status]}
+          </span>
+          {o.payment_request_status && (
+            <span
+              className="status order-request-status"
+              data-status={o.payment_request_status}
+            >
+              {o.payment_request_kind === "REFUND" ? "Hoàn tiền" : "Đối soát"} ·{" "}
+              {PAYMENT_REQUEST_STATUSES[o.payment_request_status] ||
+                o.payment_request_status}
+            </span>
+          )}
+        </div>
       </div>
       <div className="order-card-total">
         <strong>{money(o.total)}</strong>

@@ -10,6 +10,7 @@ import { AppError } from "./http";
 import { notify } from "./notifications";
 import { chefSchema, productSchema, bankSchema } from "./validation";
 import { listAdminPaymentExceptions } from "./payment-requests";
+import { attachPaymentRequestSummaries } from "./payment-request-store";
 export async function ownedChef(user: Actor, db?: DB) {
   const c = (
     await rows<Record<string, unknown>>(
@@ -37,7 +38,7 @@ export async function adminChefDetail(id: string) {
     rows("SELECT * FROM products WHERE chef_id=? ORDER BY created_at DESC", [
       id,
     ]),
-    rows(
+    rows<{ id: string } & Record<string, unknown>>(
       "SELECT o.*,c.name chef_name FROM orders o JOIN chefs c ON c.id=o.chef_id WHERE o.chef_id=? ORDER BY o.created_at DESC LIMIT 50",
       [id],
     ),
@@ -46,7 +47,13 @@ export async function adminChefDetail(id: string) {
       [id],
     ),
   ]);
-  return { chef, assets, products, orders, stats: stats[0] };
+  return {
+    chef,
+    assets,
+    products,
+    orders: await attachPaymentRequestSummaries(orders),
+    stats: stats[0],
+  };
 }
 export async function chefOverview(user: Actor) {
   const c = await ownedChef(user);
