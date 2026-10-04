@@ -1686,8 +1686,8 @@ function Checkout() {
             />
           </Field>
           <Notice>
-            Thanh toán bằng chuyển khoản tới tài khoản của bếp. Bếp kiểm tra
-            tiền thực nhận rồi xác nhận đơn.
+            Thanh toán bằng chuyển khoản tới tài khoản của bếp. Đơn cập nhật sau
+            khi xác nhận tiền vào.
           </Notice>
         </div>
         <div className="panel summary">
@@ -1781,11 +1781,33 @@ function OrderDetail({ id }: { id: string }) {
   }, []);
   const o = data?.order;
   useEffect(() => {
-    if (!o || o.status !== "PLACED") return;
-    request("orders/" + id + "/qr")
-      .then((r) => setQr(r.qr))
-      .catch((e) => setQrError(e.message));
-  }, [id, o?.status]);
+    let active = true;
+    setQr("");
+    setQrError("");
+    if (o?.status === "PLACED")
+      request("orders/" + id + "/qr")
+        .then((r) => {
+          if (active) setQr(r.qr);
+        })
+        .catch((e) => {
+          if (active) setQrError(e.message);
+        });
+    return () => {
+      active = false;
+    };
+  }, [id, o?.status, o?.received_amount]);
+  useEffect(() => {
+    if (o?.status !== "PLACED") return;
+    const tick = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    const timer = setInterval(tick, 10000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [o?.status, reload]);
   if (!user) return <NeedLogin />;
   if (error) return <Notice error>{error}</Notice>;
   if (!o)
@@ -1816,6 +1838,7 @@ function OrderDetail({ id }: { id: string }) {
   }
   const statuses = [
       "PLACED",
+      "PAID",
       "ACCEPTED",
       "PREPARING",
       "DELIVERING",
@@ -1840,13 +1863,19 @@ function OrderDetail({ id }: { id: string }) {
             <div className="spread">
               <h2>{ORDER_LABELS[o.status]}</h2>
               <span className="status">
-                {o.payment_status === "PAID_MANUAL"
-                  ? "Bếp đã xác nhận tiền"
-                  : o.payment_reported
-                    ? "Khách đã báo chuyển"
-                    : o.payment_status === "REFUND_PENDING"
-                      ? "Chờ hoàn tiền"
-                      : "Chưa xác nhận tiền"}
+                {o.payment_status === "REFUND_PENDING"
+                  ? "Chờ hoàn tiền"
+                  : o.payment_status === "PAID_AUTO"
+                    ? "Đã thanh toán"
+                    : o.payment_status === "PAID_MANUAL"
+                      ? "Bếp đã xác nhận tiền"
+                      : o.payment_status === "PARTIAL"
+                        ? "Đã nhận một phần tiền"
+                        : o.payment_status === "PAYMENT_REVIEW"
+                          ? "Cần đối soát"
+                          : o.payment_reported
+                            ? "Khách đã báo chuyển"
+                            : "Chờ thanh toán"}
               </span>
             </div>
             {o.status === "PLACED" && (
@@ -1858,17 +1887,25 @@ function OrderDetail({ id }: { id: string }) {
                 </p>
                 {chef ? (
                   <>
-                    <Notice>
-                      Kiểm tra tiền trong tài khoản ngân hàng trước khi xác
-                      nhận. Ảnh chuyển khoản của khách không thay thế việc kiểm
-                      tra tiền thực nhận.
-                    </Notice>
-                    <Button
-                      disabled={busy || !remaining}
-                      onClick={() => void act("ACCEPTED")}
-                    >
-                      Đã nhận đủ tiền & nhận đơn
-                    </Button>
+                    {o.automatic_payment ? (
+                      <Notice>
+                        SePay sẽ tự xác nhận khi nhận đủ tiền. Bếp có thể nhận
+                        đơn sau khi trạng thái chuyển sang Đã thanh toán.
+                      </Notice>
+                    ) : (
+                      <>
+                        <Notice>
+                          Kiểm tra tiền thực nhận trong tài khoản ngân hàng
+                          trước khi xác nhận đơn.
+                        </Notice>
+                        <Button
+                          disabled={busy || !remaining}
+                          onClick={() => void act("ACCEPTED")}
+                        >
+                          Đã nhận đủ tiền & nhận đơn
+                        </Button>
+                      </>
+                    )}
                     <Button
                       secondary
                       disabled={busy}
@@ -1884,7 +1921,16 @@ function OrderDetail({ id }: { id: string }) {
                   <>
                     <div className="payment-qr">
                       {qr ? (
-                        <img src={qr} alt="QR chuyển khoản cho đơn" />
+                        <img
+                          src={qr}
+                          alt="QR chuyển khoản cho đơn"
+                          onError={() => {
+                            setQrError(
+                              "Chưa tải được QR. Bạn có thể sao chép thông tin chuyển khoản bên dưới.",
+                            );
+                            setQr("");
+                          }}
+                        />
                       ) : (
                         <div className="qr-placeholder">
                           <Wallet size={32} />
@@ -1893,11 +1939,7 @@ function OrderDetail({ id }: { id: string }) {
                       )}
                       {qrError && <p>{qrError}</p>}
                       {qr && (
-                        <a
-                          href={qr}
-                          download={"QR-" + o.code + ".png"}
-                          className="text-button"
-                        >
+                        <a href={qr + "&download=true"} className="text-button">
                           <Download size={15} /> Tải QR
                         </a>
                       )}
@@ -1906,7 +1948,10 @@ function OrderDetail({ id }: { id: string }) {
                       ["Ngân hàng", o.bank_name],
                       ["Chủ tài khoản", o.account_name],
                       ["Số tài khoản", o.account_no],
-                      ["Số tiền", money(o.total)],
+                      [
+                        "Số tiền",
+                        money(Math.max(0, o.total - Number(o.received_amount))),
+                      ],
                       ["Nội dung", o.transfer_content],
                     ].map(([label, value]) => (
                       <div className="bank-row" key={label}>
@@ -1917,7 +1962,14 @@ function OrderDetail({ id }: { id: string }) {
                           aria-label={"Sao chép " + label}
                           onClick={() => {
                             navigator.clipboard.writeText(
-                              label === "Số tiền" ? String(o.total) : value,
+                              label === "Số tiền"
+                                ? String(
+                                    Math.max(
+                                      0,
+                                      o.total - Number(o.received_amount),
+                                    ),
+                                  )
+                                : value,
                             );
                             toast("Đã sao chép.");
                           }}
@@ -1926,16 +1978,36 @@ function OrderDetail({ id }: { id: string }) {
                         </button>
                       </div>
                     ))}
-                    <Button
-                      disabled={
-                        busy || !remaining || Boolean(o.payment_reported)
-                      }
-                      onClick={() => void act("report-payment")}
-                    >
-                      {o.payment_reported
-                        ? "Đang chờ bếp kiểm tra tiền"
-                        : "Tôi đã chuyển khoản"}
-                    </Button>
+                    {o.automatic_payment ? (
+                      <>
+                        <Notice>
+                          {o.payment_status === "PAYMENT_REVIEW"
+                            ? "Số tiền chuyển cần đối soát. Hãy liên hệ bếp, không chuyển thêm."
+                            : "Chuyển đúng số tiền và nội dung. Trạng thái tự cập nhật khi SePay xác nhận tiền vào."}
+                        </Notice>
+                        {Number(o.received_amount) > 0 && (
+                          <p className="muted">
+                            Đã nhận {money(Number(o.received_amount))}.{" "}
+                            {o.payment_status !== "PAYMENT_REVIEW" &&
+                              `Còn thiếu ${money(Math.max(0, o.total - Number(o.received_amount)))}.`}
+                          </p>
+                        )}
+                        <Button secondary onClick={reload}>
+                          Kiểm tra thanh toán
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        disabled={
+                          busy || !remaining || Boolean(o.payment_reported)
+                        }
+                        onClick={() => void act("report-payment")}
+                      >
+                        {o.payment_reported
+                          ? "Đang chờ bếp kiểm tra tiền"
+                          : "Tôi đã chuyển khoản"}
+                      </Button>
+                    )}
                     <Button
                       secondary
                       disabled={busy}
@@ -1952,16 +2024,40 @@ function OrderDetail({ id }: { id: string }) {
                 )}
               </>
             )}
+            {o.status === "PAID" && (
+              <>
+                {!chef && (
+                  <Notice>Đã thanh toán. Đang chờ bếp nhận đơn.</Notice>
+                )}
+                <Button
+                  secondary
+                  disabled={busy}
+                  onClick={() => {
+                    const reason = prompt(
+                      "Lý do hủy/từ chối đơn đã thanh toán (cần hoàn tiền):",
+                    );
+                    if (reason)
+                      void act(chef ? "REJECTED" : "CANCELLED", reason);
+                  }}
+                >
+                  {chef
+                    ? "Từ chối & xử lý hoàn tiền"
+                    : "Hủy & yêu cầu hoàn tiền"}
+                </Button>
+              </>
+            )}
             {chef && ORDER_NEXT[o.status] && (
               <Button
                 disabled={busy}
                 onClick={() => void act(ORDER_NEXT[o.status])}
               >
-                {o.status === "ACCEPTED"
-                  ? "Bắt đầu chuẩn bị"
-                  : o.status === "PREPARING"
-                    ? "Bắt đầu giao"
-                    : "Báo đã giao"}
+                {o.status === "PAID"
+                  ? "Nhận đơn"
+                  : o.status === "ACCEPTED"
+                    ? "Bắt đầu chuẩn bị"
+                    : o.status === "PREPARING"
+                      ? "Bắt đầu giao"
+                      : "Báo đã giao"}
               </Button>
             )}
             {!chef && o.status === "DELIVERED" && (
@@ -2209,8 +2305,8 @@ function Information({ privacy }: { privacy: boolean }) {
             <h2>Đặt món và thanh toán</h2>
             <p>
               Chọn địa chỉ, thêm món từ một bếp vào giỏ, tạo đơn rồi chuyển
-              khoản đúng số tiền và nội dung được hiển thị. Bếp kiểm tra tiền
-              thực nhận và xác nhận.
+              khoản đúng số tiền và nội dung được hiển thị. Bếp đã bật SePay sẽ
+              tự động xác nhận thanh toán khi nhận đủ tiền.
             </p>
             <h2>Hủy đơn và hoàn tiền</h2>
             <p>

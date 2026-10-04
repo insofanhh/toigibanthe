@@ -59,7 +59,7 @@ export async function chefOverview(user: Actor) {
   );
   const stats = (
     await rows(
-      'SELECT COUNT(*) orders_count,COALESCE(SUM(CASE WHEN status="COMPLETED" THEN total ELSE 0 END),0) revenue,SUM(CASE WHEN status IN ("PLACED","ACCEPTED","PREPARING","DELIVERING") THEN 1 ELSE 0 END) active_orders FROM orders WHERE chef_id=?',
+      'SELECT COUNT(*) orders_count,COALESCE(SUM(CASE WHEN status="COMPLETED" THEN total ELSE 0 END),0) revenue,SUM(CASE WHEN status IN ("PLACED","PAID","ACCEPTED","PREPARING","DELIVERING") THEN 1 ELSE 0 END) active_orders FROM orders WHERE chef_id=?',
       [c.id],
     )
   )[0];

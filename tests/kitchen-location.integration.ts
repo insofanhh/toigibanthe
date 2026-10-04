@@ -284,6 +284,7 @@ try {
       "order_events",
       "payment_exceptions",
       "reviews",
+      "sepay_order_settings",
     ])
       await exec(`DELETE FROM ${table} WHERE order_id=?`, [order.id]);
     await exec("DELETE FROM orders WHERE id=?", [order.id]);

@@ -14,7 +14,8 @@
     "realtime": "tsx --env-file=.env.local services/realtime/server.ts",
     "test": "tsx --test tests/domain.test.ts",
     "test:integration": "tsx --env-file=.env.local tests/integration.ts",
-    "test:location": "tsx --env-file=.env.local tests/kitchen-location.integration.ts"
+    "test:location": "tsx --env-file=.env.local tests/kitchen-location.integration.ts",
+    "test:sepay": "tsx --env-file=.env.local tests/sepay.integration.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

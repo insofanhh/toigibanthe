@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
 import { KitchenLocationPicker } from "./kitchen-location-picker";
+import { SePaySettings } from "./sepay-settings";
 import type { ResolvedLocation } from "@/lib/location-client";
 import {
   useLoad,
@@ -401,8 +402,8 @@ export function ChefDashboard() {
       {tab === "orders" && (
         <>
           <Notice>
-            Với đơn chờ thanh toán, kiểm tra tiền thực nhận rồi xác nhận trong
-            chi tiết đơn.
+            Đơn đã thanh toán qua SePay sẽ chờ bếp nhận. Mở chi tiết đơn để
+            nhận, chuẩn bị và cập nhật giao hàng.
           </Notice>
           <div style={{ marginTop: 18 }}>
             {orders?.orders.length ? (
@@ -549,6 +550,7 @@ export function ChefDashboard() {
       {tab === "settings" && (
         <>
           <BankSettings chef={c} onSave={reload} />
+          <SePaySettings />
           <KitchenSettings key={c.id} chef={c} onSave={reload} />
           <div className="panel form narrow">
             <h2>Hồ sơ riêng tư</h2>
@@ -1012,8 +1014,7 @@ function BankSettings({ chef, onSave }: { chef: any; onSave: () => void }) {
       </Field>
       <p className="bank-note">
         QR của mỗi đơn dùng thông tin đã lưu tại lúc đặt. Thay tài khoản chỉ áp
-        dụng cho đơn mới. Bạn phải kiểm tra tiền thực nhận trước khi xác nhận
-        đơn.
+        dụng cho đơn mới. Bật SePay bên dưới để tự xác nhận thanh toán.
       </p>
       {error && <Notice error>{error}</Notice>}
       <Button type="submit" disabled={busy}>

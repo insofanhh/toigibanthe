@@ -42,6 +42,7 @@ export function effectivePrice(
 }
 export const ORDER_LABELS: Record<string, string> = {
   PLACED: "Chờ thanh toán",
+  PAID: "Đã thanh toán",
   ACCEPTED: "Bếp đã nhận",
   PREPARING: "Đang chuẩn bị",
   DELIVERING: "Đang giao",
@@ -52,6 +53,7 @@ export const ORDER_LABELS: Record<string, string> = {
   CANCELLED: "Đã hủy",
 };
 export const ORDER_NEXT: Record<string, string> = {
+  PAID: "ACCEPTED",
   ACCEPTED: "PREPARING",
   PREPARING: "DELIVERING",
   DELIVERING: "DELIVERED",

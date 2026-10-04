@@ -43,21 +43,20 @@ Seed trực tiếp môi trường development: đặt `SEED_PASSWORD` trước r
 
 ## Các tích hợp
 
-| Biến                              | Cách dùng                                                                                         |
-| --------------------------------- | ------------------------------------------------------------------------------------------------- |
-| DATABASE_URL                      | MySQL/TiDB connection URL                                                                         |
-| DATABASE_SSL                      | `true` trên TiDB production, kiểm chứng chứng chỉ TLS                                             |
-| AUTH_SECRET                       | Ít nhất 32 ký tự ngẫu nhiên; dùng chung web/realtime                                              |
-| SITE_URL                          | Origin HTTPS production hoặc URL local                                                            |
-| NEXT_PUBLIC_WS_URL                | `ws://127.0.0.1:3001` local; để trống trên Vercel Services để dùng `/realtime/socket` cùng domain |
-| WS_ALLOWED_ORIGINS                | Các origin được phép mở socket, phân cách dấu phẩy                                                |
-| WS_PORT                           | Cổng server Node local/host riêng                                                                 |
-| GOONG_API_KEY                     | REST key, chỉ server                                                                              |
-| NEXT_PUBLIC_GOONG_MAP_KEY         | Map key công khai, giới hạn domain trong Goong                                                    |
-| VIETQR_CLIENT_ID / VIETQR_API_KEY | Tạo QR cho đơn từ snapshot server                                                                 |
-| BLOB_PUBLIC_READ_WRITE_TOKEN      | Token Blob store public: ảnh món/banner                                                           |
-| BLOB_PRIVATE_READ_WRITE_TOKEN     | Token Blob store private: tài liệu chef                                                           |
-| CRON_SECRET                       | Bảo vệ `/api/cron` bằng Authorization Bearer                                                      |
+| Biến                          | Cách dùng                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| DATABASE_URL                  | MySQL/TiDB connection URL                                                                         |
+| DATABASE_SSL                  | `true` trên TiDB production, kiểm chứng chứng chỉ TLS                                             |
+| AUTH_SECRET                   | Ít nhất 32 ký tự ngẫu nhiên; dùng chung web/realtime                                              |
+| SITE_URL                      | Origin HTTPS production hoặc URL local                                                            |
+| NEXT_PUBLIC_WS_URL            | `ws://127.0.0.1:3001` local; để trống trên Vercel Services để dùng `/realtime/socket` cùng domain |
+| WS_ALLOWED_ORIGINS            | Các origin được phép mở socket, phân cách dấu phẩy                                                |
+| WS_PORT                       | Cổng server Node local/host riêng                                                                 |
+| GOONG_API_KEY                 | REST key, chỉ server                                                                              |
+| NEXT_PUBLIC_GOONG_MAP_KEY     | Map key công khai, giới hạn domain trong Goong                                                    |
+| BLOB_PUBLIC_READ_WRITE_TOKEN  | Token Blob store public: ảnh món/banner                                                           |
+| BLOB_PRIVATE_READ_WRITE_TOKEN | Token Blob store private: tài liệu chef                                                           |
+| CRON_SECRET                   | Bảo vệ `/api/cron` bằng Authorization Bearer                                                      |
 
 Tạo hai Blob store public/private. Tài liệu private không trả trực tiếp URL blob cho client; `/api/files/:id` kiểm tra chủ sở hữu/admin. Upload tối đa 3 MB, JPG/PNG/WebP; hồ sơ cho phép PDF. Token không có prefix `NEXT_PUBLIC`.
 
@@ -73,7 +72,21 @@ Tạo hai Blob store public/private. Tài liệu private không trả trực ti�
 
 Goong dùng [Directions V2](https://help.goong.io/kb/rest-api-v2/directions-rest-api-v2/directions-v2/). Bán kính giao dùng khoảng cách địa lý; khoảng cách/phí đường đi dùng Goong. Khi chưa có key, UI cho nhập tọa độ và phí cố định; không giả khoảng cách đường đi. Xe ở giữa tuyến là minh họa trạng thái Đang giao, chưa phải GPS người giao.
 
-QR dùng VietQR.IO. Chưa có key thì hiển thị thông tin chuyển khoản thủ công. Chef kiểm tra tiền thực nhận, ứng dụng không tự xác nhận thanh toán. Đơn hết hạn/hủy sau chuyển cần đối soát và hoàn tiền thủ công.
+QR dùng renderer SePay theo snapshot ngân hàng, số tiền và nội dung của đơn; không cần `VIETQR_CLIENT_ID` / `VIETQR_API_KEY`. Mã mới có dạng `TGBD` + 10 ký tự hex. Đơn cũ 12 ký tự vẫn được đối soát.
+
+### Cấu hình SePay cho từng bếp
+
+1. Chef lưu ngân hàng, số tài khoản và tên chủ tài khoản trong **Bếp → Cài đặt**.
+2. Trong **Thanh toán tự động · SePay**, tạo API Key và sao chép trước khi lưu. Ứng dụng chỉ lưu SHA-256; để trống key khi sửa để giữ key cũ.
+3. Liên kết đúng tài khoản ngân hàng trong SePay. Tạo webhook **Có tiền vào**, URL lấy từ cài đặt bếp, phương thức xác thực **API Key**, dán cùng key. SePay gửi `Authorization: Apikey KEY`. Đây không phải API Access Token. Nếu lọc mã thanh toán: tiền tố `TGBD`, hậu tố 10 ký tự chữ/số.
+4. Bật tự xác nhận và lưu tại app. Dùng **Gửi thử** của SePay kiểm tra HTTP 200 và `success: true`; dùng **Render mã QR mẫu** kiểm tra ảnh. QR mẫu `TGBDTEST` không khớp đơn thật.
+5. Tạo đơn mới, chuyển đúng số tiền/nội dung. Khi webhook hợp lệ, đơn chuyển **Đã thanh toán** (`PAID_AUTO`), chef bấm **Nhận đơn** để bắt đầu xử lý.
+
+Schema bổ sung tại `database/004_sepay.sql` tự khởi tạo khi tính năng được dùng lần đầu; tài khoản DB cần quyền CREATE TABLE. Có thể chạy SQL này trước nếu DB chỉ cho quyền đọc/ghi. `SITE_URL` phải là URL production HTTPS; không cần biến API key chung vì mỗi chef có key riêng.
+
+Webhook khớp chef, mã đơn, BIN ngân hàng, số tài khoản snapshot, thời gian và số tiền; chống trùng transaction ID/reference bằng unique indexes trong transaction. Tiền thiếu được cộng dồn, tiền thừa cần đối soát; tiền tới sau hạn/hủy đưa vào chờ hoàn tiền, không mở lại đơn. Đơn hoàn thành nhận thêm tiền tạo yêu cầu đối soát nhưng không đổi trạng thái thanh toán cũ. Chưa hỗ trợ tài khoản ảo VA. Hoàn tiền vẫn do bếp xử lý ngoài ứng dụng. Đơn tạo trước khi bật SePay giữ cách xác nhận cũ; admin có thể đối soát thủ công khi cần. Key mới phải cập nhật đồng thời ở SePay. WebSocket đẩy thông báo, màn hình đơn chờ kiểm tra thêm mỗi 10 giây khi đang mở.
+
+Tài liệu: [Webhook SePay](https://docs.sepay.vn/tich-hop-webhooks.html), [QR renderer SePay](https://docs.sepay.vn/tao-qr-code-vietqr-dong.html).
 
 ## Vercel và TiDB production
 
@@ -84,7 +97,7 @@ Service `realtime` đặt `buildCommand: "npm run typecheck"` để kiểm tra k
 1. Tạo TiDB cluster/database riêng, lấy MySQL connection URL, đặt `DATABASE_SSL=true`; chạy migrations với tài khoản có quyền tạo schema. Chạy integration trên staging TiDB trước khi dùng dữ liệu thật.
 2. Import repo vào Vercel, chọn Framework Preset **Services**. Đặt web và database gần nhau nếu cấu hình tài khoản cho phép; dùng Node 20.19+.
 3. Điền tất cả env cho web và realtime. Đặt `SITE_URL`, `WS_ALLOWED_ORIGINS` theo domain thật; để trống `NEXT_PUBLIC_WS_URL` nếu dùng cùng domain.
-4. Tạo Blob stores, Goong/VietQR keys; kiểm tra upload, đọc hồ sơ private, QR ngân hàng và directions thực.
+4. Tạo Blob stores, Goong keys và webhook SePay; kiểm tra upload, đọc hồ sơ private, QR ngân hàng và directions thực.
 5. Cấu hình không khai báo Vercel Cron để tránh giới hạn cron mỗi ngày của Hobby. Thiết lập scheduler bên ngoài theo hướng dẫn dưới để xử lý đơn hết hạn/broadcast khi không có socket đang mở. Runtime realtime cũng xử lý theo batch khi đang hoạt động; database khóa để chống chạy trùng.
 6. Tạo user quản trị production riêng qua cơ chế provision nội bộ. Hoàn thiện chính sách/hỗ trợ, backup và cảnh báo trước khi nhận đơn thật.
 

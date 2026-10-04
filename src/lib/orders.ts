@@ -12,6 +12,8 @@ import {
 } from "./domain";
 import { notify } from "./notifications";
 import { direction } from "./goong";
+import { ensureSePaySchema } from "./sepay-schema";
+import { automaticPayment } from "./sepay-config";
 export type Checkout = {
   items: { menuId: string; quantity: number }[];
   address: string;
@@ -35,6 +37,8 @@ export type OrderRecord = {
   status: string;
   payment_status: string;
   payment_reported: number;
+  automatic_payment: number;
+  received_amount: number;
   subtotal: number;
   discount: number;
   delivery_fee: number;
@@ -64,13 +68,14 @@ export type OrderRecord = {
   events?: unknown[];
 };
 const orderSQL =
-  "SELECT o.*,c.name chef_name,c.user_id chef_user_id FROM orders o JOIN chefs c ON c.id=o.chef_id";
+  'SELECT o.*,c.name chef_name,c.user_id chef_user_id,COALESCE(ps.automatic,0) automatic_payment,(SELECT COALESCE(SUM(t.amount),0) FROM sepay_transactions t WHERE t.order_id=o.id AND t.result IN ("PARTIAL","PAID","OVERPAID")) received_amount FROM orders o JOIN chefs c ON c.id=o.chef_id LEFT JOIN sepay_order_settings ps ON ps.order_id=o.id';
 export async function getOrder(
   id: string,
   user: Actor,
   db?: DB,
   lock = false,
 ): Promise<OrderRecord> {
+  await ensureSePaySchema();
   const result = (
     await rows<OrderRecord>(
       orderSQL + " WHERE o.id=?" + (lock ? " FOR UPDATE" : ""),
@@ -126,6 +131,7 @@ async function release(db: DB, order: OrderRecord) {
   }
 }
 export async function expireOrders() {
+  await ensureSePaySchema();
   const pending = await rows<{ id: string }>(
     'SELECT id FROM orders WHERE status="PLACED" AND expires_at<? LIMIT 100',
     [sqlDate()],
@@ -139,42 +145,51 @@ export async function expireOrders() {
           db,
         )
       )[0];
-      if (
-        !o ||
-        o.status !== "PLACED" ||
-        parseUTC(o.expires_at).getTime() > Date.now()
-      )
-        return;
-      await release(db, o);
-      await exec(
-        'UPDATE orders SET status="EXPIRED",payment_status="EXPIRED",updated_at=? WHERE id=?',
-        [sqlDate(), o.id],
-        db,
-      );
-      await event(
-        db,
-        o,
-        o.user_id,
-        "EXPIRED",
-        "Hết thời gian chờ xác nhận thanh toán.",
-      );
-      await notify(
-        db,
-        o.user_id,
-        "order",
-        "Đơn đã hết hạn",
-        `Đơn ${o.code} chưa được xác nhận thanh toán. Nếu đã chuyển, hãy liên hệ bếp để đối soát.`,
-        `/orders/${o.id}`,
-      );
-      await notify(
-        db,
-        o.chef_user_id,
-        "order",
-        "Đơn hết hạn",
-        `Kiểm tra giao dịch tới trễ nếu khách đã chuyển cho đơn ${o.code}.`,
-        `/chef?order=${o.id}`,
-      );
+      await expirePendingOrder(db, o);
     });
+}
+// The caller holds the order lock; stock release and notifications are atomic.
+export async function expirePendingOrder(db: DB, o: OrderRecord | undefined) {
+  if (
+    !o ||
+    o.status !== "PLACED" ||
+    parseUTC(o.expires_at).getTime() > Date.now()
+  )
+    return false;
+  await release(db, o);
+  await exec(
+    'UPDATE orders SET status="EXPIRED",payment_status=CASE WHEN payment_status IN ("PARTIAL","PAYMENT_REVIEW") THEN "REFUND_PENDING" ELSE "EXPIRED" END,updated_at=? WHERE id=?',
+    [sqlDate(), o.id],
+    db,
+  );
+  await event(
+    db,
+    o,
+    o.user_id,
+    "EXPIRED",
+    "Hết thời gian chờ xác nhận thanh toán.",
+  );
+  await notify(
+    db,
+    o.user_id,
+    "order",
+    "Đơn đã hết hạn",
+    `Đơn ${o.code} chưa được xác nhận thanh toán. Nếu đã chuyển, hãy liên hệ bếp để đối soát.`,
+    `/orders/${o.id}`,
+  );
+  await notify(
+    db,
+    o.chef_user_id,
+    "order",
+    "Đơn hết hạn",
+    `Kiểm tra giao dịch tới trễ nếu khách đã chuyển cho đơn ${o.code}.`,
+    `/chef?order=${o.id}`,
+  );
+  o.status = "EXPIRED";
+  o.payment_status = ["PARTIAL", "PAYMENT_REVIEW"].includes(o.payment_status)
+    ? "REFUND_PENDING"
+    : "EXPIRED";
+  return true;
 }
 export async function createOrder(user: Actor, input: Checkout) {
   await expireOrders();
@@ -341,8 +356,8 @@ export async function createOrder(user: Actor, input: Checkout) {
           "Giá hoặc phí giao đã thay đổi. Hãy xem lại tổng tiền trước khi đặt.",
         );
       const id = randomUUID(),
-        code = randomBytes(6).toString("hex").toUpperCase(),
-        content = `TGBD ${code}`,
+        code = randomBytes(5).toString("hex").toUpperCase(),
+        content = `TGBD${code}`,
         now = sqlDate();
       await exec(
         `INSERT INTO orders (id,code,user_id,chef_id,meal_id,subtotal,discount,delivery_fee,total,recipient,phone,address,lat,lng,chef_lat,chef_lng,distance_km,route_distance_km,route_duration_seconds,route_polyline,bank_bin,bank_name,account_no,account_name,transfer_content,note,idempotency_key,voucher_id,expires_at,created_at,updated_at) VALUES (${Array(31).fill("?").join(",")})`,
@@ -379,6 +394,12 @@ export async function createOrder(user: Actor, input: Checkout) {
           now,
           now,
         ],
+        db,
+      );
+      const automatic = await automaticPayment(chef.id, db);
+      await exec(
+        "INSERT INTO sepay_order_settings VALUES (?,?)",
+        [id, automatic],
         db,
       );
       for (const { menuId, quantity, m, price } of selected) {
@@ -420,7 +441,9 @@ export async function createOrder(user: Actor, input: Checkout) {
         String(c.user_id),
         "order",
         "Đơn mới chờ thanh toán",
-        `Đơn ${code}. Bạn sẽ xác nhận khi đã nhận đủ tiền.`,
+        automatic
+          ? `Đơn ${code}. SePay sẽ tự xác nhận khi nhận đủ tiền.`
+          : `Đơn ${code}. Kiểm tra giao dịch nhận tiền hoặc bật SePay trong cài đặt.`,
         `/chef?order=${id}`,
       );
       await notify(
@@ -465,6 +488,7 @@ export async function transition(
   action: string,
   note = "",
 ) {
+  await ensureSePaySchema();
   return transaction(async (db) => {
     const o = await getOrder(id, user, db, true),
       isChef = o.chef_user_id === user.id,
@@ -498,26 +522,41 @@ export async function transition(
     if (target === "ACCEPTED") {
       if (!isChef && !isAdmin)
         throw new AppError("Chỉ bếp phụ trách được xác nhận tiền.", 403);
-      if (
-        o.status !== "PLACED" ||
-        parseUTC(o.expires_at).getTime() <= Date.now()
-      )
-        throw new AppError("Đơn không còn chờ thanh toán.");
-      await exec(
-        'UPDATE orders SET payment_status="PAID_MANUAL",payment_confirmed_at=? WHERE id=?',
-        [sqlDate(), id],
-        db,
-      );
+      if (o.status === "PAID" && o.payment_status === "PAID_AUTO") {
+        // Accepting a paid order is a kitchen decision, not a payment confirmation.
+      } else {
+        if (o.automatic_payment && !isAdmin)
+          throw new AppError(
+            "SePay sẽ tự xác nhận thanh toán. Hãy chờ webhook báo tiền vào.",
+          );
+        if (
+          o.status !== "PLACED" ||
+          parseUTC(o.expires_at).getTime() <= Date.now()
+        )
+          throw new AppError("Đơn không còn chờ thanh toán.");
+        await exec(
+          'UPDATE orders SET payment_status="PAID_MANUAL",payment_confirmed_at=? WHERE id=?',
+          [sqlDate(), id],
+          db,
+        );
+      }
     } else if (target === "CANCELLED" || target === "REJECTED") {
       if (target === "REJECTED" && !isChef && !isAdmin)
         throw new AppError("Không có quyền từ chối.", 403);
       if (target === "CANCELLED" && !isUser && !isAdmin)
         throw new AppError("Không có quyền hủy.", 403);
-      if (o.status !== "PLACED" && !(isAdmin && o.status === "ACCEPTED"))
+      if (
+        !["PLACED", "PAID"].includes(o.status) &&
+        !(isAdmin && o.status === "ACCEPTED")
+      )
         throw new AppError("Đơn đang được xử lý. Vui lòng liên hệ hỗ trợ.");
       if (!note.trim()) throw new AppError("Vui lòng nhập lý do.");
       await release(db, o);
-      if (o.payment_status === "PAID_MANUAL")
+      if (
+        ["PAID_MANUAL", "PAID_AUTO", "PARTIAL", "PAYMENT_REVIEW"].includes(
+          o.payment_status,
+        )
+      )
         await exec(
           'UPDATE orders SET payment_status="REFUND_PENDING" WHERE id=?',
           [id],

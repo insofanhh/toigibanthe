@@ -18,10 +18,11 @@ export function guardOrigin(request: Request) {
 }
 export function api(
   handler: (request: Request, context?: unknown) => Promise<unknown>,
+  options: { checkOrigin?: boolean } = {},
 ) {
   return async (request: Request, context?: unknown) => {
     try {
-      guardOrigin(request);
+      if (options.checkOrigin !== false) guardOrigin(request);
       const data = await handler(request, context);
       return data instanceof Response
         ? data

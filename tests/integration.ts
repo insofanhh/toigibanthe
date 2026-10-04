@@ -353,6 +353,7 @@ try {
   socket?.close();
   // Remove only rows with the unique identifiers created by this test.
   for (const id of orderIds) {
+    await exec("DELETE FROM sepay_order_settings WHERE order_id=?", [id]);
     await exec("DELETE FROM order_events WHERE order_id=?", [id]);
     await exec("DELETE FROM order_items WHERE order_id=?", [id]);
     await exec("DELETE FROM reviews WHERE order_id=?", [id]);

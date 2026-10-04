@@ -47,16 +47,13 @@ import { cutoffAt, serviceDate } from "@/lib/domain";
 import { goong } from "@/lib/goong";
 import { queueBroadcast, processBroadcasts } from "@/lib/jobs";
 import { quoteOrder } from "@/lib/quote";
+import { sepayBanks, sepayQR } from "@/lib/sepay-qr";
+import {
+  generateWebhookKey,
+  sepayConfig,
+  saveSePayConfig,
+} from "@/lib/sepay-config";
 export const runtime = "nodejs";
-const bankFallback = [
-  { bin: "970436", shortName: "Vietcombank", name: "Vietcombank" },
-  { bin: "970418", shortName: "BIDV", name: "BIDV" },
-  { bin: "970415", shortName: "VietinBank", name: "VietinBank" },
-  { bin: "970422", shortName: "MB", name: "MB Bank" },
-  { bin: "970407", shortName: "Techcombank", name: "Techcombank" },
-  { bin: "970416", shortName: "ACB", name: "ACB" },
-  { bin: "970432", shortName: "VPBank", name: "VPBank" },
-];
 async function authThrottle(req: Request, email: string) {
   const key = createHash("sha256")
     .update(email.toLowerCase())
@@ -174,18 +171,7 @@ async function dispatch(req: Request) {
       ),
     };
   }
-  if (section === "banks" && method === "GET") {
-    try {
-      const r = await fetch("https://api.vietqr.io/v2/banks", {
-        next: { revalidate: 86400 },
-        signal: AbortSignal.timeout(5000),
-      });
-      const data = await r.json();
-      return { banks: data.data || bankFallback };
-    } catch {
-      return { banks: bankFallback };
-    }
-  }
+  if (section === "banks" && method === "GET") return { banks: sepayBanks };
   if (section === "location" && method === "GET") {
     const mode = url.searchParams.get("mode");
     if (mode === "search")
@@ -371,39 +357,26 @@ async function dispatch(req: Request) {
       return createOrder(user, checkoutSchema.parse(await req.json()));
     if (action && id === "qr" && method === "GET") {
       const order = await getOrder(action, user);
-      if (order.qr_data) return { qr: order.qr_data };
-      if (order.status !== "PLACED")
+      if (
+        order.status !== "PLACED" ||
+        new Date(order.expires_at.replace(" ", "T") + "Z").getTime() <=
+          Date.now()
+      )
         throw new AppError("Đơn không còn chờ thanh toán.");
-      if (!process.env.VIETQR_CLIENT_ID || !process.env.VIETQR_API_KEY)
+      if (order.payment_status === "PAYMENT_REVIEW")
         throw new AppError(
-          "QR chưa được cấu hình. Bạn có thể sao chép thông tin chuyển khoản bên dưới.",
-          503,
+          "Giao dịch cần đối soát. Không chuyển thêm, hãy liên hệ bếp.",
         );
-      const r = await fetch("https://api.vietqr.io/v2/generate", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-client-id": process.env.VIETQR_CLIENT_ID,
-          "x-api-key": process.env.VIETQR_API_KEY,
-        },
-        body: JSON.stringify({
+      return {
+        qr: sepayQR({
+          bankBin: order.bank_bin,
           accountNo: order.account_no,
           accountName: order.account_name,
-          acqId: Number(order.bank_bin),
-          amount: order.total,
-          addInfo: order.transfer_content,
-          template: "compact2",
+          amount: Math.max(0, order.total - Number(order.received_amount)),
+          content: order.transfer_content,
+          store: order.chef_name,
         }),
-        signal: AbortSignal.timeout(8000),
-      });
-      const body = await r.json();
-      if (!r.ok || body.code !== "00" || !body.data?.qrDataURL)
-        throw new AppError("Chưa tạo được QR. Vui lòng thử lại.", 502);
-      await exec("UPDATE orders SET qr_data=? WHERE id=?", [
-        body.data.qrDataURL,
-        order.id,
-      ]);
-      return { qr: body.data.qrDataURL };
+      };
     }
     if (action && id === "action" && method === "POST") {
       const b = z
@@ -530,6 +503,32 @@ async function dispatch(req: Request) {
     if (!action && method === "GET") return chefOverview(user);
     if (action === "orders" && method === "GET")
       return { orders: await listOrders(user, true) };
+    if (action === "sepay") {
+      const c = await ownedChef(user);
+      if (!id && method === "GET")
+        return sepayConfig(
+          String(c.id),
+          new URL(process.env.SITE_URL || req.url).origin,
+        );
+      if (id === "key" && method === "POST")
+        return { apiKey: generateWebhookKey() };
+      if (!id && method === "POST")
+        return saveSePayConfig(String(c.id), user.id, await req.json());
+      if (id === "qr" && method === "POST") {
+        if (!c.bank_bin || !c.account_no || !c.account_name)
+          throw new AppError("Lưu thông tin ngân hàng trước khi tạo QR mẫu.");
+        return {
+          qr: sepayQR({
+            bankBin: String(c.bank_bin),
+            accountNo: String(c.account_no),
+            accountName: String(c.account_name),
+            amount: 1000,
+            content: "TGBDTEST",
+            store: String(c.name),
+          }),
+        };
+      }
+    }
     if (action === "bank" && method === "POST")
       return saveBank(user, await req.json());
     if (action === "settings" && method === "POST") {
@@ -837,7 +836,7 @@ async function dispatch(req: Request) {
         );
         if (b.status === "REFUNDED")
           await exec(
-            'UPDATE orders SET payment_status="REFUNDED_MANUAL" WHERE id=?',
+            'UPDATE orders SET payment_status="REFUNDED_MANUAL" WHERE id=? AND payment_status="REFUND_PENDING"',
             [e.order_id],
             db,
           );
