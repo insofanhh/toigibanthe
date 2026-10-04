@@ -329,9 +329,9 @@ export function KitchenLocationPicker({
         </p>
       )}
       {mapError && (
-        <p className="muted small" role="status">
+        <div className="notice error" role="alert">
           {mapError}
-        </p>
+        </div>
       )}
       {!value && !busy && (
         <p className="muted small">

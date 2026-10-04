@@ -2246,7 +2246,7 @@ function OrderDetail({ id }: { id: string }) {
                           <span>Thông tin chuyển khoản</span>
                         </div>
                       )}
-                      {qrError && <p>{qrError}</p>}
+                      {qrError && <Notice error>{qrError}</Notice>}
                       {qr && (
                         <a href={qr + "&download=true"} className="text-button">
                           <Download size={15} /> Tải QR

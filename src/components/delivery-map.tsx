@@ -165,7 +165,11 @@ export function DeliveryMap({ order }: { order: any }) {
           tin đơn.
         </div>
       )}
-      {error && <p className="muted small">{error}</p>}
+      {error && (
+        <div className="notice error" role="alert">
+          {error}
+        </div>
+      )}
       {order.status === "DELIVERING" && (
         <p className="muted small">
           Biểu tượng giao ở giữa tuyến chỉ minh họa trạng thái, chưa phải GPS
