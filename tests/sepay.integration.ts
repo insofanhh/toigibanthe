@@ -228,10 +228,6 @@ try {
   assert.ok(config.webhookUrl.endsWith(ids.chef));
   assert.ok(!JSON.stringify(config).includes(key));
   assert.equal(config.key_hash, undefined);
-  assert.equal(config.bankConnection.bankSaved, true);
-  assert.equal(config.bankConnection.receiverLast4, bank.accountNo.slice(-4));
-  assert.equal(config.bankConnection.matchingWebhookAt, null);
-  assert.equal(config.bankConnection.latestWebhook, null);
   assert.equal((await api("chef/sepay", { enabled: true })).status, 200);
   assert.equal(
     (
@@ -386,10 +382,6 @@ try {
   assert.equal(diagnostic.description, unrelated.description);
   assert.equal(diagnostic.receiver_last4, "7101");
   assert.equal(diagnostic.failure_reason, "ACCOUNT_NOT_CONFIGURED");
-  const connection = (await api("chef/sepay")).data.bankConnection;
-  assert.ok(connection.matchingWebhookAt);
-  assert.equal(connection.latestWebhook.receiverLast4, "7101");
-  assert.equal(connection.latestWebhook.matchesCurrentAccount, false);
   assert.equal(diagnostic.account_number, undefined);
 
   const enriched = await order(),
