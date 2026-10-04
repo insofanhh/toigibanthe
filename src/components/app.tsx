@@ -55,6 +55,7 @@ import { useApp, request, post } from "./providers";
 import { AddressPicker } from "./address-picker";
 import {
   money,
+  parseUTC,
   MEAL_NAMES,
   ORDER_LABELS,
   ORDER_NEXT,
@@ -2073,13 +2074,15 @@ function OrderDetail({ id }: { id: string }) {
                 Tôi đã nhận món
               </Button>
             )}
-            <button
-              className="text-button"
-              onClick={() => setException(!exception)}
-            >
-              Yêu cầu đối soát / hoàn tiền
-            </button>
-            {exception && (
+            {!chef && (
+              <button
+                className="text-button"
+                onClick={() => setException(!exception)}
+              >
+                Yêu cầu đối soát / hoàn tiền
+              </button>
+            )}
+            {!chef && exception && (
               <form
                 className="form"
                 onSubmit={async (e) => {
@@ -2093,6 +2096,7 @@ function OrderDetail({ id }: { id: string }) {
                     });
                     toast("Đã gửi yêu cầu cho bếp.");
                     setException(false);
+                    reload();
                   } catch (e) {
                     toast((e as Error).message);
                   }
@@ -2122,6 +2126,54 @@ function OrderDetail({ id }: { id: string }) {
               </form>
             )}
           </div>
+          {chef && (
+            <div className="panel payment-requests">
+              <h2>Yêu cầu đối soát / hoàn tiền của khách</h2>
+              {!data.paymentRequests?.length ? (
+                <p className="muted small">
+                  Khách chưa gửi yêu cầu đối soát / hoàn tiền cho đơn này.
+                </p>
+              ) : (
+                data.paymentRequests.map((r: any) => (
+                  <article className="payment-request" key={r.id}>
+                    <div className="payment-request-heading">
+                      <h3>
+                        {(
+                          {
+                            LATE: "Chuyển khoản sau hạn",
+                            UNDERPAID: "Chuyển thiếu",
+                            OVERPAID: "Chuyển thừa",
+                            DUPLICATE: "Chuyển hai lần",
+                            WRONG_REFERENCE: "Sai nội dung chuyển khoản",
+                            REFUND: "Yêu cầu hoàn tiền",
+                          } as Record<string, string>
+                        )[r.kind] || "Yêu cầu đối soát"}
+                      </h3>
+                      <span className="status">
+                        {(
+                          {
+                            OPEN: "Chờ xử lý",
+                            RESOLVED: "Đã giải quyết",
+                            REFUNDED: "Đã xác nhận hoàn tiền",
+                          } as Record<string, string>
+                        )[r.status] || r.status}
+                      </span>
+                    </div>
+                    <p className="small">Số tiền: {money(r.amount)}</p>
+                    <p className="payment-request-note">{r.note}</p>
+                    <time
+                      className="muted small"
+                      dateTime={parseUTC(r.created_at).toISOString()}
+                    >
+                      {parseUTC(r.created_at).toLocaleString("vi-VN", {
+                        timeZone: "Asia/Ho_Chi_Minh",
+                      })}
+                    </time>
+                  </article>
+                ))
+              )}
+            </div>
+          )}
           <div className="panel delivery-panel">
             <h2>Giao đến</h2>
             <p>

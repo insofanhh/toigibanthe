@@ -257,6 +257,71 @@ try {
     "PASS: cấu hình riêng theo chef, key băm/không lộ, ngân hàng và QR mẫu SePay",
   );
 
+  const requestOrder = await order({
+    status: "DELIVERED",
+    payment: "PAID_AUTO",
+  });
+  const refundRequest = {
+    kind: "REFUND",
+    amount: 50000,
+    note: "Khách đề nghị kiểm tra và hoàn tiền.",
+  };
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception`, refundRequest)).status,
+    403,
+  );
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception`, refundRequest, 2)).status,
+    403,
+  );
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception`, refundRequest, 1)).status,
+    200,
+  );
+  const requests = (await api(`orders/${requestOrder.id}`)).data
+    .paymentRequests;
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].kind, "REFUND");
+  assert.equal(requests[0].amount, 50000);
+  assert.equal(requests[0].note, refundRequest.note);
+  assert.equal(requests[0].status, "OPEN");
+  assert.equal(
+    (await api(`orders/${requestOrder.id}`, undefined, 2)).status,
+    403,
+  );
+  const notices = (await api("notifications")).data.notifications;
+  assert.ok(
+    notices.some(
+      (n: any) =>
+        n.title === "Yêu cầu hoàn tiền" &&
+        n.href === `/orders/${requestOrder.id}`,
+    ),
+  );
+  await exec("INSERT INTO payment_exceptions VALUES (?,?,?,?,?,?,?,?)", [
+    randomUUID(),
+    requestOrder.id,
+    users[0].id,
+    "OVERPAID",
+    1000,
+    "SePay tự ghi nhận",
+    "OPEN",
+    sqlDate(),
+  ]);
+  await exec("UPDATE payment_exceptions SET status='RESOLVED' WHERE id=?", [
+    requests[0].id,
+  ]);
+  const updatedRequests = (await api(`orders/${requestOrder.id}`)).data
+    .paymentRequests;
+  assert.equal(
+    updatedRequests.length,
+    1,
+    "Only customer requests appear in the chef list",
+  );
+  assert.equal(updatedRequests[0].status, "RESOLVED");
+  console.log(
+    "PASS: khách gửi yêu cầu; chef nhận chi tiết/trạng thái và link đúng đơn; chặn chef gửi và người ngoài đọc",
+  );
+
   const exact = await order(),
     p = payload(exact.code);
   assert.equal((await webhook(p, null, "chef-1")).status, 401);

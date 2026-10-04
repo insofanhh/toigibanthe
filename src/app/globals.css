@@ -2158,6 +2158,36 @@ hr {
 .dashboard-heading > .button {
   margin-left: auto;
 }
+.payment-requests > .muted {
+  margin-top: 12px;
+}
+.payment-request {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.payment-request:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.payment-request-heading {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+.payment-request-heading h3 {
+  font-size: 13px;
+}
+.payment-request-heading .status {
+  margin-left: auto;
+}
+.payment-request-note {
+  margin: 10px 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .bank-note {
   font-size: 11px;
   color: var(--muted);

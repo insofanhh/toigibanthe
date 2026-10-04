@@ -403,6 +403,11 @@ async function dispatch(req: Request) {
         })
         .parse(await req.json());
       const o = await getOrder(action, user);
+      if (o.user_id !== user.id)
+        throw new AppError(
+          "Chỉ khách đặt đơn được gửi yêu cầu đối soát / hoàn tiền.",
+          403,
+        );
       await transaction(async (db) => {
         await exec(
           "INSERT INTO payment_exceptions VALUES (?,?,?,?,?,?,?,?)",
@@ -422,9 +427,9 @@ async function dispatch(req: Request) {
           db,
           o.chef_user_id,
           "order",
-          "Yêu cầu đối soát",
+          b.kind === "REFUND" ? "Yêu cầu hoàn tiền" : "Yêu cầu đối soát",
           `Đơn ${o.code} cần kiểm tra giao dịch.`,
-          `/chef?order=${o.id}`,
+          `/orders/${o.id}`,
         );
       });
       return { ok: true };
@@ -473,6 +478,10 @@ async function dispatch(req: Request) {
       const order = await getOrder(action, user);
       return {
         order,
+        paymentRequests: await rows(
+          "SELECT id,kind,amount,note,status,created_at FROM payment_exceptions WHERE order_id=? AND actor_id=? ORDER BY created_at DESC,id DESC",
+          [action, order.user_id],
+        ),
         items: await rows("SELECT * FROM order_items WHERE order_id=?", [
           action,
         ]),
