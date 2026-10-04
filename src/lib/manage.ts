@@ -11,6 +11,7 @@ import { notify } from "./notifications";
 import { chefSchema, productSchema, bankSchema } from "./validation";
 import { listAdminPaymentExceptions } from "./payment-requests";
 import { attachPaymentRequestSummaries } from "./payment-request-store";
+import { analyticsLive } from "./analytics";
 export async function ownedChef(user: Actor, db?: DB) {
   const c = (
     await rows<Record<string, unknown>>(
@@ -163,6 +164,9 @@ export async function applyChef(user: Actor, input: unknown) {
         `${data.name} đang chờ duyệt.`,
         "/admin?tab=chefs",
       );
+    await audit(db, user, "chef.application", String(id), {
+      resubmitted: !!old,
+    });
     return { id };
   });
 }
@@ -244,10 +248,26 @@ export async function setKitchen(user: Actor, isOpen: boolean) {
   if (c.status !== "approved") throw new AppError("Bếp chưa được duyệt.", 403);
   if (isOpen && (!c.account_no || !c.bank_bin || !c.account_name))
     throw new AppError("Hãy cấu hình tài khoản ngân hàng trước khi mở bếp.");
-  await exec(
-    "INSERT INTO kitchen_sessions VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE is_open=VALUES(is_open)",
-    [randomUUID(), c.id, serviceDate(), isOpen, sqlDate()],
-  );
+  await transaction(async (db) => {
+    await rows("SELECT id FROM chefs WHERE id=? FOR UPDATE", [c.id], db);
+    const [previous] = await rows<{ is_open: number }>(
+      "SELECT is_open FROM kitchen_sessions WHERE chef_id=? AND service_date=? FOR UPDATE",
+      [c.id, serviceDate()],
+      db,
+    );
+    await exec(
+      "INSERT INTO kitchen_sessions VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE is_open=VALUES(is_open)",
+      [randomUUID(), c.id, serviceDate(), isOpen, sqlDate()],
+      db,
+    );
+    if (Boolean(previous?.is_open) !== isOpen) {
+      await audit(db, user, "kitchen.toggle", String(c.id), {
+        isOpen,
+        serviceDate: serviceDate(),
+      });
+      await analyticsLive(db, String(c.id));
+    }
+  });
   return { ok: true };
 }
 export async function saveMenu(
@@ -320,6 +340,11 @@ export async function saveMenu(
       ],
       db,
     );
+    await audit(db, user, "menu.saved", String(c.id), {
+      ...input,
+      serviceDate: serviceDate(),
+    });
+    await analyticsLive(db, String(c.id));
     return { ok: true };
   });
 }

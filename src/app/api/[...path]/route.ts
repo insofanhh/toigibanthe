@@ -63,6 +63,11 @@ import { getProductReviews } from "@/lib/product-reviews";
 import { getChefReviews } from "@/lib/chef-reviews";
 import { sepayBanks, sepayQR } from "@/lib/sepay-qr";
 import {
+  adminAnalytics,
+  mutateAnalytics,
+  recordAnalyticsEvent,
+} from "@/lib/analytics";
+import {
   generateWebhookKey,
   sepayConfig,
   saveSePayConfig,
@@ -109,6 +114,11 @@ async function dispatch(req: Request) {
     path = url.pathname.slice(5).split("/"),
     [section, action, id] = path,
     method = req.method;
+  if (section === "analytics" && action === "events" && method === "POST") {
+    if (Number(req.headers.get("content-length") || 0) > 4096)
+      throw new AppError("Sự kiện quá lớn.", 413);
+    return recordAnalyticsEvent(await req.json(), await actor(false));
+  }
   if (section === "auth") {
     if (action === "me" && method === "GET") {
       const user = await actor(false);
@@ -587,9 +597,26 @@ async function dispatch(req: Request) {
   }
   if (section === "admin") {
     const user = await requireRole("admin");
+    if (action === "analytics" && method === "GET")
+      return adminAnalytics(id || "summary", url.searchParams);
+    if (action === "analytics" && method === "POST")
+      return mutateAnalytics(user, id || "", await req.json());
+    if (action === "analytics" && method === "DELETE")
+      return mutateAnalytics(
+        user,
+        id === "goals" ? "delete-goal" : id === "costs" ? "delete-cost" : "",
+        {},
+        path[3],
+      );
     if (!action && method === "GET") return adminOverview();
     if (action === "orders" && method === "GET")
-      return { orders: await listOrders(user, true) };
+      return {
+        orders: await listOrders(
+          user,
+          true,
+          url.searchParams.get("filter") === "active",
+        ),
+      };
     if (action === "chefs" && id && method === "GET")
       return adminChefDetail(id);
     if (action === "chefs" && method === "POST") {

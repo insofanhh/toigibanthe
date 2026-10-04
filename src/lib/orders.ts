@@ -15,6 +15,9 @@ import { notify } from "./notifications";
 import { direction } from "./goong";
 import { ensureSePaySchema } from "./sepay-schema";
 import { automaticPayment } from "./sepay-config";
+import { ensureAnalyticsSchema } from "./analytics-schema";
+import { analyticsLive } from "./analytics";
+import { regionCell } from "./analytics-domain";
 import {
   ensurePaymentRequestSchema,
   createCancellationRefundRequest,
@@ -31,6 +34,7 @@ export type Checkout = {
   voucher?: string;
   idempotencyKey: string;
   expectedTotal?: number;
+  analytics?: { sessionId: string; source: string };
 };
 export type OrderRecord = {
   id: string;
@@ -112,6 +116,7 @@ async function event(
     [randomUUID(), order.id, actorId, status, note, sqlDate()],
     db,
   );
+  await analyticsLive(db, order.id);
 }
 async function release(db: DB, order: OrderRecord) {
   const items = await rows<{ menu_id: string; quantity: number }>(
@@ -200,6 +205,11 @@ export async function expirePendingOrder(db: DB, o: OrderRecord | undefined) {
   return true;
 }
 export async function createOrder(user: Actor, input: Checkout) {
+  let track = true;
+  await ensureAnalyticsSchema().catch(() => {
+    track = false;
+    console.error("Analytics schema unavailable; checkout continues.");
+  });
   await expireOrders();
   const existing = (
     await rows<{ id: string }>(
@@ -272,7 +282,7 @@ export async function createOrder(user: Actor, input: Checkout) {
       )) {
         const m = (
           await rows<Record<string, unknown>>(
-            "SELECT m.*,p.name,p.image_url,p.price,p.active,p.chef_id,k.is_open,ca.active campaign_active,ca.starts_at,ca.ends_at FROM daily_menu m JOIN products p ON p.id=m.product_id JOIN kitchen_sessions k ON k.id=m.session_id LEFT JOIN campaigns ca ON ca.id=m.campaign_id WHERE m.id=? FOR UPDATE",
+            "SELECT m.*,p.name,p.image_url,p.price,p.active,p.chef_id,k.is_open,ca.name campaign_name,ca.active campaign_active,ca.starts_at,ca.ends_at FROM daily_menu m JOIN products p ON p.id=m.product_id JOIN kitchen_sessions k ON k.id=m.session_id LEFT JOIN campaigns ca ON ca.id=m.campaign_id WHERE m.id=? FOR UPDATE",
             [item.menuId],
             db,
           )
@@ -444,6 +454,43 @@ export async function createOrder(user: Actor, input: Checkout) {
         );
       }
       await event(db, { id }, user.id, "PLACED");
+      if (track) {
+        const sale = selected.filter((x) => x.price < Number(x.m.price));
+        await exec(
+          "INSERT INTO analytics_order_context VALUES (?,?,?,?,?,?,?,?)",
+          [
+            id,
+            input.analytics?.sessionId || null,
+            input.analytics?.source || "",
+            sale[0]?.m.campaign_id || null,
+            sale[0]?.m.campaign_name || null,
+            sale.reduce(
+              (n, x) => n + (Number(x.m.price) - x.price) * x.quantity,
+              0,
+            ),
+            "chef",
+            sqlDate(),
+          ],
+          db,
+        );
+        if (input.analytics && user.role !== "admin")
+          await exec(
+            "INSERT INTO analytics_events (id,session_id,user_id,event_name,chef_id,meal_id,region,source,order_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [
+              randomUUID(),
+              input.analytics.sessionId,
+              user.id,
+              "order_created",
+              chef.id,
+              meal,
+              regionCell(input.lat, input.lng),
+              input.analytics.source,
+              id,
+              sqlDate(),
+            ],
+            db,
+          );
+      }
       await notify(
         db,
         String(c.user_id),

@@ -193,4 +193,6 @@ Chuyển trang dùng React ViewTransition có sẵn trong Next.js: Slide Out 200
 - `tests`: domain và integration.
 - `docs/PRODUCT_PLAN.md`: phạm vi thực hiện và phần mở rộng.
 
-Chưa triển khai OTP/Google, reset mật khẩu email, Push nền, GPS người giao, webhook ngân hàng, quyết toán phí, thống kê theo kỳ và menu copy. Danh sách dashboard hiện giới hạn; cần phân trang và đo tải với dữ liệu production. Manifest hỗ trợ thêm màn hình chính; chưa có service worker/offline checkout. Chính sách vận hành cần chủ sản phẩm hoàn thiện trước công khai.
+Dashboard Tổng quan có bộ lọc kỳ/khu vực/bữa, chỉ số toàn hệ thống, cảnh báo, hiệu suất chef/món, nhu cầu, hành trình đặt hàng, khách quay lại, khuyến mãi, chi phí, mục tiêu và CSV. Định nghĩa số liệu, migration và giới hạn dữ liệu tại [docs/admin-analytics.md](docs/admin-analytics.md). Báo cáo tổng hợp độc lập với giới hạn danh sách quản lý.
+
+Chưa triển khai OTP/Google, reset mật khẩu email, Push nền, GPS người giao, quyết toán phí nền tảng và menu copy. Danh sách quản lý dashboard hiện giới hạn; cần phân trang và đo tải với dữ liệu production. Manifest hỗ trợ thêm màn hình chính; chưa có service worker/offline checkout. Chính sách vận hành cần chủ sản phẩm hoàn thiện trước công khai.

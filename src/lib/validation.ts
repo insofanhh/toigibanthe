@@ -41,6 +41,9 @@ export const checkoutSchema = point.extend({
   voucher: z.string().max(30).optional(),
   idempotencyKey: z.string().min(8).max(100),
   expectedTotal: z.number().int().min(0).optional(),
+  analytics: z
+    .object({ sessionId: z.uuid(), source: z.string().max(100).default("") })
+    .optional(),
 });
 export const chefSchema = point.extend({
   name: z.string().trim().min(2).max(100),

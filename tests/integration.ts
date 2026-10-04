@@ -353,6 +353,16 @@ try {
   socket?.close();
   // Remove only rows with the unique identifiers created by this test.
   for (const id of orderIds) {
+    await exec(
+      "DELETE r FROM outbox_receipts r JOIN realtime_outbox o ON o.id=r.event_id WHERE JSON_UNQUOTE(JSON_EXTRACT(o.payload,'$.entityId'))=?",
+      [id],
+    );
+    await exec(
+      "DELETE FROM realtime_outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.entityId'))=?",
+      [id],
+    );
+    await exec("DELETE FROM analytics_order_context WHERE order_id=?", [id]);
+    await exec("DELETE FROM analytics_events WHERE order_id=?", [id]);
     await exec("DELETE FROM sepay_order_settings WHERE order_id=?", [id]);
     await exec("DELETE FROM order_events WHERE order_id=?", [id]);
     await exec("DELETE FROM order_items WHERE order_id=?", [id]);

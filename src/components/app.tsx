@@ -53,6 +53,7 @@ import {
   Mail,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
+import { analyticsContext, trackEvent } from "@/lib/analytics-client";
 import {
   pendingLoad,
   disabledLoad,
@@ -104,7 +105,7 @@ export function useLoad<T = any>(
   path: string | null,
   dependencies: unknown[] = [],
 ) {
-  const { loadCache, user, storageReady, authReady } = useApp();
+  const { loadCache, user, storageReady, authReady, location } = useApp();
   // Never fetch a fallback city before the saved delivery location is restored.
   const enabledPath =
     path?.startsWith("catalog") && (!storageReady || !authReady) ? null : path;
@@ -129,6 +130,34 @@ export function useLoad<T = any>(
     getServerSnapshot,
   );
   const { data, error } = snapshot;
+  useEffect(() => {
+    if (
+      !enabledPath?.startsWith("catalog?") ||
+      !data ||
+      !location ||
+      !authReady
+    )
+      return;
+    const q = new URLSearchParams(enabledPath.slice(8));
+    if (q.has("product") || q.has("cursor")) return;
+    const dishes = (data as unknown as Feed).dishes;
+    if (!dishes) return;
+    trackEvent("catalog", location, {
+      resultCount: dishes.length,
+      meal: (q.get("meal") || undefined) as MealId | undefined,
+      dedupe: enabledPath,
+      role: user?.role,
+    });
+    if (!q.get("meal")) {
+      for (const meal of new Set(dishes.map((d) => d.meal)))
+        trackEvent("catalog", location, {
+          resultCount: dishes.filter((d) => d.meal === meal).length,
+          meal,
+          dedupe: enabledPath + ":" + meal,
+          role: user?.role,
+        });
+    }
+  }, [enabledPath, data, location, authReady, user?.role]);
   const missing = snapshot === pendingLoad;
   const loading = !!path && (!enabledPath || snapshot.loading);
   const reload = useCallback(() => {
@@ -981,7 +1010,7 @@ function DishList({ path }: { path: string }) {
 function DishDetail({ id }: { id: string }) {
   const params = useSearchParams(),
     menuId = params.get("menu"),
-    { location, revision, add } = useApp(),
+    { location, revision, add, user } = useApp(),
     { data, error, loading } = useLoad<Feed>(
       feedPath(location, "&product=" + encodeURIComponent(id)),
       [revision],
@@ -989,6 +1018,22 @@ function DishDetail({ id }: { id: string }) {
   const d = data?.dishes.find(
     (d) => d.id === id && (!menuId || d.menuId === menuId),
   );
+  useEffect(() => {
+    if (d) {
+      trackEvent("catalog", location, {
+        resultCount: 1,
+        meal: d.meal,
+        dedupe: "dish-availability:" + d.menuId,
+        role: user?.role,
+      });
+      trackEvent("dish_view", location, {
+        productId: d.id,
+        meal: d.meal,
+        dedupe: d.menuId,
+        role: user?.role,
+      });
+    }
+  }, [d?.menuId, location, user?.role]);
   if (loading && !data) return <LoadingCards />;
   if (error) return <Notice error>{error}</Notice>;
   if (!d)
@@ -1774,6 +1819,14 @@ function Checkout() {
     cart.map((x) => ({ menuId: x.dish.menuId, quantity: x.quantity })),
   );
   useEffect(() => {
+    if (user && cart.length)
+      trackEvent("checkout", location, {
+        meal: cart[0].dish.meal,
+        dedupe: "checkout",
+        role: user.role,
+      });
+  }, [user?.id, location, cart.length]);
+  useEffect(() => {
     let cancelled = false;
     setQuote(null);
     setQuoteError("");
@@ -1836,6 +1889,7 @@ function Checkout() {
         voucher: voucher.trim().toUpperCase(),
         expectedTotal: quote.total,
         idempotencyKey: key,
+        analytics: analyticsContext(),
       });
       clearCart();
       router.push("/orders/" + result.id, {

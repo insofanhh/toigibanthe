@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { Actor, Dish, Location } from "@/lib/domain";
 import { ClientLoadCache } from "@/lib/client-load-cache";
+import { trackEvent } from "@/lib/analytics-client";
 import {
   currentPosition,
   isUnresolvedLocation,
@@ -220,6 +221,8 @@ export function Providers({ children }: { children: ReactNode }) {
         ws.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data);
+            if (data.type === "admin-analytics" && user.role === "admin")
+              refresh();
             if (data.type === "notification") {
               toast(data.title);
               refresh();
@@ -307,6 +310,19 @@ export function Providers({ children }: { children: ReactNode }) {
     };
   }, [ready, authReady, user, setLocation]);
   const add = (dish: Dish) => {
+    if (
+      (!cart.length ||
+        (cart[0].dish.chefId === dish.chefId &&
+          cart[0].dish.meal === dish.meal &&
+          cart[0].dish.cutoffAt === dish.cutoffAt)) &&
+      (cart.find((x) => x.dish.menuId === dish.menuId)?.quantity || 0) <
+        dish.stock
+    )
+      trackEvent("cart_add", location, {
+        productId: dish.id,
+        meal: dish.meal,
+        role: user?.role,
+      });
     setCart((old) => {
       if (
         old.length &&

@@ -14,7 +14,7 @@ import {
 const dbURL = new URL(process.env.DATABASE_URL!);
 assert.equal(dbURL.hostname, "127.0.0.1");
 assert.equal(dbURL.port, "3307");
-const base = "http://127.0.0.1:3000";
+const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3000";
 const ids = {
   chef: randomUUID(),
   otherChef: randomUUID(),
@@ -38,7 +38,7 @@ async function api(path: string, body?: unknown, who = 0) {
   const r = await fetch(base + "/api/" + path, {
     method: body === undefined ? "GET" : "POST",
     headers: {
-      origin: base,
+      origin: new URL(process.env.SITE_URL || base).origin,
       "content-type": "application/json",
       ...(cookies[who] ? { cookie: cookies[who] } : {}),
     },
@@ -220,6 +220,14 @@ try {
     true,
   ]);
   assert.equal((await api("chef/sepay", undefined, 1)).status, 403);
+  assert.equal(
+    (await api("admin/analytics/summary", undefined, 1)).status,
+    403,
+  );
+  assert.equal(
+    (await api("admin/analytics/summary", undefined, 3)).status,
+    200,
+  );
   key = (await api("chef/sepay/key", {})).data.apiKey;
   assert.ok(key.length >= 32);
   assert.equal(
@@ -1481,6 +1489,14 @@ try {
 } finally {
   // Also remove fixture notifications delivered to pre-existing local administrators.
   for (const id of orders) {
+    await exec(
+      "DELETE r FROM outbox_receipts r JOIN realtime_outbox o ON o.id=r.event_id WHERE JSON_UNQUOTE(JSON_EXTRACT(o.payload,'$.entityId'))=?",
+      [id],
+    );
+    await exec(
+      "DELETE FROM realtime_outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.entityId'))=?",
+      [id],
+    );
     const o = await read(id);
     if (!o) continue;
     const pattern = `%${o.code}%`;
@@ -1494,10 +1510,11 @@ try {
     );
     await exec("DELETE FROM notifications WHERE body LIKE ?", [pattern]);
   }
-  await exec(
-    "DELETE FROM assets WHERE user_id IN (?,?,?,?)",
-    users.map((u) => u.id),
-  );
+  if (users.length)
+    await exec(
+      `DELETE FROM assets WHERE user_id IN (${users.map(() => "?").join(",")})`,
+      users.map((u) => u.id),
+    );
   await exec("DELETE FROM sepay_transaction_details WHERE chef_id IN (?,?)", [
     ids.chef,
     ids.otherChef,
@@ -1505,6 +1522,8 @@ try {
   for (const id of orders)
     for (const table of [
       "sepay_order_settings",
+      "analytics_order_context",
+      "analytics_events",
       "order_items",
       "order_events",
       "payment_exceptions",

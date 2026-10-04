@@ -1,4 +1,5 @@
 import { timingSafeEqual, randomUUID } from "node:crypto";
+import { analyticsLive } from "./analytics";
 import { z } from "zod";
 import { exec, rows, transaction, sqlDate } from "./db";
 import { AppError } from "./http";
@@ -308,6 +309,7 @@ export async function receiveSePay(chefId: string, request: Request) {
       [sqlDate(), sqlDate(), order.id],
       db,
     );
+    await analyticsLive(db, order.id);
     await exec(
       "INSERT INTO order_events VALUES (?,?,?,?,?,?)",
       [
