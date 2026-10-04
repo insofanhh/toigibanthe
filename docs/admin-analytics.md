@@ -40,6 +40,16 @@
 - Hiện chưa thu phí nền tảng nên chưa báo lợi nhuận hoặc doanh thu phí dịch vụ. Muốn tính lợi nhuận trên đơn cần sổ doanh thu phí và chi phí được phân bổ thực tế.
 - CSV có Unicode BOM, escape dấu phẩy/dấu nháy/xuống dòng và chống công thức spreadsheet trong text do người dùng nhập.
 
+## Phân tích Users
+
+- Users dùng API admin riêng: `GET /api/admin/users/report`, `/api/admin/users` và `/api/admin/users/:id`; tiếp tục dùng API khóa/mở tài khoản hiện có. Không thêm bảng hoặc biến môi trường.
+- Sáu chỉ số và hai biểu đồ áp dụng vai trò, trạng thái tài khoản và tìm kiếm. Khoảng ngày chỉ áp dụng đăng ký mới và mua trong kỳ; tổng tài khoản, số bị khóa và nhóm mua hàng là hiện trạng/toàn thời gian.
+- Nhóm chưa mua/mua một lần/mua nhiều lần theo số đơn hoàn thành. Khách mua lại trong kỳ có lần mua thứ hai trở đi trong kỳ; một khách có thể vừa mua lần đầu vừa mua lại trong cùng kỳ. Chef cũng có thể mua; chọn vai trò User khi cần chỉ xem tài khoản User.
+- Lần mua đầu dùng thứ tự thời gian sự kiện hoàn thành và ID để phá hòa, gồm cả đơn đầu ngoài kỳ. Đơn cũ thiếu sự kiện dùng `updated_at`. Tổng giá trị món đã mua tính toàn thời gian, sau voucher, không gồm giao hàng. Không suy luận lần truy cập từ trạng thái tài khoản.
+- Danh sách lọc/sắp xếp trên server, 20 tài khoản/trang và thứ tự ổn định; tổng không giới hạn bởi 100 tài khoản. Bấm KPI/nhóm lọc danh sách. Bộ lọc và trang giữ trong URL riêng của Users, hỗ trợ quay lại.
+- Hồ sơ hiển thị liên hệ, thống kê và lịch sử toàn thời gian có phân trang, cùng tối đa 20 yêu cầu đối soát/hoàn tiền gần nhất. Không trả password hash hoặc session.
+- `npm run test:users`: fixture local hơn 100 tài khoản, ngày tạo/hoàn thành khác kỳ, lần mua trùng thời gian, đơn cũ, nhóm, tìm kiếm literal, phân trang và hồ sơ/đối soát. Tự dọn fixture.
+
 ## Kiểm tra
 
 `npm test`: ngày Việt Nam, kỳ đối chiếu, CSV, domain và cache.

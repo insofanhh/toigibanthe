@@ -228,6 +228,14 @@ try {
     (await api("admin/analytics/summary", undefined, 3)).status,
     200,
   );
+  for (const path of [
+    "admin/users",
+    "admin/users/report",
+    "admin/users/" + users[1].id,
+  ]) {
+    assert.equal((await api(path, undefined, 1)).status, 403);
+    assert.equal((await api(path, undefined, 3)).status, 200);
+  }
   key = (await api("chef/sepay/key", {})).data.apiKey;
   assert.ok(key.length >= 32);
   assert.equal(

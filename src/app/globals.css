@@ -2903,10 +2903,9 @@ hr {
 }
 .analytics-filters {
   display: grid;
-  grid-template-columns: 150px 150px minmax(140px, 1fr) minmax(
-      130px,
-      0.65fr
-    ) auto;
+  grid-template-columns:
+    150px 150px minmax(140px, 1fr) minmax(130px, 0.65fr)
+    auto;
   align-items: end;
   gap: 12px;
 }
@@ -4680,4 +4679,221 @@ hr {
 .sepay-transactions small {
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+.users-filters {
+  grid-template-columns:
+    140px 140px minmax(120px, 0.7fr) minmax(145px, 0.8fr)
+    minmax(190px, 1fr) auto;
+}
+.users-kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.users-kpi {
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.users-kpi:hover,
+.users-kpi[aria-pressed="true"] {
+  border-color: #8ab2a0;
+  background: #f5faf7;
+}
+.users-kpi:focus-visible,
+.users-group-row:focus-visible {
+  outline: 2px solid #21715d;
+  outline-offset: 3px;
+}
+.users-filter-hint {
+  display: inline-flex;
+  align-items: center;
+  color: #21715d;
+  font-size: 11px;
+  gap: 3px;
+}
+.users-group-chart {
+  display: grid;
+  gap: 25px;
+  padding: 20px 0 28px;
+}
+.users-group-row {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border-radius: 6px;
+  padding: 6px;
+}
+.users-group-row:hover,
+.users-group-row[aria-pressed="true"] {
+  background: #f1f7f3;
+}
+.users-group-row > span:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.users-group-row b {
+  font-weight: 500;
+}
+.users-group-row small {
+  color: var(--muted);
+  font-weight: 400;
+}
+.users-group-track {
+  display: block;
+  height: 9px;
+  border-radius: 20px;
+  background: #f0f3f0;
+  overflow: hidden;
+}
+.users-group-track i {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+}
+.users-list-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.users-list-filters .field {
+  margin: 0;
+  flex: 1 1 180px;
+}
+.users-list-filters select {
+  width: 100%;
+  max-width: none;
+}
+.users-list-filters > button {
+  font-size: 12px;
+  padding: 10px 0;
+}
+.users-pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  padding-top: 18px;
+}
+.users-pagination > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.users-pagination .button {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.users-table {
+  min-width: 950px;
+}
+.users-table-hint {
+  display: none;
+}
+.users-table td:first-child {
+  min-width: 220px;
+}
+.users-table .button {
+  font-size: 12px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+.users-name {
+  text-align: left;
+}
+.users-role {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+.users-account-status,
+.users-purchase-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.users-account-status[data-open="true"] {
+  background: #e9f5ee;
+  color: #26734a;
+}
+.users-account-status[data-open="false"] {
+  background: #fdebea;
+  color: #b13c3c;
+}
+.users-purchase-tag[data-group="never"] {
+  color: #64746b;
+  background: #eef1ef;
+}
+.users-purchase-tag[data-group="once"] {
+  color: #8e681e;
+  background: #fff5dc;
+}
+.users-purchase-tag[data-group="repeat"] {
+  color: #256854;
+  background: #e7f3ec;
+}
+.users-profile-info {
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.users-profile-info h3 {
+  font-size: 17px;
+  font-weight: 500;
+  margin: 0;
+}
+.users-profile-info p {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.users-order-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.users-subheading {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 24px 0 12px;
+}
+@media (max-width: 1280px) {
+  .users-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .users-table-hint {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin: 8px 0;
+  }
+  .users-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .users-filters .field:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+  .users-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .users-list-filters .field {
+    flex-basis: 100%;
+  }
+  .users-pagination {
+    justify-content: center;
+    gap: 10px;
+  }
+  .users-profile-info {
+    gap: 8px;
+  }
 }

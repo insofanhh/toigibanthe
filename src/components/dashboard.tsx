@@ -39,6 +39,10 @@ const AdminOverview = dynamic(
   () => import("./admin-overview").then((m) => m.AdminOverview),
   { loading: () => <div className="loading">Đang tải tổng quan…</div> },
 );
+const AdminUsers = dynamic(
+  () => import("./admin-users").then((m) => m.AdminUsers),
+  { loading: () => <div className="loading">Đang tải tài khoản…</div> },
+);
 import {
   useLoad,
   Button,
@@ -1141,7 +1145,9 @@ export function AdminDashboard() {
     adminRouter = useRouter(),
     [tab, setTab] = useState(params.get("tab") || "overview"),
     { data, error, reload } = useLoad(
-      user?.role === "admin" && tab !== "overview" ? "admin" : null,
+      user?.role === "admin" && !["overview", "users"].includes(tab)
+        ? "admin"
+        : null,
       [revision],
     ),
     { data: orders, error: ordersError } = useLoad(
@@ -1280,7 +1286,7 @@ export function AdminDashboard() {
           title={items.find(([id]) => id === tab)?.[1] || "Quản trị"}
           subtitle="Quản trị hệ thống"
         />
-        {tab !== "overview" && (error || !data) ? (
+        {!["overview", "users"].includes(tab) && (error || !data) ? (
           error ? (
             <Notice error>{error}</Notice>
           ) : (
@@ -1295,43 +1301,7 @@ export function AdminDashboard() {
               />
             )}
             {tab === "overview" && <AdminOverview onNavigate={navigateAdmin} />}
-            {tab === "users" && (
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Tài khoản</th>
-                      <th>Vai trò</th>
-                      <th>Trạng thái</th>
-                      <th>Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.users.map((u: any) => (
-                      <tr key={u.id}>
-                        <td>
-                          {u.name}
-                          <small>{u.email}</small>
-                        </td>
-                        <td>{u.role}</td>
-                        <td>{u.active ? "Hoạt động" : "Đã khóa"}</td>
-                        <td>
-                          <button
-                            onClick={() =>
-                              void run("admin/users/" + u.id, {
-                                active: !u.active,
-                              })
-                            }
-                          >
-                            {u.active ? "Khóa" : "Mở khóa"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {tab === "users" && <AdminUsers />}
             {tab === "chefs" && (
               <>
                 <SectionTitle title="Hồ sơ chờ duyệt" />

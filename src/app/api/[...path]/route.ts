@@ -68,6 +68,11 @@ import {
   recordAnalyticsEvent,
 } from "@/lib/analytics";
 import {
+  adminUsersReport,
+  adminUsersList,
+  adminUserDetail,
+} from "@/lib/admin-users";
+import {
   generateWebhookKey,
   sepayConfig,
   saveSePayConfig,
@@ -597,6 +602,11 @@ async function dispatch(req: Request) {
   }
   if (section === "admin") {
     const user = await requireRole("admin");
+    if (action === "users" && method === "GET") {
+      if (id === "report") return adminUsersReport(url.searchParams);
+      if (id) return adminUserDetail(id, url.searchParams);
+      return adminUsersList(url.searchParams);
+    }
     if (action === "analytics" && method === "GET")
       return adminAnalytics(id || "summary", url.searchParams);
     if (action === "analytics" && method === "POST")
