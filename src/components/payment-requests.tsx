@@ -295,7 +295,7 @@ export function PaymentRequestList({
           <article className="payment-request" key={value.id}>
             <div className="payment-request-heading">
               <h3>{PAYMENT_REQUEST_KINDS[value.kind] || "Yêu cầu đối soát"}</h3>
-              <span className="status">
+              <span className="status" data-status={value.status}>
                 {PAYMENT_REQUEST_STATUSES[value.status] || value.status}
               </span>
             </div>

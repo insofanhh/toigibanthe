@@ -1171,12 +1171,7 @@ export function OrderCard({
             "vi-VN",
           )}
         </p>
-        <span
-          className={
-            "status " +
-            (["COMPLETED", "DELIVERED"].includes(o.status) ? "success" : "")
-          }
-        >
+        <span className="status" data-status={o.status}>
           {ORDER_LABELS[o.status]}
         </span>
       </div>
@@ -1873,20 +1868,29 @@ function OrderDetail({ id }: { id: string }) {
           <div className="panel form">
             <div className="spread">
               <h2>{ORDER_LABELS[o.status]}</h2>
-              <span className="status">
-                {o.payment_status === "REFUND_PENDING"
-                  ? "Chờ hoàn tiền"
-                  : o.payment_status === "PAID_AUTO"
-                    ? "Đã thanh toán"
-                    : o.payment_status === "PAID_MANUAL"
-                      ? "Bếp đã xác nhận tiền"
-                      : o.payment_status === "PARTIAL"
-                        ? "Đã nhận một phần tiền"
-                        : o.payment_status === "PAYMENT_REVIEW"
-                          ? "Cần đối soát"
-                          : o.payment_reported
-                            ? "Khách đã báo chuyển"
-                            : "Chờ thanh toán"}
+              <span
+                className="status"
+                data-status={
+                  o.payment_reported && o.payment_status === "PENDING"
+                    ? "PAYMENT_REPORTED"
+                    : o.payment_status
+                }
+              >
+                {o.payment_status === "REFUNDED_MANUAL"
+                  ? "Đã hoàn tiền"
+                  : o.payment_status === "REFUND_PENDING"
+                    ? "Chờ hoàn tiền"
+                    : o.payment_status === "PAID_AUTO"
+                      ? "Đã thanh toán"
+                      : o.payment_status === "PAID_MANUAL"
+                        ? "Bếp đã xác nhận tiền"
+                        : o.payment_status === "PARTIAL"
+                          ? "Đã nhận một phần tiền"
+                          : o.payment_status === "PAYMENT_REVIEW"
+                            ? "Cần đối soát"
+                            : o.payment_reported
+                              ? "Khách đã báo chuyển"
+                              : "Chờ thanh toán"}
               </span>
             </div>
             {o.status === "PLACED" && (

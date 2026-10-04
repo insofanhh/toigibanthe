@@ -1569,7 +1569,7 @@ export function AdminDashboard() {
             <div className="panel" key={e.id}>
               <div className="spread">
                 <h3>Đơn #{e.code}</h3>
-                <span className="status">
+                <span className="status" data-status={e.status}>
                   {PAYMENT_REQUEST_STATUSES[e.status] || e.status}
                 </span>
               </div>
