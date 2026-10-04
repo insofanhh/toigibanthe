@@ -43,7 +43,8 @@ function authenticate(header: string | null, hash: string | null) {
 }
 
 export async function receiveSePay(chefId: string, request: Request) {
-  z.uuid().parse(chefId);
+  // Seeded kitchens use IDs such as chef-1; new kitchens use UUIDs.
+  z.string().regex(/^[A-Za-z0-9_-]{1,36}$/).parse(chefId);
   await ensureSePaySchema();
   const config = (
     await rows<{ enabled: number; key_hash: string }>(

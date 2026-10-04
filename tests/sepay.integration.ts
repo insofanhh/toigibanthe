@@ -259,6 +259,7 @@ try {
 
   const exact = await order(),
     p = payload(exact.code);
+  assert.equal((await webhook(p, null, "chef-1")).status, 401);
   assert.equal((await webhook(p, null)).status, 401);
   assert.equal((await webhook(p, "x".repeat(32))).status, 401);
   assert.equal((await webhook(p, key, ids.otherChef)).status, 401);
