@@ -155,6 +155,14 @@ Nếu cần Node host riêng cho realtime, dùng `services/realtime/Dockerfile`,
 
 Đã kiểm chứng MySQL local; chưa có TiDB cluster, tài khoản deploy hay service keys để xác nhận production. Migrations dùng SQL MySQL thông thường, tọa độ DOUBLE, không phụ thuộc PostGIS/RLS hay Supabase.
 
+## Đối soát / hoàn tiền
+
+- Mỗi đơn chỉ có một yêu cầu của khách, kể cả gửi đồng thời. Số điện thoại liên hệ bắt buộc và được điền sẵn từ hồ sơ cá nhân.
+- Chef gọi khách, ghi nội dung giải quyết và tải ảnh/PDF bằng chứng tối đa 3 MB. Tệp dùng Blob private và `BLOB_PRIVATE_READ_WRITE_TOKEN`; chỉ chủ tệp, khách của đơn và admin được xem.
+- Trạng thái: `OPEN` (Chờ xử lý) → `REVIEW` (Chờ hệ thống) → `RESOLVED`/`REFUNDED` (Đã xử lý). Admin duyệt bằng chứng tại `/admin?tab=payments`, hoặc yêu cầu bổ sung để trả về `OPEN`. Khách vẫn không được tạo yêu cầu thứ hai.
+- Migration `database/006_payment_requests.sql` thêm bảng chi tiết, ràng buộc duy nhất theo đơn và giữ nguyên các bản ghi trùng trong lịch sử. App cũng tự khởi tạo/backfill bảng này khi đọc hoặc gửi yêu cầu lần đầu trên MySQL/TiDB.
+- Khi xác nhận đã hoàn tiền, chỉ đơn có `REFUND_PENDING` được chuyển sang `REFUNDED_MANUAL`; đối soát tiền dư không thay đổi thanh toán gốc của đơn. Đây là xác nhận bằng chứng, không thực hiện chuyển khoản ngân hàng tự động.
+
 ## Kiểm tra
 
 ```powershell

@@ -2188,6 +2188,31 @@ hr {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.payment-request > time {
+  display: block;
+  margin-top: 10px;
+}
+.payment-request-call {
+  margin-top: 10px;
+}
+.payment-request-evidence,
+.payment-resolution-form {
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.payment-request-evidence .text-button {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.payment-request-evidence .muted {
+  margin-top: 8px;
+}
+.payment-resolution-form input[type="file"] {
+  max-width: 100%;
+  min-width: 0;
+  font-size: 12px;
+}
 .bank-note {
   font-size: 11px;
   color: var(--muted);

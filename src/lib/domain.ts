@@ -59,6 +59,20 @@ export const ORDER_NEXT: Record<string, string> = {
   DELIVERING: "DELIVERED",
 };
 export const TERMINAL = ["COMPLETED", "REJECTED", "EXPIRED", "CANCELLED"];
+export const PAYMENT_REQUEST_KINDS: Record<string, string> = {
+  LATE: "Chuyển khoản sau hạn",
+  UNDERPAID: "Chuyển thiếu",
+  OVERPAID: "Chuyển thừa",
+  DUPLICATE: "Chuyển hai lần",
+  WRONG_REFERENCE: "Sai nội dung chuyển khoản",
+  REFUND: "Yêu cầu hoàn tiền",
+};
+export const PAYMENT_REQUEST_STATUSES: Record<string, string> = {
+  OPEN: "Chờ xử lý",
+  REVIEW: "Chờ hệ thống",
+  RESOLVED: "Đã xử lý",
+  REFUNDED: "Đã xử lý",
+};
 export function parseUTC(value: string) {
   return new Date(value.includes("T") ? value : value.replace(" ", "T") + "Z");
 }

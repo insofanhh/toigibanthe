@@ -5,6 +5,11 @@ import { ensureSePaySchema } from "../src/lib/sepay-schema";
 import { sepayBankBin, sepayOrderCode, sepayQR } from "../src/lib/sepay-qr";
 import { createOrder, expirePendingOrder, getOrder } from "../src/lib/orders";
 import { serviceDate, type Actor } from "../src/lib/domain";
+import {
+  ensurePaymentRequestSchema,
+  backfillPaymentRequests,
+  canReadPaymentEvidence,
+} from "../src/lib/payment-requests";
 
 const dbURL = new URL(process.env.DATABASE_URL!);
 assert.equal(dbURL.hostname, "127.0.0.1");
@@ -140,7 +145,7 @@ async function read(id: string) {
 }
 try {
   await ensureSePaySchema();
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const email = `sepay-${randomUUID()}@local.test`,
       r = await api("auth/register", {
         name: "SePay fixture",
@@ -157,6 +162,8 @@ try {
   ]);
   users[0].role = "chef";
   users[2].role = "chef";
+  await exec("UPDATE users SET role='admin' WHERE id=?", [users[3].id]);
+  users[3].role = "admin";
   for (const [chef, user] of [
     [ids.chef, users[0].id],
     [ids.otherChef, users[2].id],
@@ -265,7 +272,28 @@ try {
     kind: "REFUND",
     amount: 50000,
     note: "Khách đề nghị kiểm tra và hoàn tiền.",
+    phone: "0901234567",
   };
+  assert.equal(
+    (
+      await api(
+        `orders/${requestOrder.id}/exception`,
+        { ...refundRequest, phone: "" },
+        1,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await api(
+        `orders/${requestOrder.id}/exception`,
+        { ...refundRequest, phone: "not a phone" },
+        1,
+      )
+    ).status,
+    400,
+  );
   assert.equal(
     (await api(`orders/${requestOrder.id}/exception`, refundRequest)).status,
     403,
@@ -274,10 +302,11 @@ try {
     (await api(`orders/${requestOrder.id}/exception`, refundRequest, 2)).status,
     403,
   );
-  assert.equal(
-    (await api(`orders/${requestOrder.id}/exception`, refundRequest, 1)).status,
-    200,
-  );
+  const simultaneous = await Promise.all([
+    api(`orders/${requestOrder.id}/exception`, refundRequest, 1),
+    api(`orders/${requestOrder.id}/exception`, refundRequest, 1),
+  ]);
+  assert.deepEqual(simultaneous.map((r) => r.status).sort(), [200, 409]);
   const requests = (await api(`orders/${requestOrder.id}`)).data
     .paymentRequests;
   assert.equal(requests.length, 1);
@@ -285,6 +314,11 @@ try {
   assert.equal(requests[0].amount, 50000);
   assert.equal(requests[0].note, refundRequest.note);
   assert.equal(requests[0].status, "OPEN");
+  assert.equal(requests[0].contact_phone, refundRequest.phone);
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception`, refundRequest, 1)).status,
+    409,
+  );
   assert.equal(
     (await api(`orders/${requestOrder.id}`, undefined, 2)).status,
     403,
@@ -307,19 +341,249 @@ try {
     "OPEN",
     sqlDate(),
   ]);
-  await exec("UPDATE payment_exceptions SET status='RESOLVED' WHERE id=?", [
-    requests[0].id,
-  ]);
-  const updatedRequests = (await api(`orders/${requestOrder.id}`)).data
-    .paymentRequests;
+  const proofId = randomUUID(),
+    wrongProofId = randomUUID(),
+    publicProofId = randomUUID();
+  for (const [assetId, owner, kind] of [
+    [proofId, users[0].id, "document"],
+    [wrongProofId, users[1].id, "document"],
+    [publicProofId, users[0].id, "image"],
+  ])
+    await exec("INSERT INTO assets VALUES (?,?,?,?,?,?,?,?)", [
+      assetId,
+      owner,
+      kind,
+      "https://example.com/proof.png",
+      "document/proof.png",
+      "image/png",
+      "proof.png",
+      sqlDate(),
+    ]);
+  const resolution = {
+    requestId: requests[0].id,
+    note: "Bếp đã trao đổi và hoàn tiền cho khách.",
+    evidenceAssetId: proofId,
+    resolution: "REFUNDED",
+  };
   assert.equal(
-    updatedRequests.length,
-    1,
-    "Only customer requests appear in the chef list",
+    (
+      await api(
+        `admin/exceptions/${requests[0].id}`,
+        { action: "APPROVE", note: "Kiểm tra trước khi có bằng chứng." },
+        3,
+      )
+    ).status,
+    409,
   );
-  assert.equal(updatedRequests[0].status, "RESOLVED");
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception-resolution`, resolution, 1))
+      .status,
+    403,
+  );
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception-resolution`, resolution, 2))
+      .status,
+    403,
+  );
+  assert.equal(
+    (
+      await api(`orders/${requestOrder.id}/exception-resolution`, {
+        ...resolution,
+        evidenceAssetId: wrongProofId,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await api(`orders/${requestOrder.id}/exception-resolution`, {
+        ...resolution,
+        evidenceAssetId: publicProofId,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception-resolution`, resolution))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception-resolution`, resolution))
+      .status,
+    409,
+  );
+  const reviewRequest = (await api(`orders/${requestOrder.id}`, undefined, 1))
+    .data.paymentRequests[0];
+  assert.equal(reviewRequest.status, "REVIEW");
+  assert.equal(reviewRequest.evidence_asset_id, proofId);
+  assert.equal(reviewRequest.resolution_note, resolution.note);
+  assert.equal(await canReadPaymentEvidence(users[1].id, proofId), true);
+  assert.equal(await canReadPaymentEvidence(users[2].id, proofId), false);
+  const unrelatedFile = await fetch(base + "/api/files/" + proofId, {
+    headers: { cookie: cookies[2] },
+  });
+  assert.equal(unrelatedFile.status, 403);
+  const adminData = (await api("admin", undefined, 3)).data;
+  assert.ok(
+    adminData.exceptions.some(
+      (e: any) =>
+        e.id === requests[0].id &&
+        e.evidence_asset_id === proofId &&
+        e.contact_phone === refundRequest.phone,
+    ),
+  );
+  assert.equal(
+    (
+      await api(
+        `admin/exceptions/${requests[0].id}`,
+        { action: "APPROVE", note: "Không có quyền duyệt." },
+        1,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await api(
+        `admin/exceptions/${requests[0].id}`,
+        { action: "REJECT", note: "Bổ sung ảnh biên lai chuyển khoản đầy đủ." },
+        3,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await api(`orders/${requestOrder.id}`)).data.paymentRequests[0].status,
+    "OPEN",
+  );
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception`, refundRequest, 1)).status,
+    409,
+  );
+  assert.equal(
+    (await api(`orders/${requestOrder.id}/exception-resolution`, resolution))
+      .status,
+    200,
+  );
+  assert.equal(
+    (
+      await api(
+        `admin/exceptions/${requests[0].id}`,
+        {
+          action: "APPROVE",
+          note: "Đã kiểm tra bằng chứng và duyệt giải quyết.",
+        },
+        3,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await api(
+        `admin/exceptions/${requests[0].id}`,
+        { action: "APPROVE", note: "Không duyệt trùng lần nữa." },
+        3,
+      )
+    ).status,
+    409,
+  );
+  for (const who of [0, 1]) {
+    const updated = (await api(`orders/${requestOrder.id}`, undefined, who))
+      .data.paymentRequests;
+    assert.equal(updated.length, 1);
+    assert.equal(updated[0].status, "REFUNDED");
+    assert.ok(
+      (await api("notifications", undefined, who)).data.notifications.some(
+        (n: any) => n.title === "Yêu cầu đã xử lý",
+      ),
+    );
+  }
+  assert.equal(
+    (await read(requestOrder.id)).payment_status,
+    "PAID_AUTO",
+    "Refunding excess payment must not refund the entire paid order",
+  );
+  const cancelledRequest = await order({
+    status: "CANCELLED",
+    payment: "REFUND_PENDING",
+  });
+  assert.equal(
+    (await api(`orders/${cancelledRequest.id}/exception`, refundRequest, 1))
+      .status,
+    200,
+  );
+  const cancelledId = (await api(`orders/${cancelledRequest.id}`)).data
+    .paymentRequests[0].id;
+  assert.equal(
+    (
+      await api(`orders/${cancelledRequest.id}/exception-resolution`, {
+        ...resolution,
+        requestId: cancelledId,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await api(
+        `admin/exceptions/${cancelledId}`,
+        { action: "APPROVE", note: "Biên lai hoàn tiền hợp lệ." },
+        3,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await read(cancelledRequest.id)).payment_status,
+    "REFUNDED_MANUAL",
+  );
+  await exec("DELETE FROM assets WHERE id IN (?,?,?)", [
+    proofId,
+    wrongProofId,
+    publicProofId,
+  ]);
+
+  // Migrate old duplicate requests without deleting history or allowing a new submission.
+  const legacyOrder = await order(),
+    firstLegacy = randomUUID(),
+    duplicateLegacy = randomUUID();
+  for (const [eid, when] of [
+    [firstLegacy, "2026-01-01 01:00:00.000"],
+    [duplicateLegacy, "2026-01-01 02:00:00.000"],
+  ])
+    await exec("INSERT INTO payment_exceptions VALUES (?,?,?,?,?,?,?,?)", [
+      eid,
+      legacyOrder.id,
+      users[1].id,
+      "REFUND",
+      50000,
+      "Yêu cầu cũ",
+      "OPEN",
+      when,
+    ]);
+  await ensurePaymentRequestSchema();
+  await backfillPaymentRequests();
+  const legacy = (await api(`orders/${legacyOrder.id}`)).data.paymentRequests;
+  assert.equal(legacy.length, 1);
+  assert.equal(legacy[0].id, firstLegacy);
+  assert.equal(legacy[0].contact_phone, "0901234567");
+  assert.equal(
+    (
+      await rows<any>(
+        "SELECT COUNT(*) count FROM payment_exceptions WHERE order_id=?",
+        [legacyOrder.id],
+      )
+    )[0].count,
+    2,
+  );
+  assert.equal(
+    (await api(`orders/${legacyOrder.id}/exception`, refundRequest, 1)).status,
+    409,
+  );
   console.log(
-    "PASS: khách gửi yêu cầu; chef nhận chi tiết/trạng thái và link đúng đơn; chặn chef gửi và người ngoài đọc",
+    "PASS: một yêu cầu/đơn kể cả đồng thời; sđt bắt buộc; bằng chứng riêng tư và quyền truy cập; chef gửi, admin yêu cầu bổ sung/duyệt; hai bên cập nhật; dữ liệu trùng cũ được giữ",
   );
 
   const exact = await order(),
@@ -642,6 +906,25 @@ try {
     "PASS: snapshot ngân hàng/automatic cho đơn mới, mã 10 ký tự, đổi key vô hiệu key cũ",
   );
 } finally {
+  // Also remove fixture notifications delivered to pre-existing local administrators.
+  for (const id of orders) {
+    const o = await read(id);
+    if (!o) continue;
+    const pattern = `%${o.code}%`;
+    await exec(
+      "DELETE r FROM outbox_receipts r JOIN realtime_outbox o ON o.id=r.event_id WHERE CAST(o.payload AS CHAR) LIKE ?",
+      [pattern],
+    );
+    await exec(
+      "DELETE FROM realtime_outbox WHERE CAST(payload AS CHAR) LIKE ?",
+      [pattern],
+    );
+    await exec("DELETE FROM notifications WHERE body LIKE ?", [pattern]);
+  }
+  await exec(
+    "DELETE FROM assets WHERE user_id IN (?,?,?,?)",
+    users.map((u) => u.id),
+  );
   await exec("DELETE FROM sepay_transaction_details WHERE chef_id IN (?,?)", [
     ids.chef,
     ids.otherChef,
@@ -652,6 +935,7 @@ try {
       "order_items",
       "order_events",
       "payment_exceptions",
+      "payment_request_details",
       "reviews",
     ])
       await exec(`DELETE FROM ${table} WHERE order_id=?`, [id]);

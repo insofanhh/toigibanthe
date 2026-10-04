@@ -43,6 +43,13 @@ import {
   audit,
 } from "@/lib/manage";
 import { notify } from "@/lib/notifications";
+import {
+  listPaymentRequests,
+  submitPaymentRequest,
+  submitPaymentResolution,
+  reviewPaymentException,
+  canReadPaymentEvidence,
+} from "@/lib/payment-requests";
 import { cutoffAt, serviceDate } from "@/lib/domain";
 import { goong } from "@/lib/goong";
 import { queueBroadcast, processBroadcasts } from "@/lib/jobs";
@@ -388,51 +395,10 @@ async function dispatch(req: Request) {
       return transition(user, action, b.action, b.note);
     }
     if (action && id === "exception" && method === "POST") {
-      const b = z
-        .object({
-          kind: z.enum([
-            "LATE",
-            "UNDERPAID",
-            "OVERPAID",
-            "DUPLICATE",
-            "WRONG_REFERENCE",
-            "REFUND",
-          ]),
-          amount: z.number().int().min(0).max(100000000),
-          note: z.string().min(5).max(1000),
-        })
-        .parse(await req.json());
-      const o = await getOrder(action, user);
-      if (o.user_id !== user.id)
-        throw new AppError(
-          "Chỉ khách đặt đơn được gửi yêu cầu đối soát / hoàn tiền.",
-          403,
-        );
-      await transaction(async (db) => {
-        await exec(
-          "INSERT INTO payment_exceptions VALUES (?,?,?,?,?,?,?,?)",
-          [
-            randomUUID(),
-            o.id,
-            user.id,
-            b.kind,
-            b.amount,
-            b.note,
-            "OPEN",
-            sqlDate(),
-          ],
-          db,
-        );
-        await notify(
-          db,
-          o.chef_user_id,
-          "order",
-          b.kind === "REFUND" ? "Yêu cầu hoàn tiền" : "Yêu cầu đối soát",
-          `Đơn ${o.code} cần kiểm tra giao dịch.`,
-          `/orders/${o.id}`,
-        );
-      });
-      return { ok: true };
+      return submitPaymentRequest(user, action, await req.json());
+    }
+    if (action && id === "exception-resolution" && method === "POST") {
+      return submitPaymentResolution(user, action, await req.json());
     }
     if (action && id === "review" && method === "POST") {
       const b = z
@@ -478,10 +444,7 @@ async function dispatch(req: Request) {
       const order = await getOrder(action, user);
       return {
         order,
-        paymentRequests: await rows(
-          "SELECT id,kind,amount,note,status,created_at FROM payment_exceptions WHERE order_id=? AND actor_id=? ORDER BY created_at DESC,id DESC",
-          [action, order.user_id],
-        ),
+        paymentRequests: await listPaymentRequests(action),
         items: await rows("SELECT * FROM order_items WHERE order_id=?", [
           action,
         ]),
@@ -823,35 +786,8 @@ async function dispatch(req: Request) {
       return { ok: true };
     }
     if (action === "exceptions" && method === "POST") {
-      const b = z
-        .object({
-          status: z.enum(["RESOLVED", "REFUNDED"]),
-          note: z.string().min(5).max(500),
-        })
-        .parse(await req.json());
-      await transaction(async (db) => {
-        const e = (
-          await rows<{ order_id: string }>(
-            "SELECT order_id FROM payment_exceptions WHERE id=? FOR UPDATE",
-            [id],
-            db,
-          )
-        )[0];
-        if (!e) throw new AppError("Không tìm thấy yêu cầu.", 404);
-        await exec(
-          "UPDATE payment_exceptions SET status=? WHERE id=?",
-          [b.status, id],
-          db,
-        );
-        if (b.status === "REFUNDED")
-          await exec(
-            'UPDATE orders SET payment_status="REFUNDED_MANUAL" WHERE id=? AND payment_status="REFUND_PENDING"',
-            [e.order_id],
-            db,
-          );
-        await audit(db, user, "payment.exception", id!, b);
-      });
-      return { ok: true };
+      if (!id) throw new AppError("Thiếu mã yêu cầu.");
+      return reviewPaymentException(user, id, await req.json());
     }
   }
   if (section === "upload" && method === "POST") {
@@ -923,7 +859,12 @@ async function dispatch(req: Request) {
           [action],
         )
       )[0];
-    if (!asset || (asset.user_id !== user.id && user.role !== "admin"))
+    if (
+      !asset ||
+      (asset.user_id !== user.id &&
+        user.role !== "admin" &&
+        !(await canReadPaymentEvidence(user.id, action)))
+    )
       throw new AppError("Không có quyền xem tệp.", 403);
     const r = await get(asset.url, {
       access: "private",

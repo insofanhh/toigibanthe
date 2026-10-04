@@ -4,6 +4,7 @@ import { type Actor, cutoffAt, serviceDate } from "./domain";
 import { AppError } from "./http";
 import { notify } from "./notifications";
 import { chefSchema, productSchema, bankSchema } from "./validation";
+import { listAdminPaymentExceptions } from "./payment-requests";
 export async function ownedChef(user: Actor, db?: DB) {
   const c = (
     await rows<Record<string, unknown>>(
@@ -345,9 +346,7 @@ export async function adminOverview() {
     vouchers: await rows(
       "SELECT v.*,c.name chef_name FROM vouchers v JOIN chefs c ON c.id=v.chef_id",
     ),
-    exceptions: await rows(
-      "SELECT e.*,o.code FROM payment_exceptions e JOIN orders o ON o.id=e.order_id ORDER BY e.created_at DESC",
-    ),
+    exceptions: await listAdminPaymentExceptions(),
     delivery: (
       await rows('SELECT value FROM platform_settings WHERE id="delivery"')
     )[0]?.value,

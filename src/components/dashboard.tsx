@@ -25,6 +25,10 @@ import {
 import { useApp, request, post } from "./providers";
 import { KitchenLocationPicker } from "./kitchen-location-picker";
 import { SePaySettings } from "./sepay-settings";
+import {
+  PaymentRequestEvidence,
+  AdminPaymentRequestReview,
+} from "./payment-requests";
 import type { ResolvedLocation } from "@/lib/location-client";
 import {
   useLoad,
@@ -36,7 +40,14 @@ import {
   NeedLogin,
   OrderCard,
 } from "./app";
-import { money, MEAL_NAMES, ORDER_LABELS, type MealId } from "@/lib/domain";
+import {
+  money,
+  MEAL_NAMES,
+  ORDER_LABELS,
+  PAYMENT_REQUEST_KINDS,
+  PAYMENT_REQUEST_STATUSES,
+  type MealId,
+} from "@/lib/domain";
 type UploadProps = {
   kind?: "image" | "document";
   onUploaded?: (url: string) => void;
@@ -1558,16 +1569,40 @@ export function AdminDashboard() {
             <div className="panel" key={e.id}>
               <div className="spread">
                 <h3>Đơn #{e.code}</h3>
-                <span className="status">{e.status}</span>
+                <span className="status">
+                  {PAYMENT_REQUEST_STATUSES[e.status] || e.status}
+                </span>
               </div>
               <p className="muted small">
-                {e.kind} · {money(e.amount)}
+                {PAYMENT_REQUEST_KINDS[e.kind] || e.kind} · {money(e.amount)}
               </p>
+              <p className="muted small">
+                {e.customer_name} · {e.chef_name}
+              </p>
+              {e.contact_phone && (
+                <p className="small">
+                  Số điện thoại liên hệ: {e.contact_phone}
+                </p>
+              )}
               <p style={{ margin: "12px 0", fontSize: 12 }}>{e.note}</p>
               <Link className="text-button" href={"/orders/" + e.order_id}>
                 Xem đơn
               </Link>
-              {e.status === "OPEN" && (
+              {e.customer_request_id && (
+                <>
+                  <PaymentRequestEvidence value={e} />
+                  {e.review_note && <Notice>Hệ thống: {e.review_note}</Notice>}
+                  {e.status === "OPEN" && (
+                    <p className="muted small">
+                      Đang chờ bếp gửi bằng chứng giải quyết.
+                    </p>
+                  )}
+                  {e.status === "REVIEW" && (
+                    <AdminPaymentRequestReview value={e} onChange={reload} />
+                  )}
+                </>
+              )}
+              {!e.customer_request_id && e.status === "OPEN" && (
                 <div className="form-row">
                   <Button
                     secondary
