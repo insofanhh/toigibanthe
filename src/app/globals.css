@@ -1897,6 +1897,66 @@ hr {
 .auth-wrap > .text-button {
   margin-top: 20px;
 }
+.auth-wrap .google-sign-in {
+  width: 100%;
+  min-height: 48px;
+  background: white;
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.auth-wrap .google-sign-in svg {
+  flex-shrink: 0;
+}
+.auth-wrap > .google-config-notice {
+  margin: 12px 0;
+  line-height: 1.6;
+}
+.auth-wrap > .notice {
+  margin-top: 16px;
+  text-align: left;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.password-input {
+  position: relative;
+}
+.password-input input {
+  width: 100%;
+  padding-right: 52px;
+}
+.password-toggle {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: transparent;
+  border-radius: 8px;
+}
+.password-toggle:hover {
+  color: var(--green);
+}
+.password-toggle:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: -3px;
+}
 .checkout-grid {
   display: grid;
   grid-template-columns: 1.5fr 1fr;

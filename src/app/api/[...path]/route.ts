@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
+import { googleAuth } from "@/lib/google-auth";
 import { cookies } from "next/headers";
 import { SignJWT } from "jose";
 import { z } from "zod";
@@ -156,6 +157,7 @@ async function dispatch(req: Request) {
     return recordAnalyticsEvent(await req.json(), await actor(false));
   }
   if (section === "auth") {
+    if (action === "google" && method === "GET") return googleAuth(req, id);
     if (action === "me" && method === "GET") {
       const user = await actor(false);
       return {

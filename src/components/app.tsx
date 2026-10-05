@@ -53,9 +53,12 @@ import {
   ArrowUpRight,
   Mail,
   RefreshCw,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
 import { analyticsContext, trackEvent } from "@/lib/analytics-client";
+import { safeLoginNext } from "@/lib/google-auth-domain";
 import {
   pendingLoad,
   disabledLoad,
@@ -1848,9 +1851,25 @@ function Login() {
     router = useRouter(),
     params = useSearchParams(),
     [register, setRegister] = useState(false),
+    [showPassword, setShowPassword] = useState(false),
     [busy, setBusy] = useState(false),
     [navigating, setNavigating] = useState(false),
     [error, setError] = useState("");
+  const { data: googleConfig } = useLoad<{ configured: boolean }>(
+    "auth/google/config",
+  );
+  const googleError = params.get("google_error");
+  const googleErrors: Record<string, string> = {
+    not_configured:
+      "Đăng nhập Google chưa được cấu hình. Bạn có thể đăng nhập bằng email.",
+    cancelled:
+      "Bạn đã hủy đăng nhập Google. Hãy chọn lại hoặc đăng nhập bằng email.",
+    use_password:
+      "Email này đã có tài khoản. Vui lòng đăng nhập bằng mật khẩu của tài khoản đó.",
+    inactive: "Tài khoản đang bị tạm ngưng. Vui lòng liên hệ hỗ trợ.",
+    failed:
+      "Không thể đăng nhập Google. Phiên có thể đã hết hạn, vui lòng thử lại.",
+  };
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -1864,11 +1883,9 @@ function Login() {
       });
       setNavigating(true);
       await refreshAuth();
-      const next = params.get("next") || "/me";
-      router.push(
-        next.startsWith("/") && !next.startsWith("//") ? next : "/me",
-        { transitionTypes: ["page-forward"] },
-      );
+      router.push(safeLoginNext(params.get("next")), {
+        transitionTypes: ["page-forward"],
+      });
     } catch (e) {
       setNavigating(false);
       setError((e as Error).message);
@@ -1892,6 +1909,51 @@ function Login() {
       </div>
       <h1>{register ? "Tạo tài khoản" : "Đăng nhập"}</h1>
       <p>Quản lý đơn hàng và các món đã lưu của bạn.</p>
+      <button
+        type="button"
+        className="button secondary google-sign-in"
+        disabled={!googleConfig?.configured || busy || navigating}
+        onClick={() => {
+          setNavigating(true);
+          window.location.assign(
+            "/api/auth/google?next=" +
+              encodeURIComponent(safeLoginNext(params.get("next"))),
+          );
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+          <path
+            fill="#4285F4"
+            d="M43.6 24.5c0-1.5-.1-2.8-.4-4.2H24v8h11c-.5 2.6-1.9 4.8-4 6.3v5.2h6.5c3.8-3.5 6.1-8.7 6.1-15.3Z"
+          />
+          <path
+            fill="#34A853"
+            d="M24 44c5.4 0 9.9-1.8 13.2-4.9l-6.5-5.2c-1.8 1.2-4.1 1.9-6.7 1.9-5.2 0-9.7-3.5-11.3-8.2H6v5.3C9.3 39.5 16.1 44 24 44Z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M12.7 27.6a12 12 0 0 1 0-7.2v-5.3H6a20 20 0 0 0 0 17.8l6.7-5.3Z"
+          />
+          <path
+            fill="#EA4335"
+            d="M24 12.2c2.9 0 5.4 1 7.4 2.9l5.6-5.6A19 19 0 0 0 24 4C16.1 4 9.3 8.5 6 15.1l6.7 5.3c1.6-4.7 6.1-8.2 11.3-8.2Z"
+          />
+        </svg>
+        Tiếp tục với Google
+      </button>
+      {googleConfig && !googleConfig.configured && (
+        <p className="google-config-notice">
+          Đăng nhập Google sẽ khả dụng sau khi hệ thống được cấu hình.
+        </p>
+      )}
+      {googleError && (
+        <Notice error>
+          {googleErrors[googleError] || googleErrors.failed}
+        </Notice>
+      )}
+      <div className="auth-divider">
+        <span>hoặc dùng email</span>
+      </div>
       <form className="form" onSubmit={submit}>
         {register && (
           <Field label="Tên của bạn">
@@ -1902,13 +1964,31 @@ function Login() {
           <input name="email" type="email" autoComplete="email" required />
         </Field>
         <Field label="Mật khẩu">
-          <input
-            name="password"
-            type="password"
-            autoComplete={register ? "new-password" : "current-password"}
-            required
-            minLength={register ? 10 : 1}
-          />
+          <div className="password-input">
+            <input
+              id="auth-password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete={register ? "new-password" : "current-password"}
+              required
+              minLength={register ? 10 : 1}
+              maxLength={128}
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              aria-pressed={showPassword}
+              aria-controls="auth-password"
+              onClick={() => setShowPassword((value) => !value)}
+            >
+              {showPassword ? (
+                <EyeOff size={19} strokeWidth={1.6} />
+              ) : (
+                <Eye size={19} strokeWidth={1.6} />
+              )}
+            </button>
+          </div>
         </Field>
         {error && <Notice error>{error}</Notice>}
         <Button type="submit" disabled={busy || navigating}>
@@ -1925,6 +2005,7 @@ function Login() {
         className="text-button"
         onClick={() => {
           setRegister(!register);
+          setShowPassword(false);
           setError("");
         }}
       >

@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS google_identities (
+ subject VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ user_id VARCHAR(36) NOT NULL UNIQUE,
+ created_at DATETIME(3) NOT NULL
+);
