@@ -79,6 +79,97 @@ export async function adminSoftDeleteAccount(
   return deleteAccount(actor, id, input, true);
 }
 
+export async function adminRestoreAccount(
+  actor: Actor,
+  id: string,
+  input: unknown,
+) {
+  if (actor.role !== "admin" || !actor.active)
+    throw new AppError("Bạn không có quyền khôi phục tài khoản.", 403);
+  if (!id || id.length > 36) throw new AppError("Tài khoản không hợp lệ.");
+  z.object({ confirmation: z.literal("RESTORE") })
+    .strict()
+    .parse(input);
+  await ensureUserAccountSchema();
+  await ensureSessionRevocationSchema();
+  return transaction(async (db) => {
+    // Serialize restoration with deletion, role changes and chef approval.
+    await exec(
+      "INSERT IGNORE INTO platform_settings (id,value) VALUES ('account-access-lock',JSON_OBJECT())",
+      [],
+      db,
+    );
+    await rows(
+      "SELECT id FROM platform_settings WHERE id='account-access-lock' FOR UPDATE",
+      [],
+      db,
+    );
+    const [admin] = await rows<Actor>(
+      "SELECT id,role,active FROM users WHERE id=? FOR UPDATE",
+      [actor.id],
+      db,
+    );
+    if (!admin?.active || admin.role !== "admin")
+      throw new AppError(
+        "Quyền quản trị của bạn đã thay đổi. Hãy đăng nhập lại.",
+        403,
+      );
+    const [user] = await rows<Actor>(
+      "SELECT id,role,active FROM users WHERE id=? FOR UPDATE",
+      [id],
+      db,
+    );
+    if (!user) throw new AppError("Không tìm thấy tài khoản.", 404);
+    const [deleted] = await rows<{ deleted_at: string }>(
+      "SELECT deleted_at FROM user_account_details WHERE user_id=? AND deleted_at IS NOT NULL FOR UPDATE",
+      [id],
+      db,
+    );
+    // Retrying must neither duplicate audit entries nor unlock a separately locked account.
+    if (!deleted) return { ok: true, changed: false };
+    await exec(
+      "UPDATE user_account_details SET deleted_at=NULL WHERE user_id=?",
+      [id],
+      db,
+    );
+    await exec("UPDATE users SET active=TRUE WHERE id=?", [id], db);
+    // Require a fresh login. Old cookies must not regain access or keep reporting deletion.
+    await exec("DELETE FROM sessions WHERE user_id=?", [id], db);
+    await exec("DELETE FROM revoked_sessions WHERE user_id=?", [id], db);
+    await exec(
+      "INSERT INTO audit_logs VALUES (?,?,?,?,?,?)",
+      [
+        randomUUID(),
+        actor.id,
+        "user.restore",
+        id,
+        JSON.stringify({
+          before: {
+            role: user.role,
+            active: Boolean(user.active),
+            deletedAt: deleted.deleted_at,
+          },
+          after: { role: user.role, active: true, deletedAt: null },
+        }),
+        sqlDate(),
+      ],
+      db,
+    );
+    await exec(
+      "INSERT INTO realtime_outbox VALUES (?,?,?,?,NULL)",
+      [
+        randomUUID(),
+        id,
+        JSON.stringify({ type: "account-access-changed" }),
+        sqlDate(),
+      ],
+      db,
+    );
+    await analyticsLive(db, id);
+    return { ok: true, changed: true };
+  });
+}
+
 async function deleteAccount(
   actor: Actor,
   id: string,

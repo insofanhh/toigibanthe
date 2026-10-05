@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   X,
   Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { useApp, post } from "./providers";
 import {
@@ -49,6 +50,79 @@ import {
 } from "@/lib/admin-users-domain";
 
 const roleNames = { user: "User", chef: "Chef", admin: "Admin" } as const;
+
+function RestoreUserDialog({
+  account,
+  onClose,
+  onRestored,
+}: {
+  account: AdminUserRow;
+  onClose: () => void;
+  onRestored: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => element?.close();
+  }, []);
+  async function restore() {
+    if (saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      await post("admin/users/" + encodeURIComponent(account.id) + "/restore", {
+        confirmation: "RESTORE",
+      });
+      onRestored();
+    } catch (error) {
+      setError((error as Error).message);
+      setSaving(false);
+    }
+  }
+  return createPortal(
+    <dialog
+      ref={dialog}
+      className="users-role-dialog"
+      aria-labelledby="users-restore-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!saving) onClose();
+      }}
+    >
+      <h2 id="users-restore-title">Khôi phục tài khoản này?</h2>
+      <p>
+        <strong>{account.name}</strong>
+        <br />
+        <span className="muted">{account.email}</span>
+      </p>
+      <p className="muted small">
+        Tài khoản sẽ chuyển sang đang mở và giữ vai trò, hồ sơ cùng lịch sử đơn.
+        Người dùng cần đăng nhập lại và bật lại thông báo trên thiết bị nếu
+        muốn.
+      </p>
+      {account.chef_status && (
+        <p className="muted small">
+          Sau khi khôi phục, vào mục Chefs để duyệt hoặc mở lại hồ sơ bếp. Chef
+          cần tự bật bếp và cập nhật thực đơn để nhận đơn.
+        </p>
+      )}
+      {error && <Notice error>{error}</Notice>}
+      <div className="users-role-actions">
+        <Button secondary disabled={saving} onClick={onClose}>
+          Hủy
+        </Button>
+        <Button disabled={saving} onClick={() => void restore()}>
+          <RotateCcw size={15} />{" "}
+          {saving ? "Đang khôi phục…" : "Xác nhận khôi phục"}
+        </Button>
+      </div>
+    </dialog>,
+    document.body,
+  );
+}
 
 function DeleteUserDialog({
   account,
@@ -693,6 +767,7 @@ export function AdminUsers() {
     [busy, setBusy] = useState<string | null>(null),
     [roleAccount, setRoleAccount] = useState<AdminUserRow | null>(null),
     [deleteAccount, setDeleteAccount] = useState<AdminUserRow | null>(null),
+    [restoreAccount, setRestoreAccount] = useState<AdminUserRow | null>(null),
     [today, setToday] = useState(serviceDate);
   const keys = [
     "from",
@@ -836,6 +911,21 @@ export function AdminUsers() {
   ] as const;
   return (
     <div className="admin-users analytics-overview">
+      {restoreAccount && (
+        <RestoreUserDialog
+          account={restoreAccount}
+          onClose={() => setRestoreAccount(null)}
+          onRestored={() => {
+            setRestoreAccount(null);
+            refresh();
+            toast(
+              restoreAccount.chef_status
+                ? "Đã khôi phục tài khoản. Bạn có thể duyệt hoặc mở lại bếp trong mục Chefs."
+                : "Đã khôi phục tài khoản. Người dùng có thể đăng nhập lại.",
+            );
+          }}
+        />
+      )}
       {deleteAccount && (
         <DeleteUserDialog
           account={deleteAccount}
@@ -1273,21 +1363,29 @@ export function AdminUsers() {
                             >
                               <ShieldCheck size={15} /> Phân quyền
                             </Button>
-                            <Button
-                              secondary
-                              disabled={
-                                !!busy || u.id === user?.id || !!u.deleted_at
-                              }
-                              onClick={() => void toggle(u.id, !u.active)}
-                            >
-                              {busy === u.id
-                                ? "Đang lưu…"
-                                : u.deleted_at
-                                  ? "Đã xóa"
+                            {u.deleted_at ? (
+                              <Button
+                                secondary
+                                disabled={!!busy || u.id === user?.id}
+                                onClick={() => setRestoreAccount(u)}
+                              >
+                                <RotateCcw size={15} /> Khôi phục
+                              </Button>
+                            ) : (
+                              <Button
+                                secondary
+                                disabled={
+                                  !!busy || u.id === user?.id || !!u.deleted_at
+                                }
+                                onClick={() => void toggle(u.id, !u.active)}
+                              >
+                                {busy === u.id
+                                  ? "Đang lưu…"
                                   : u.active
                                     ? "Khóa"
                                     : "Mở khóa"}
-                            </Button>
+                              </Button>
+                            )}
                           </div>
                           {u.id === user?.id && (
                             <small>Tài khoản đang dùng</small>

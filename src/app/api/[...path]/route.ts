@@ -2,7 +2,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { googleAuth } from "@/lib/google-auth";
 import { updateAccountAccess } from "@/lib/admin-user-access";
 import { ensureUserAccountSchema } from "@/lib/user-account-schema";
-import { updateUserProfile, softDeleteAccount, adminSoftDeleteAccount } from "@/lib/user-account";
+import { updateUserProfile, softDeleteAccount, adminSoftDeleteAccount, adminRestoreAccount } from "@/lib/user-account";
 import { sessionRevocationReason, ensureSessionRevocationSchema } from "@/lib/session-revocations";
 import {
   chefApplicationAlerts,
@@ -905,6 +905,14 @@ async function dispatch(req: Request) {
     }
     if (action === "users" && method === "DELETE")
       return adminSoftDeleteAccount(user, id || "", await req.json());
+    if (action === "users" && path[3] === "restore" && method === "POST") {
+      const result = await adminRestoreAccount(user, id || "", await req.json());
+      if (result.changed) {
+        clearChefReports();
+        clearProductReports();
+      }
+      return result;
+    }
     if (action === "users" && method === "POST") {
       const result = await updateAccountAccess(user, id || "", await req.json());
       if (result.changed) {

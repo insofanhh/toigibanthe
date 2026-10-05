@@ -20,7 +20,7 @@ Avatar JPG/PNG/WebP có ảnh gốc tối đa 20 MB. Trình duyệt đọc hư�
 ## Duyệt / mở lại bếp khi tài khoản bị khóa
 
 - Không được duyệt hoặc mở lại bếp nếu tài khoản chủ bếp bị khóa. Admin cần mở khóa tài khoản trong **Users** rồi mới duyệt / mở lại trong **Chefs**.
-- Tài khoản đã soft delete không thể mở khóa hay mở lại bếp. Các mục hồ sơ, sản phẩm, đơn và doanh số vẫn xem được để tra cứu.
+- Tài khoản đã soft delete cần được **Khôi phục** trong Users trước khi duyệt / mở lại bếp. Các mục hồ sơ, sản phẩm, đơn và doanh số vẫn xem được để tra cứu.
 - UI báo lý do khi bấm Duyệt / Mở lại; API kiểm tra trạng thái hiện tại trong transaction và trả 409 khi bị chặn. Không đổi hồ sơ, cấp quyền Chef hoặc gửi thông báo duyệt khi thao tác thất bại.
 - Duyệt bếp dùng cùng khóa transaction với khóa tài khoản, phân quyền và soft delete để tránh thao tác đồng thời vượt qua kiểm tra.
 
@@ -35,6 +35,15 @@ Avatar JPG/PNG/WebP có ảnh gốc tối đa 20 MB. Trình duyệt đọc hư�
 - Đăng nhập lại bằng mật khẩu đúng hoặc Google đều báo tài khoản đã bị xóa. User có thể liên hệ hỗ trợ để tra cứu lịch sử đơn; không có chức năng tự khôi phục.
 
 Production cần chạy `database/015_account_session_revocations.sql`. Bảng này chỉ lưu hash phiên, user ID, lý do và hạn phiên để báo đúng lý do đăng xuất. Cron xóa bản ghi hết hạn; không lưu token đăng nhập thô.
+
+## Admin khôi phục tài khoản
+
+- Admin → Users → **Khôi phục** (icon mũi tên vòng) → xác nhận. Nút chỉ xuất hiện với tài khoản đã xóa.
+- Xóa dấu `deleted_at`, mở lại tài khoản và giữ vai trò, ảnh đại diện, thông tin, trạng thái xác minh cùng lịch sử đơn. Có audit `user.restore` và cập nhật realtime cho admin.
+- Người dùng cần đăng nhập mới. Không khôi phục các phiên cũ, đăng ký push hoặc link xác minh email đã vô hiệu hóa; email chưa xác minh vẫn cần hoàn tất xác minh như trước.
+- Hồ sơ bếp và thực đơn giữ trạng thái sau khi xóa. Admin vào Chefs để duyệt / mở lại hồ sơ; chef tự bật bếp và cập nhật thực đơn. Không tự mở bán khi khôi phục tài khoản.
+- Dùng cùng khóa transaction với xóa, phân quyền và duyệt bếp. Gọi lại API khôi phục không tạo audit trùng và không mở khóa tài khoản đang bị khóa riêng.
+- Không cần migration hoặc biến môi trường mới.
 
 ## Kiểm tra local
 

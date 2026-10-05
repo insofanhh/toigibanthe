@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
+import { hash } from "bcryptjs";
 import { authenticatedFixture } from "./authenticated-fixture";
 import { exec, rows, pool, sqlDate } from "../src/lib/db";
 import { ensureUserAccountSchema } from "../src/lib/user-account-schema";
 import { updateAccountAccess } from "../src/lib/admin-user-access";
+import {
+  adminRestoreAccount,
+  adminSoftDeleteAccount,
+} from "../src/lib/user-account";
 import type { Actor } from "../src/lib/domain";
 
 const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3010";
@@ -124,8 +129,119 @@ try {
     assert.match(result.body.error, /đã bị xóa/);
     assert.deepEqual(await state(owner.user.id), before);
   }
+  // Restore a genuinely soft-deleted chef, then reopen their retained profile.
+  await exec(
+    "UPDATE user_account_details SET deleted_at=NULL WHERE user_id=?",
+    [owner.user.id],
+  );
+  await exec("UPDATE users SET active=TRUE WHERE id=?", [owner.user.id]);
+  const password = randomUUID();
+  await exec("UPDATE users SET password_hash=? WHERE id=?", [
+    await hash(password, 10),
+    owner.user.id,
+  ]);
+  const oldToken = randomUUID(),
+    oldHash = createHash("sha256").update(oldToken).digest("hex");
+  await exec("INSERT INTO sessions VALUES (?,?,?)", [
+    oldHash,
+    owner.user.id,
+    sqlDate(new Date(Date.now() + 3600000)),
+  ]);
+  await adminSoftDeleteAccount(actor, owner.user.id, {
+    confirmation: "DELETE",
+  });
+  assert.equal((await approve(admin.cookie)).status, 409);
+  const callRestore = async (
+    cookie: string,
+    body: unknown = { confirmation: "RESTORE" },
+  ) => {
+    const response = await fetch(
+      `${base}/api/admin/users/${owner.user.id}/restore`,
+      {
+        method: "POST",
+        headers: {
+          origin: new URL(process.env.SITE_URL || base).origin,
+          "content-type": "application/json",
+          cookie,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    return { status: response.status, body: await response.json() };
+  };
+  const outsider = await authenticatedFixture(
+    `${randomUUID()}@example.invalid`,
+    "Restore outsider",
+  );
+  userIds.push(outsider.user.id);
+  assert.equal((await callRestore(outsider.cookie)).status, 403);
+  await assert.rejects(
+    () =>
+      adminRestoreAccount({ ...outsider.user, role: "admin" }, owner.user.id, {
+        confirmation: "RESTORE",
+      }),
+    { status: 403 },
+  );
+  assert.equal((await callRestore(admin.cookie, {})).status, 400);
+  const restored = await Promise.all([
+    callRestore(admin.cookie),
+    callRestore(admin.cookie),
+  ]);
+  assert.ok(restored.every((result) => result.status === 200));
+  assert.equal(restored.filter((result) => result.body.changed).length, 1);
+  assert.equal(Number((await state(owner.user.id)).owner.active), 1);
+  assert.equal((await state(owner.user.id)).owner.role, "chef");
+  assert.equal((await state(owner.user.id)).chef.status, "suspended");
+  assert.equal(Number((await state(owner.user.id)).kitchen.is_open), 0);
+  assert.equal(
+    (
+      await rows(
+        "SELECT user_id FROM user_account_details WHERE user_id=? AND deleted_at IS NOT NULL",
+        [owner.user.id],
+      )
+    ).length,
+    0,
+  );
+  assert.equal(
+    (
+      await rows(
+        "SELECT id FROM audit_logs WHERE entity_id=? AND action='user.restore'",
+        [owner.user.id],
+      )
+    ).length,
+    1,
+  );
+  const oldMe = await fetch(`${base}/api/auth/me`, {
+    headers: { cookie: "tgbd_session=" + oldToken },
+  });
+  const oldState = await oldMe.json();
+  assert.equal(oldState.user, null, "Old sessions must not be restored");
+  assert.equal(
+    oldState.accountStatus,
+    null,
+    "Old cookies must not report deletion after restore",
+  );
+  const login = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      origin: new URL(process.env.SITE_URL || base).origin,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ email: owner.user.email, password }),
+  });
+  assert.equal(login.status, 200, await login.text());
+  assert.ok(login.headers.get("set-cookie")?.includes("tgbd_session="));
+  assert.equal((await approve(admin.cookie)).status, 200);
+  assert.equal((await state(owner.user.id)).chef.status, "approved");
+  await updateAccountAccess(actor, owner.user.id, { active: false });
+  assert.equal((await callRestore(admin.cookie)).body.changed, false);
+  assert.equal(
+    Number((await state(owner.user.id)).owner.active),
+    0,
+    "Restore retry must not unlock a separately locked account",
+  );
   console.log(
-    "Chef approval/reopening account guards passed (HTTP + local MySQL).",
+    "Chef approval guards + admin restoration, fresh login, concurrent retries and reopening passed (HTTP + local MySQL).",
   );
 } finally {
   await exec("DELETE FROM audit_logs WHERE entity_id=? OR actor_id IN (?)", [
@@ -133,9 +249,20 @@ try {
     userIds.length ? userIds : ["none"],
   ]);
   for (const id of userIds) {
+    for (const table of [
+      "revoked_sessions",
+      "user_account_details",
+      "user_email_status",
+      "email_verification_tokens",
+    ])
+      await exec(`DELETE FROM ${table} WHERE user_id=?`, [id]);
     await exec("DELETE FROM realtime_outbox WHERE user_id=?", [id]);
     await exec("DELETE FROM notifications WHERE user_id=?", [id]);
     await exec("DELETE FROM users WHERE id=?", [id]);
   }
+  await exec(
+    "DELETE FROM realtime_outbox WHERE JSON_UNQUOTE(JSON_EXTRACT(payload,'$.entityId')) IN (?)",
+    [userIds.length ? userIds : ["none"]],
+  );
   await pool().end();
 }
