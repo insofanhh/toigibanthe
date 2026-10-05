@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { SignJWT } from "jose";
 import { z } from "zod";
 import { put, get } from "@vercel/blob";
+import sharp from "sharp";
 import { api, AppError } from "@/lib/http";
 import { dispatchPushAfterResponse } from "@/lib/push-dispatch";
 import { ensurePushSchema } from "@/lib/push-schema";
@@ -1023,14 +1024,31 @@ async function dispatch(req: Request) {
         ? process.env.BLOB_PRIVATE_READ_WRITE_TOKEN
         : process.env.BLOB_PUBLIC_READ_WRITE_TOKEN;
     if (!token) throw new AppError("Vercel Blob chưa được cấu hình.", 503);
-    const assetId = randomUUID(),
+    const isImage = file.type.startsWith("image/");
+    let storedBytes = Buffer.from(bytes),
+      storedContentType = file.type,
+      storedName = file.name,
       extension =
-        file.type === "application/pdf" ? "pdf" : file.type.split("/")[1],
+        file.type === "application/pdf" ? "pdf" : file.type.split("/")[1];
+    if (isImage) {
+      try {
+        storedBytes = await sharp(bytes)
+          .rotate()
+          .webp({ quality: 82, effort: 4 })
+          .toBuffer();
+      } catch {
+        throw new AppError("Không thể chuyển đổi ảnh đã tải lên.");
+      }
+      storedContentType = "image/webp";
+      storedName = file.name.replace(/\.[^.]+$/, "") + ".webp";
+      extension = "webp";
+    }
+    const assetId = randomUUID(),
       pathname = `${kind}/${user.id}/${assetId}.${extension}`;
-    const blob = await put(pathname, Buffer.from(bytes), {
+    const blob = await put(pathname, storedBytes, {
       access: kind === "document" ? "private" : "public",
       token,
-      contentType: file.type,
+      contentType: storedContentType,
     });
     await exec("INSERT INTO assets VALUES (?,?,?,?,?,?,?,?)", [
       assetId,
@@ -1038,8 +1056,8 @@ async function dispatch(req: Request) {
       kind,
       blob.url,
       blob.pathname,
-      file.type,
-      file.name,
+      storedContentType,
+      storedName,
       sqlDate(),
     ]);
     return {

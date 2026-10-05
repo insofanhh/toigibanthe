@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
+  serverExternalPackages: ["sharp"],
   images: {
     // Services routing currently sends /_next/image to the web page handler.
     // Serve images from their CDN URLs until the optimizer route is available.

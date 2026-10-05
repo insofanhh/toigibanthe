@@ -708,7 +708,13 @@ function Section({
     </section>
   );
 }
-export function DishCard({ dish }: { dish: Dish }) {
+export function DishCard({
+  dish,
+  eager = false,
+}: {
+  dish: Dish;
+  eager?: boolean;
+}) {
   const { user, toast, add, refresh } = useApp(),
     [liked, setLiked] = useState(dish.liked),
     [busy, setBusy] = useState(false);
@@ -739,6 +745,8 @@ export function DishCard({ dish }: { dish: Dish }) {
             alt={dish.name}
             fill
             sizes="(max-width: 600px) 50vw, 280px"
+            loading={eager ? "eager" : "lazy"}
+            fetchPriority={eager ? "high" : "auto"}
           />
         </Link>
         {dish.price < dish.originalPrice && (
@@ -906,6 +914,7 @@ function Home() {
                         alt=""
                         fill
                         sizes="250px"
+                        loading="eager"
                       />
                     </div>
                   ) : (
@@ -927,8 +936,8 @@ function Home() {
               >
                 {data.dishes.length ? (
                   <div className="dish-scroll">
-                    {data.dishes.slice(0, 10).map((d) => (
-                      <DishCard key={d.menuId} dish={d} />
+                    {data.dishes.slice(0, 10).map((d, index) => (
+                      <DishCard key={d.menuId} dish={d} eager={index < 2} />
                     ))}
                   </div>
                 ) : (
@@ -949,8 +958,8 @@ function Home() {
                       {data.dishes
                         .filter((d) => d.price < d.originalPrice)
                         .slice(0, 10)
-                        .map((d) => (
-                          <DishCard key={d.menuId} dish={d} />
+                        .map((d, index) => (
+                          <DishCard key={d.menuId} dish={d} eager={index < 2} />
                         ))}
                     </div>
                   </Section>
@@ -962,8 +971,8 @@ function Home() {
                   href="/recommended"
                 >
                   <div className="dish-scroll">
-                    {recommended.map((d) => (
-                      <DishCard key={d.menuId} dish={d} />
+                    {recommended.map((d, index) => (
+                      <DishCard key={d.menuId} dish={d} eager={index < 2} />
                     ))}
                   </div>
                 </Section>
@@ -1119,8 +1128,8 @@ function DishList({ path }: { path: string }) {
         <LoadingCards />
       ) : list.length ? (
         <div className="dish-grid">
-          {list.map((d) => (
-            <DishCard key={d.menuId} dish={d} />
+          {list.map((d, index) => (
+            <DishCard key={d.menuId} dish={d} eager={index < 2} />
           ))}
         </div>
       ) : (
@@ -1194,6 +1203,7 @@ function DishDetail({ id }: { id: string }) {
             alt={d.name}
             fill
             sizes="(max-width:700px) 100vw, 550px"
+            loading="eager"
           />
         </div>
         <div className="detail-info">
@@ -1295,8 +1305,8 @@ function Chefs({ id }: { id?: string }) {
         <div className="dish-grid">
           {data.dishes
             .filter((d) => d.chefId === id)
-            .map((d) => (
-              <DishCard key={d.menuId} dish={d} />
+            .map((d, index) => (
+              <DishCard key={d.menuId} dish={d} eager={index < 2} />
             ))}
         </div>
         {!data.dishes.some((d) => d.chefId === id) && (
@@ -1337,10 +1347,10 @@ function Favorites() {
         <LoadingCards />
       ) : data.favorites.length ? (
         <div className="dish-grid">
-          {data.favorites.map((p: any) => {
+          {data.favorites.map((p: any, index: number) => {
             const d = available?.dishes.find((d) => d.id === p.id);
             return d ? (
-              <DishCard key={p.id} dish={d} />
+              <DishCard key={p.id} dish={d} eager={index < 2} />
             ) : (
               <article className="unavailable-card panel" key={p.id}>
                 <img src={p.image_url} alt={p.name} />
@@ -1423,8 +1433,8 @@ function Orders() {
       {feed && feed.dishes.length > 0 && (
         <Section title="Có thể bạn đang đói!" href="/nearby">
           <div className="dish-scroll">
-            {feed.dishes.map((d) => (
-              <DishCard key={d.menuId} dish={d} />
+            {feed.dishes.map((d, index) => (
+              <DishCard key={d.menuId} dish={d} eager={index < 2} />
             ))}
           </div>
         </Section>
