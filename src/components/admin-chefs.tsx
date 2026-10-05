@@ -1159,6 +1159,12 @@ export function AdminChefs({
   }
   function runAction(chef: ChefRow, status: string) {
     setError("");
+    if (status === "approved" && !chef.owner_active) {
+      toast(
+        "Tài khoản chủ bếp bị khóa hoặc đã xóa; không thể duyệt hoặc mở lại bếp. Kiểm tra tài khoản trong mục Users.",
+      );
+      return;
+    }
     setAction({ chef, status });
   }
   async function saveAction(reason: string) {

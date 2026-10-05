@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { googleAuth } from "@/lib/google-auth";
 import { updateAccountAccess } from "@/lib/admin-user-access";
+import { ensureUserAccountSchema } from "@/lib/user-account-schema";
 import { updateUserProfile, softDeleteAccount, adminSoftDeleteAccount } from "@/lib/user-account";
 import { sessionRevocationReason, ensureSessionRevocationSchema } from "@/lib/session-revocations";
 import {
@@ -815,8 +816,30 @@ async function dispatch(req: Request) {
         .parse(await req.json());
       if (b.status !== "approved" && b.reason.length < 3)
         throw new AppError("Nhập lý do ít nhất 3 ký tự.");
+      await ensureUserAccountSchema();
       if (b.status === "approved") await ensureChefApplicationAlertSchema();
       await transaction(async (db) => {
+        // Serialize with account locking, role changes and soft deletion.
+        await exec(
+          "INSERT IGNORE INTO platform_settings (id,value) VALUES ('account-access-lock',JSON_OBJECT())",
+          [],
+          db,
+        );
+        await rows(
+          "SELECT id FROM platform_settings WHERE id='account-access-lock' FOR UPDATE",
+          [],
+          db,
+        );
+        const [admin] = await rows<{ role: string; active: number }>(
+          "SELECT role,active FROM users WHERE id=? FOR UPDATE",
+          [user.id],
+          db,
+        );
+        if (!admin || admin.role !== "admin" || !admin.active)
+          throw new AppError(
+            "Quyền quản trị của bạn đã thay đổi. Hãy đăng nhập lại.",
+            403,
+          );
         const c = (
           await rows<{ id: string; user_id: string; name: string }>(
             "SELECT id,user_id,name FROM chefs WHERE id=? FOR UPDATE",
@@ -825,6 +848,28 @@ async function dispatch(req: Request) {
           )
         )[0];
         if (!c) throw new AppError("Không tìm thấy bếp.", 404);
+        if (b.status === "approved") {
+          const [owner] = await rows<{ active: number }>(
+            "SELECT active FROM users WHERE id=? FOR UPDATE",
+            [c.user_id],
+            db,
+          );
+          const [deleted] = await rows(
+            "SELECT user_id FROM user_account_details WHERE user_id=? AND deleted_at IS NOT NULL",
+            [c.user_id],
+            db,
+          );
+          if (deleted)
+            throw new AppError(
+              "Tài khoản chủ bếp đã bị xóa; không thể duyệt hoặc mở lại bếp.",
+              409,
+            );
+          if (!owner || !owner.active)
+            throw new AppError(
+              "Tài khoản chủ bếp đang bị khóa. Hãy mở khóa tài khoản trong mục Users trước khi duyệt hoặc mở lại bếp.",
+              409,
+            );
+        }
         await exec(
           "UPDATE chefs SET status=?,rejection_reason=? WHERE id=?",
           [b.status, b.reason, id],

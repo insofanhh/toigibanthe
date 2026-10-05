@@ -17,6 +17,13 @@ Avatar JPG/PNG/WebP có ảnh gốc tối đa 20 MB. Trình duyệt đọc hư�
 - Không được xóa admin cuối cùng đang hoạt động. Việc xóa và phân quyền dùng chung khóa để chống thay đổi đồng thời.
 - Email của tài khoản đã xóa vẫn được giữ và không thể đăng ký lại bằng email đó.
 
+## Duyệt / mở lại bếp khi tài khoản bị khóa
+
+- Không được duyệt hoặc mở lại bếp nếu tài khoản chủ bếp bị khóa. Admin cần mở khóa tài khoản trong **Users** rồi mới duyệt / mở lại trong **Chefs**.
+- Tài khoản đã soft delete không thể mở khóa hay mở lại bếp. Các mục hồ sơ, sản phẩm, đơn và doanh số vẫn xem được để tra cứu.
+- UI báo lý do khi bấm Duyệt / Mở lại; API kiểm tra trạng thái hiện tại trong transaction và trả 409 khi bị chặn. Không đổi hồ sơ, cấp quyền Chef hoặc gửi thông báo duyệt khi thao tác thất bại.
+- Duyệt bếp dùng cùng khóa transaction với khóa tài khoản, phân quyền và soft delete để tránh thao tác đồng thời vượt qua kiểm tra.
+
 ## Admin xóa tài khoản
 
 - Admin → Users → Thao tác → **Xóa**, kiểm tra tên/email trong hộp xác nhận rồi bấm **Xác nhận xóa**.

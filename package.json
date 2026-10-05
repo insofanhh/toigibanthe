@@ -28,6 +28,7 @@
     "mail:check": "tsx --env-file=.env.local scripts/check-smtp.ts",
     "test:registrations": "tsx --env-file=.env.local tests/admin-registration-alerts.integration.ts",
     "test:chef-applications": "tsx --env-file=.env.local tests/admin-chef-application-alerts.integration.ts",
+    "test:chef-access": "tsx --env-file=.env.local tests/admin-chef-access.integration.ts",
     "test:chefs": "tsx --env-file=.env.local tests/admin-chefs.integration.ts",
     "test:products": "tsx --env-file=.env.local tests/admin-products.integration.ts",
     "test:orders": "tsx --env-file=.env.local tests/admin-orders.integration.ts",
