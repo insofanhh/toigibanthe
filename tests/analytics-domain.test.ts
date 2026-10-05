@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { usersDateRange } from "../src/lib/admin-users-domain";
 import {
   analyticsFilter,
   previousFilter,
@@ -9,6 +10,20 @@ import {
   ratio,
   metricDelta,
 } from "../src/lib/analytics-domain";
+test("Users default period follows today and keeps explicitly selected history", () => {
+  assert.deepEqual(usersDateRange(new URLSearchParams(), "2026-10-05"), {
+    from: "2026-09-06", to: "2026-10-05",
+  });
+  assert.deepEqual(usersDateRange(new URLSearchParams(), "2026-10-06"), {
+    from: "2026-09-07", to: "2026-10-06",
+  });
+  assert.deepEqual(usersDateRange(new URLSearchParams({to:"2026-10-04"}), "2026-10-05"), {
+    from: "2026-09-05", to: "2026-10-04",
+  });
+  assert.deepEqual(usersDateRange(new URLSearchParams({from:"2026-09-01",to:"2026-10-04"}), "2026-10-05"), {
+    from: "2026-09-01", to: "2026-10-04",
+  });
+});
 test("Vietnam date boundaries and equal-length prior periods", () => {
   const f = analyticsFilter(
     new URLSearchParams({ from: "2026-09-28", to: "2026-10-04" }),

@@ -229,6 +229,15 @@ export function Providers({ children }: { children: ReactNode }) {
             const data = JSON.parse(e.data);
             if (data.type === "admin-analytics" && user.role === "admin")
               refresh();
+            if (
+              data.type === "admin-user-registration" &&
+              user.role === "admin"
+            ) {
+              toast("Có người dùng mới đăng ký.");
+              refresh();
+            }
+            if (data.type === "admin-users-seen" && user.role === "admin")
+              refresh();
             if (data.type === "notification") {
               toast(data.title);
               refresh();

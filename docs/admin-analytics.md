@@ -42,6 +42,7 @@
 
 ## Phân tích Users
 
+- Đăng ký mới đếm trực tiếp `users.created_at` trong kỳ theo giờ Việt Nam, gồm email và Google; đăng nhập lại/liên kết Google không tạo lượt đăng ký. Tạo tài khoản gửi sự kiện WebSocket `admin-analytics` cùng transaction. Users tải lại khi tab được mở lại và mỗi 30 giây khi đang hiển thị; giữ nội dung trong lúc cập nhật. Kỳ mặc định theo hôm nay và đổi ngày khi qua nửa đêm; kỳ đã chọn trong URL được giữ nguyên, có thông báo và nút xem 30 ngày đến hôm nay nếu đang xem kỳ cũ.
 - Users dùng API admin riêng: `GET /api/admin/users/report`, `/api/admin/users` và `/api/admin/users/:id`; tiếp tục dùng API khóa/mở tài khoản hiện có. Không thêm bảng hoặc biến môi trường.
 - Sáu chỉ số và hai biểu đồ áp dụng vai trò, trạng thái tài khoản và tìm kiếm. Khoảng ngày chỉ áp dụng đăng ký mới và mua trong kỳ; tổng tài khoản, số bị khóa và nhóm mua hàng là hiện trạng/toàn thời gian.
 - Nhóm chưa mua/mua một lần/mua nhiều lần theo số đơn hoàn thành. Khách mua lại trong kỳ có lần mua thứ hai trở đi trong kỳ; một khách có thể vừa mua lần đầu vừa mua lại trong cùng kỳ. Chef cũng có thể mua; chọn vai trò User khi cần chỉ xem tài khoản User.

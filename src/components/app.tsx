@@ -1251,7 +1251,7 @@ function DishDetail({ id }: { id: string }) {
             <Plus size={18} /> Thêm vào giỏ
           </Button>
           <p className="muted small">
-            Giá chưa gồm phí giao. Phí sẽ hiển thị khi đặt đơn.
+            Giá chưa gồm phí giao. Phí sẽ hiển thị khi đặt đơn(nếu có).
           </p>
         </div>
       </div>

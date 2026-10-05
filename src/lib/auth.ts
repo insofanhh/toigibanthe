@@ -1,10 +1,12 @@
-import { randomBytes, createHash, randomUUID } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { cookies } from "next/headers";
 import { compare, hash } from "bcryptjs";
 import { exec, rows, sqlDate, transaction } from "./db";
 import { AppError } from "./http";
 import type { Actor } from "./domain";
 import { revokeSessionPush } from "./push";
+import { createAccount } from "./account-registration";
+import { ensureRegistrationAlertSchema } from "./admin-registration-alerts";
 export const COOKIE = "tgbd_session";
 export const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -69,9 +71,9 @@ export async function signIn(email: string, password: string) {
   };
 }
 export async function signUp(name: string, email: string, password: string) {
-  const id = randomUUID(),
-    passwordHash = await hash(password, 12);
-  await transaction(async (db) => {
+  await ensureRegistrationAlertSchema();
+  const passwordHash = await hash(password, 12);
+  const id = await transaction(async (db) => {
     if (
       (
         await rows(
@@ -82,11 +84,7 @@ export async function signUp(name: string, email: string, password: string) {
       ).length
     )
       throw new AppError("Email đã được sử dụng.");
-    await exec(
-      "INSERT INTO users (id,name,email,password_hash,created_at) VALUES (?,?,?,?,?)",
-      [id, name, email.toLowerCase(), passwordHash, sqlDate()],
-      db,
-    );
+    return createAccount(db, name, email, passwordHash);
   });
   await createSession(id);
   return { id, name, email, role: "user", phone: "" };

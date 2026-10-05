@@ -197,4 +197,6 @@ Dashboard Tổng quan có bộ lọc kỳ/khu vực/bữa, chỉ số toàn hệ
 
 Đăng nhập Google: xem [docs/google-login.md](docs/google-login.md) để cấu hình OAuth, biến môi trường Vercel và migration. Form đăng nhập/đăng ký hỗ trợ hiện/ẩn mật khẩu.
 
+Tab Users có badge `+N user` cho đăng ký mới chưa xem, cập nhật qua WebSocket và lưu theo từng admin. Cấu hình database và quy tắc đã xem tại [docs/admin-registration-alerts.md](docs/admin-registration-alerts.md).
+
 Chưa triển khai OTP, reset mật khẩu email, GPS người giao, quyết toán phí nền tảng và menu copy. Danh sách quản lý dashboard hiện giới hạn; cần phân trang và đo tải với dữ liệu production. Manifest hỗ trợ thêm màn hình chính; chưa có offline checkout. Chính sách vận hành cần chủ sản phẩm hoàn thiện trước công khai.

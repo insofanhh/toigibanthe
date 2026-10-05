@@ -29,6 +29,7 @@ import {
   USER_GROUPS,
   USER_SEGMENTS,
   USER_SORTS,
+  usersDateRange,
   type UsersReport,
   type UsersList,
   type UserDetail,
@@ -437,9 +438,9 @@ export function AdminUsers() {
   const params = useSearchParams(),
     router = useRouter(),
     { user, revision, refresh, toast } = useApp(),
-    [busy, setBusy] = useState<string | null>(null);
-  const today = serviceDate(),
-    keys = [
+    [busy, setBusy] = useState<string | null>(null),
+    [today, setToday] = useState(serviceDate);
+  const keys = [
       "from",
       "to",
       "role",
@@ -455,6 +456,9 @@ export function AdminUsers() {
     const value = params.get("u" + key);
     if (value) q.set(key, value);
   }
+  const range = usersDateRange(q, today);
+  q.set("from", range.from);
+  q.set("to", range.to);
   const query = q.toString(),
     reportQuery = new URLSearchParams(q);
   for (const key of ["group", "segment", "sort", "page"])
@@ -463,6 +467,27 @@ export function AdminUsers() {
       revision,
     ]),
     list = useLoad<UsersList>("admin/users?" + query, [revision]);
+  useEffect(() => {
+    const update = () => {
+      if (document.visibilityState !== "visible") return;
+      const currentDay = serviceDate();
+      if (currentDay !== today) {
+        setToday(currentDay);
+        return;
+      }
+      report.reload();
+      list.reload();
+    };
+    // WebSocket updates are primary; recover on focus and if a connection is unavailable.
+    const interval = setInterval(update, 30000);
+    window.addEventListener("focus", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, [today, report.reload, list.reload]);
   const detailId = params.get("uId"),
     group = q.get("group") || "all",
     segment = q.get("segment") || "all",
@@ -579,6 +604,7 @@ export function AdminUsers() {
         <Button
           secondary
           onClick={() => {
+            setToday(serviceDate());
             report.reload();
             list.reload();
             refresh();
@@ -654,6 +680,19 @@ export function AdminUsers() {
         thái và tìm kiếm; nhóm mua hàng và điều kiện trong kỳ chỉ lọc danh sách
         bên dưới.
       </p>
+      {range.to < today && (
+        <Notice>
+          Kỳ báo cáo kết thúc ngày {range.to.split("-").reverse().join("/")}.
+          Tài khoản đăng ký sau ngày này chưa được tính vào Đăng ký mới.{" "}
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => apply({ from: shiftDate(today, -29), to: today })}
+          >
+            Xem 30 ngày đến hôm nay
+          </button>
+        </Notice>
+      )}
       {report.error || !report.data ? (
         <Retry error={report.error} reload={report.reload} />
       ) : (

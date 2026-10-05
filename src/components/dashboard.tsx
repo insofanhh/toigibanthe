@@ -1,5 +1,6 @@
 "use client";
 import { AnimatedValue } from "./animated-value";
+import { useRegistrationAlerts } from "./admin-registration-alerts";
 import { useEffect, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { Link } from "./page-motion";
@@ -1068,12 +1069,14 @@ export function AdminDashboard() {
     [chefFilter, setChefFilter] = useState(params.get("chef") || ""),
     [form, setForm] = useState("");
   const [collapsed, setCollapsed] = useState(false);
+  const registrations = useRegistrationAlerts(tab === "users");
   useEffect(() => {
     setTab(params.get("tab") || "overview");
     if (["orders", "products", "payments"].includes(params.get("tab") || ""))
       setChefFilter(params.get("chef") || "");
   }, [params]);
   function navigateAdmin(next: string, chef?: string, orderFilter?: string) {
+    if (next === "users" && tab === "users") void registrations.markSeen();
     const p = new URLSearchParams(params.toString());
     p.set("tab", next);
     if (next !== "products") p.delete("product");
@@ -1172,13 +1175,27 @@ export function AdminDashboard() {
               type="button"
               key={id}
               className={tab === id ? "active" : ""}
-              aria-label={label}
-              title={label}
+              aria-label={
+                id === "users" && registrations.count
+                  ? `${label}, ${registrations.count} người dùng mới đăng ký`
+                  : label
+              }
+              title={
+                id === "users" && registrations.count
+                  ? `${label}: +${registrations.count} user mới`
+                  : label
+              }
               aria-current={tab === id ? "page" : undefined}
               onClick={() => navigateAdmin(id)}
             >
               <Icon size={19} />
               <span>{label}</span>
+              {id === "users" && registrations.count > 0 && (
+                <small className="admin-registration-badge" aria-hidden="true">
+                  <AnimatedValue>{`+${registrations.count}`}</AnimatedValue>
+                  <b>user</b>
+                </small>
+              )}
             </button>
           ))}
         </nav>

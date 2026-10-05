@@ -1,5 +1,9 @@
 import { randomUUID, createHash } from "node:crypto";
 import { googleAuth } from "@/lib/google-auth";
+import {
+  registrationAlerts,
+  seeRegistrations,
+} from "@/lib/admin-registration-alerts";
 import { cookies } from "next/headers";
 import { SignJWT } from "jose";
 import { z } from "zod";
@@ -655,6 +659,10 @@ async function dispatch(req: Request) {
   }
   if (section === "admin") {
     const user = await requireRole("admin");
+    if (action === "users" && id === "registrations") {
+      if (method === "GET") return registrationAlerts(user.id);
+      if (method === "POST") return seeRegistrations(user.id, await req.json());
+    }
     if (action === "order-analytics" && method === "GET") {
       if (id === "detail")
         return adminOrderDetail(path[3] || "", url.searchParams);

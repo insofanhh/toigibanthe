@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, createHash } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { cookies } from "next/headers";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 import { hash } from "bcryptjs";
@@ -7,6 +7,8 @@ import { exec, rows, sqlDate, transaction } from "./db";
 import { AppError } from "./http";
 import { googleProfile, safeLoginNext } from "./google-auth-domain";
 import type { Actor } from "./domain";
+import { createAccount } from "./account-registration";
+import { ensureRegistrationAlertSchema } from "./admin-registration-alerts";
 
 const OAUTH_COOKIE = "tgbd_google_oauth";
 const keys = createRemoteJWKSet(
@@ -67,6 +69,7 @@ async function resolveUser(
   attempt = 0,
 ): Promise<string> {
   await ensureSchema();
+  await ensureRegistrationAlertSchema();
   try {
     return await transaction(async (db) => {
       const linked = (
@@ -109,17 +112,11 @@ async function resolveUser(
           );
       } else {
         // A generated, unknown password keeps password login unavailable for new Google users.
-        const id = randomUUID();
-        await exec(
-          "INSERT INTO users (id,name,email,password_hash,created_at) VALUES (?,?,?,?,?)",
-          [
-            id,
-            profile.name,
-            profile.email,
-            await hash(randomBytes(32).toString("base64url"), 12),
-            sqlDate(),
-          ],
+        const id = await createAccount(
           db,
+          profile.name,
+          profile.email,
+          await hash(randomBytes(32).toString("base64url"), 12),
         );
         user = { id } as Actor;
       }

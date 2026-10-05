@@ -15,6 +15,7 @@
     "test": "tsx --test tests/domain.test.ts tests/client-load-cache.test.ts tests/analytics-domain.test.ts tests/animated-number.test.ts tests/google-auth.test.ts",
     "test:analytics": "tsx --env-file=.env.local tests/analytics.integration.ts",
     "test:users": "tsx --env-file=.env.local tests/admin-users.integration.ts",
+    "test:registrations": "tsx --env-file=.env.local tests/admin-registration-alerts.integration.ts",
     "test:chefs": "tsx --env-file=.env.local tests/admin-chefs.integration.ts",
     "test:products": "tsx --env-file=.env.local tests/admin-products.integration.ts",
     "test:orders": "tsx --env-file=.env.local tests/admin-orders.integration.ts",

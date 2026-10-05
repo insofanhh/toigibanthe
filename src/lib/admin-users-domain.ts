@@ -1,4 +1,9 @@
-import { analyticsFilter } from "./analytics-domain";
+import { analyticsFilter, shiftDate } from "./analytics-domain";
+
+export function usersDateRange(params: URLSearchParams, today: string) {
+  const to = params.get("to") || today;
+  return { from: params.get("from") || shiftDate(to, -29), to };
+}
 
 export const USER_GROUPS = {
   all: "Tất cả nhóm",
