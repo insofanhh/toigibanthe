@@ -37,6 +37,7 @@ import {
 } from "@/lib/auth";
 import { rows, exec, transaction, sqlDate } from "@/lib/db";
 import { feed, nearbyMapChefs } from "@/lib/catalog";
+import { getHomePopupSettings, saveHomePopupSettings } from "@/lib/home-popups";
 import {
   checkoutSchema,
   loginSchema,
@@ -217,6 +218,11 @@ async function dispatch(req: Request) {
       if (action === "test") return queuePushTest(user.id, sessionHash, input);
     }
   }
+  if (section === "home-popups" && method === "GET")
+    return {
+      settings: await getHomePopupSettings(),
+      serverNow: new Date().toISOString(),
+    };
   if (section === "catalog" && method === "GET") {
     if (action === "chefs-map") {
       if (
@@ -680,6 +686,17 @@ async function dispatch(req: Request) {
   }
   if (section === "admin") {
     const user = await requireRole("admin");
+    if (action === "home-popups") {
+      if (method === "GET") return { settings: await getHomePopupSettings() };
+      if (method === "POST") {
+        const input = await req.json();
+        return transaction(async (db) => {
+          const settings = await saveHomePopupSettings(input, db);
+          await audit(db, user, "home-popups.update", "home-popups", settings);
+          return { settings };
+        });
+      }
+    }
     if (action === "chefs" && id === "applications") {
       if (method === "GET") return chefApplicationAlerts(user.id);
       if (method === "POST")
@@ -869,29 +886,52 @@ async function dispatch(req: Request) {
       return { ok: true };
     }
     if (action === "meals" && method === "POST") {
-      const b = z
-        .object({
-          cutoff: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-          dayOffset: z.number().int().min(0).max(1),
-        })
-        .parse(await req.json());
+      const mealSchema = z.object({
+        cutoff: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+        dayOffset: z.number().int().min(0).max(1),
+      });
+      const input = await req.json();
+      const updates = id
+        ? [{ id, ...mealSchema.parse(input) }]
+        : z
+            .object({
+              meals: z
+                .array(mealSchema.extend({ id: z.string().min(1).max(20) }))
+                .min(1)
+                .max(20)
+                .refine(
+                  (v) => new Set(v.map((m) => m.id)).size === v.length,
+                  "Bữa bị lặp trong danh sách.",
+                ),
+            })
+            .parse(input).meals;
+      updates.sort((a, b) => a.id.localeCompare(b.id));
       await transaction(async (db) => {
-        await exec(
-          "UPDATE meal_settings SET cutoff_time=?,day_offset=? WHERE id=?",
-          [b.cutoff, b.dayOffset, id],
+        const exists = await rows<{ id: string }>(
+          "SELECT id FROM meal_settings WHERE id IN (?) ORDER BY id FOR UPDATE",
+          [updates.map((m) => m.id)],
           db,
         );
-        for (const m of await rows<{ id: string; service_date: string }>(
-          "SELECT m.id,k.service_date FROM daily_menu m JOIN kitchen_sessions k ON k.id=m.session_id WHERE m.meal_id=? AND m.cutoff_at>?",
-          [id, sqlDate()],
-          db,
-        ))
+        if (exists.length !== updates.length)
+          throw new AppError("Có bữa không tồn tại. Hãy tải lại cài đặt.");
+        for (const b of updates) {
           await exec(
-            "UPDATE daily_menu SET cutoff_at=? WHERE id=?",
-            [sqlDate(cutoffAt(m.service_date, b.cutoff, b.dayOffset)), m.id],
+            "UPDATE meal_settings SET cutoff_time=?,day_offset=? WHERE id=?",
+            [b.cutoff, b.dayOffset, b.id],
             db,
           );
-        await audit(db, user, "meal.cutoff", id!, b);
+          for (const m of await rows<{ id: string; service_date: string }>(
+            "SELECT m.id,k.service_date FROM daily_menu m JOIN kitchen_sessions k ON k.id=m.session_id WHERE m.meal_id=? AND m.cutoff_at>?",
+            [b.id, sqlDate()],
+            db,
+          ))
+            await exec(
+              "UPDATE daily_menu SET cutoff_at=? WHERE id=?",
+              [sqlDate(cutoffAt(m.service_date, b.cutoff, b.dayOffset)), m.id],
+              db,
+            );
+          await audit(db, user, "meal.cutoff", b.id, b);
+        }
       });
       return { ok: true };
     }

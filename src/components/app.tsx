@@ -101,6 +101,10 @@ const ChefMapPage = dynamic(
     loading: () => <div className="loading">Đang tải bản đồ bếp…</div>,
   },
 );
+const HomePopups = dynamic(
+  () => import("./home-popups").then((m) => m.HomePopups),
+  { ssr: false },
+);
 const DeliveryMap = dynamic(
   () => import("./delivery-map").then((m) => m.DeliveryMap),
   {
@@ -632,6 +636,7 @@ export function App({ pathname: path }: { pathname: string }) {
       <CartDock path={path} />
       <Nav path={path} />
       <LocationSheet />
+      {path === "/" && <HomePopups />}
     </>
   );
 }

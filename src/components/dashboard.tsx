@@ -35,6 +35,7 @@ import { useApp, request, post } from "./providers";
 import { KitchenLocationPicker } from "./kitchen-location-picker";
 import { FilePicker } from "./file-picker";
 import { SePaySettings } from "./sepay-settings";
+import { AdminHomePopups, MealCutoffSettings } from "./admin-home-popups";
 import {
   PaymentRequestEvidence,
   AdminPaymentRequestReview,
@@ -1270,40 +1271,14 @@ export function AdminDashboard() {
             {tab === "orders" && <AdminOrders onNavigate={navigateAdmin} />}
             {tab === "settings" && (
               <>
-                <SectionTitle title="Giờ hết nhận theo bữa" />
-                {data.meals.map((m: any) => (
-                  <form
-                    key={m.id}
-                    className="panel form narrow"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const f = new FormData(e.currentTarget);
-                      void run("admin/meals/" + m.id, {
-                        cutoff: f.get("cutoff"),
-                        dayOffset: Number(f.get("offset")),
-                      });
-                    }}
-                  >
-                    <h2>{m.name}</h2>
-                    <div className="form-row">
-                      <Field label="Giờ cuối nhận đơn">
-                        <input
-                          name="cutoff"
-                          type="time"
-                          defaultValue={m.cutoff_time}
-                          required
-                        />
-                      </Field>
-                      <Field label="Ngày hết nhận">
-                        <select name="offset" defaultValue={m.day_offset}>
-                          <option value="0">Cùng ngày</option>
-                          <option value="1">Ngày kế tiếp</option>
-                        </select>
-                      </Field>
-                    </div>
-                    <Button type="submit">Lưu giờ bữa</Button>
-                  </form>
-                ))}
+                <MealCutoffSettings
+                  meals={data.meals}
+                  onSaved={() => {
+                    reload();
+                    refresh();
+                  }}
+                />
+                <AdminHomePopups />
                 <form
                   className="panel form narrow"
                   onSubmit={(e) => {

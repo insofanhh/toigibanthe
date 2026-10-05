@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { Actor, Dish, Location } from "@/lib/domain";
 import { ClientLoadCache } from "@/lib/client-load-cache";
+import { usePwaInstall } from "./pwa-install";
 import { trackEvent } from "@/lib/analytics-client";
 import { clearDevicePush, syncPushIdentity } from "@/lib/push-client";
 import {
@@ -43,6 +44,7 @@ type ToastOptions = {
   duration?: number;
 };
 type Context = {
+  pwaInstall: ReturnType<typeof usePwaInstall>;
   user: Actor | null;
   chef: {
     id: string;
@@ -74,6 +76,7 @@ type Context = {
 const AppContext = createContext<Context>(null!);
 export const useApp = () => useContext(AppContext);
 export function Providers({ children }: { children: ReactNode }) {
+  const pwaInstall = usePwaInstall();
   const [user, setUser] = useState<Actor | null>(null),
     [chef, setChef] = useState<Context["chef"]>(null),
     [authReady, setAuthReady] = useState(false),
@@ -435,6 +438,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        pwaInstall,
         user,
         chef,
         authReady,
