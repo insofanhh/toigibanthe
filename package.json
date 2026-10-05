@@ -12,7 +12,7 @@
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
     "db:seed:export": "tsx scripts/export-demo-seed.ts",
     "realtime": "tsx --env-file=.env.local services/realtime/server.ts",
-    "test": "tsx --test tests/domain.test.ts tests/client-load-cache.test.ts tests/analytics-domain.test.ts tests/animated-number.test.ts tests/google-auth.test.ts tests/home-popups.test.ts",
+    "test": "tsx --test tests/domain.test.ts tests/client-load-cache.test.ts tests/analytics-domain.test.ts tests/animated-number.test.ts tests/google-auth.test.ts tests/home-popups.test.ts tests/realtime-config.test.ts",
     "test:analytics": "tsx --env-file=.env.local tests/analytics.integration.ts",
     "test:users": "tsx --env-file=.env.local tests/admin-users.integration.ts",
     "test:registrations": "tsx --env-file=.env.local tests/admin-registration-alerts.integration.ts",

@@ -8,13 +8,15 @@ import { randomUUID } from "node:crypto";
 import { processBroadcasts } from "../../src/lib/jobs";
 import { processPushQueue, pushConfig } from "../../src/lib/push";
 import { ensurePushSchema } from "../../src/lib/push-schema";
+import { realtimeOrigins } from "../../src/lib/realtime-config";
 const secret = process.env.AUTH_SECRET;
 if (!secret || secret.length < 32)
   throw new Error("AUTH_SECRET phải có ít nhất 32 ký tự.");
-const allowed = (process.env.WS_ALLOWED_ORIGINS || "")
-  .split(",")
-  .filter(Boolean);
-if (!allowed.length) throw new Error("Cần WS_ALLOWED_ORIGINS.");
+const allowed = realtimeOrigins(
+  process.env.WS_ALLOWED_ORIGINS,
+  process.env.SITE_URL,
+);
+if (!allowed.size) throw new Error("Cần WS_ALLOWED_ORIGINS hoặc SITE_URL.");
 const clients = new Map<
   WebSocket,
   { userId: string; sessionHash: string; alive: boolean }
@@ -30,7 +32,7 @@ const http = createServer((req, res) => {
 const wss = new WebSocketServer({ noServer: true, maxPayload: 1024 });
 http.on("upgrade", async (req, socket, head) => {
   try {
-    if (!allowed.includes(req.headers.origin || "")) throw new Error("Origin");
+    if (!allowed.has(req.headers.origin || "")) throw new Error("Origin");
     const url = new URL(req.url || "/", "http://localhost");
     if (!["/socket", "/realtime/socket"].includes(url.pathname))
       throw new Error("Path");
@@ -64,7 +66,13 @@ http.on("upgrade", async (req, socket, head) => {
       ws.on("error", () => clients.delete(ws));
       ws.send(JSON.stringify({ type: "connected" }));
     });
-  } catch {
+  } catch (error) {
+    console.warn(
+      "WebSocket rejected",
+      error instanceof Error ? error.message : "Unknown error",
+      "origin:",
+      req.headers.origin || "missing",
+    );
     socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
     socket.destroy();
   }

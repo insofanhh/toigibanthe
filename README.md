@@ -50,7 +50,7 @@ Seed trực tiếp môi trường development: đặt `SEED_PASSWORD` trước r
 | AUTH_SECRET                   | Ít nhất 32 ký tự ngẫu nhiên; dùng chung web/realtime                                              |
 | SITE_URL                      | Origin HTTPS production hoặc URL local                                                            |
 | NEXT_PUBLIC_WS_URL            | `ws://127.0.0.1:3001` local; để trống trên Vercel Services để dùng `/realtime/socket` cùng domain |
-| WS_ALLOWED_ORIGINS            | Các origin được phép mở socket, phân cách dấu phẩy                                                |
+| WS_ALLOWED_ORIGINS            | Các origin được phép mở socket, phân cách dấu phẩy; realtime tự thêm origin của `SITE_URL`         |
 | WS_PORT                       | Cổng server Node local/host riêng                                                                 |
 | GOONG_API_KEY                 | REST key, chỉ server                                                                              |
 | NEXT_PUBLIC_GOONG_MAP_KEY     | Map key công khai, giới hạn domain trong Goong                                                    |

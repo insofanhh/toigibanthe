@@ -85,9 +85,7 @@ export function Providers({ children }: { children: ReactNode }) {
     [cart, setCart] = useState<CartLine[]>([]),
     [unread, setUnread] = useState(0),
     [revision, setRevision] = useState(0),
-    [message, setMessage] = useState<({ text: string } & ToastOptions) | null>(
-      null,
-    ),
+    [messages, setMessages] = useState<({ text: string } & ToastOptions)[]>([]),
     [locationOpen, setLocationOpen] = useState(false),
     [ready, setReady] = useState(false);
   const [loadCache] = useState(() => new ClientLoadCache());
@@ -95,18 +93,28 @@ export function Providers({ children }: { children: ReactNode }) {
   const authSequence = useRef(0);
   const notificationSequence = useRef(0);
   const notificationReadQueue = useRef<Promise<void>>(Promise.resolve());
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const message = messages[0];
   const toast = useCallback((text: string, options: ToastOptions = {}) => {
-    setMessage({ text, ...options });
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(
-      () => setMessage(null),
-      options.duration || 4500,
-    );
+    const next = { text, ...options };
+    setMessages((current) => {
+      if (!options.key) return [next, ...current.filter((item) => item.key)];
+      const index = current.findIndex((item) => item.key === options.key);
+      return index < 0
+        ? [...current, next]
+        : current.map((item, i) => (i === index ? next : item));
+    });
   }, []);
   const dismissToast = useCallback((key: string) => {
-    setMessage((current) => (current?.key === key ? null : current));
+    setMessages((current) => current.filter((item) => item.key !== key));
   }, []);
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(
+      () => setMessages((current) => current.filter((item) => item !== message)),
+      message.duration || 4500,
+    );
+    return () => clearTimeout(timer);
+  }, [message]);
   const refresh = useCallback(() => setRevision((x) => x + 1), []);
   const markNotificationRead = useCallback(
     (id: string) => {
@@ -263,18 +271,14 @@ export function Providers({ children }: { children: ReactNode }) {
               data.type === "admin-user-registration" &&
               user.role === "admin"
             ) {
-              if (
-                window.location.pathname !== "/admin" ||
-                new URLSearchParams(window.location.search).get("tab") !==
-                  "users"
-              )
+              if (window.location.pathname !== "/admin")
                 toast("Có người dùng mới đăng ký.");
               window.dispatchEvent(
                 new CustomEvent("tgbd:admin-registrations", {
                   detail: { alertId: data.alertId },
                 }),
               );
-              scheduleRefresh();
+              if (window.location.pathname !== "/admin") scheduleRefresh();
             }
             if (data.type === "admin-users-seen" && user.role === "admin")
               window.dispatchEvent(new CustomEvent("tgbd:admin-registrations"));
@@ -287,17 +291,14 @@ export function Providers({ children }: { children: ReactNode }) {
                 user.role === "admin" &&
                 data.adminAlert?.type === "chef-application"
               ) {
-                if (
-                  window.location.pathname !== "/admin" ||
-                  new URLSearchParams(window.location.search).get("tab") !==
-                    "chefs"
-                )
+                if (window.location.pathname !== "/admin")
                   toast("Có yêu cầu mở bếp mới.");
                 window.dispatchEvent(
                   new CustomEvent("tgbd:admin-chef-applications", {
                     detail: { alertId: data.adminAlert.alertId },
                   }),
                 );
+                if (window.location.pathname === "/admin") return;
               } else toast(data.title);
               scheduleRefresh();
             }

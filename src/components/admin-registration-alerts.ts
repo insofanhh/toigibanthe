@@ -27,7 +27,7 @@ export function useChefApplicationAlerts(chefsOpen: boolean) {
 }
 function useAdminAlerts(kind: keyof typeof alertKinds, tabOpen: boolean) {
   const { path, event: eventName, toastKey, message } = alertKinds[kind];
-  const { user, loadCache, toast, dismissToast } = useApp();
+  const { user, loadCache, toast, dismissToast, refresh } = useApp();
   const enabled = user?.role === "admin";
   const { data, error, reload } = useLoad<RegistrationAlerts>(
     enabled ? path : null,
@@ -41,6 +41,9 @@ function useAdminAlerts(kind: keyof typeof alertKinds, tabOpen: boolean) {
   const mounted = useRef(true);
   const busy = useRef(false);
   const notified = useRef("");
+  const announced = useRef({ identity, ids: new Set<string>(), loaded: false });
+  if (announced.current.identity !== identity)
+    announced.current = { identity, ids: new Set<string>(), loaded: false };
   const [reading, setReading] = useState<{
     identity: string;
     ids: string[];
@@ -107,11 +110,23 @@ function useAdminAlerts(kind: keyof typeof alertKinds, tabOpen: boolean) {
   useEffect(() => {
     if (!tabOpen || !enabled) {
       notified.current = "";
-      dismissToast(toastKey);
       return;
     }
     if (!reading && data?.count) void showNotice();
   }, [tabOpen, enabled, data, reading, dismissToast, showNotice, toastKey]);
+  useEffect(() => {
+    if (!enabled || !data) return;
+    const arrivals = data.ids.filter((id) => !announced.current.ids.has(id));
+    const loaded = announced.current.loaded;
+    announced.current.loaded = true;
+    for (const id of arrivals) announced.current.ids.add(id);
+    if (!arrivals.length) return;
+    // The open tab announces and acknowledges its snapshot in showNotice.
+    // Other tabs keep the badge unread and announce both socket and poll arrivals.
+    if (!tabOpen)
+      toast(message(data.count), { key: toastKey, duration: 8000 });
+    if (loaded) refresh();
+  }, [enabled, identity, data, tabOpen, toast, message, toastKey, refresh]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -128,10 +143,14 @@ function useAdminAlerts(kind: keyof typeof alertKinds, tabOpen: boolean) {
 
   useEffect(() => {
     if (!enabled) return;
-    const update = () => {
-      if (document.visibilityState === "visible") reload();
+    const update = (force = false) => {
+      if (document.visibilityState !== "visible") return;
+      const key = `${user!.id}:${user!.role}:${path}`;
+      if (force || !loadCache.read(key).loading) reload();
     };
-    const interval = setInterval(update, 30000);
+    // Recover missed events while WSS reconnects or a mobile tab resumes.
+    const interval = setInterval(update, 5000);
+    const resume = () => update();
     const realtime = (event: Event) => {
       const alertId = (event as CustomEvent<{ alertId?: string }>).detail
         ?.alertId;
@@ -144,16 +163,16 @@ function useAdminAlerts(kind: keyof typeof alertKinds, tabOpen: boolean) {
             ids: [alertId, ...cached.ids].slice(0, 500),
           });
       }
-      update();
+      update(true);
     };
     window.addEventListener(eventName, realtime);
-    window.addEventListener("focus", update);
-    document.addEventListener("visibilitychange", update);
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
     return () => {
       clearInterval(interval);
       window.removeEventListener(eventName, realtime);
-      window.removeEventListener("focus", update);
-      document.removeEventListener("visibilitychange", update);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
     };
   }, [enabled, user, loadCache, reload, path, eventName]);
   const pendingIds = new Set(reading?.identity === identity ? reading.ids : []);
