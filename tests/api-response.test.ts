@@ -2,6 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readApiResponse } from "../src/lib/api-response";
 
+test("Host HTTP 413 reports upload size instead of invalid JSON", async () => {
+  for (const response of [
+    new Response("FUNCTION_PAYLOAD_TOO_LARGE", { status: 413 }),
+    Response.json({ error: "File too large" }, { status: 413 }),
+  ])
+    await assert.rejects(readApiResponse(response), {
+      status: 413,
+      code: "UPLOAD_TOO_LARGE",
+      message:
+        "Tệp tải lên quá lớn. Hãy chọn tệp nhỏ hơn hoặc giảm dung lượng ảnh rồi thử lại.",
+    });
+});
+
 test("HTML server failure becomes a readable error without leaking HTML", async () => {
   await assert.rejects(
     readApiResponse(

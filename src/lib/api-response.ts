@@ -9,6 +9,12 @@ export class ApiResponseError extends Error {
 }
 /** API failures may come from the host or bundler before our JSON handler runs. */
 export async function readApiResponse<T = any>(response: Response): Promise<T> {
+  if (response.status === 413)
+    throw new ApiResponseError(
+      "Tệp tải lên quá lớn. Hãy chọn tệp nhỏ hơn hoặc giảm dung lượng ảnh rồi thử lại.",
+      413,
+      "UPLOAD_TOO_LARGE",
+    );
   let data;
   try {
     data = await response.json();

@@ -7,6 +7,7 @@ import { Button, Field, Notice, PageTitle, NeedLogin } from "./app";
 import { FilePicker } from "./file-picker";
 import { PushSettings } from "./push-settings";
 import { UserAvatar } from "./user-avatar";
+import { prepareAvatarUpload } from "@/lib/avatar-upload";
 
 export function AccountSettings() {
   const { user, refreshAuth, deleteAccount, toast } = useApp();
@@ -43,7 +44,7 @@ export function AccountSettings() {
     setError("");
     try {
       const form = new FormData();
-      form.set("file", file);
+      form.set("file", await prepareAvatarUpload(file));
       form.set("purpose", "avatar");
       const result = await request<{ id: string; url: string }>("upload", {
         method: "POST",
@@ -120,7 +121,8 @@ export function AccountSettings() {
               }}
             />
             <p className="muted small">
-              JPG, PNG hoặc WebP, tối đa 3 MB. Bấm lưu để cập nhật ảnh.
+              JPG, PNG hoặc WebP, ảnh gốc tối đa 20 MB. Ảnh được tự thu nhỏ
+              trước khi tải lên. Bấm lưu để cập nhật ảnh.
             </p>
             {avatar.url && (
               <button

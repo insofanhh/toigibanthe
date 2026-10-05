@@ -1080,16 +1080,19 @@ async function dispatch(req: Request) {
     }
   }
   if (section === "upload" && method === "POST") {
-    const user = (await actor())!,
-      form = await req.formData(),
+    const user = (await actor())!;
+    if (
+      Number(req.headers.get("content-length") || 0) >
+      3 * 1024 * 1024 + 128 * 1024
+    )
+      throw new AppError("Tệp tải lên quá lớn. Chọn tệp tối đa 3 MB.", 413);
+    const form = await req.formData(),
       file = form.get("file"),
       kind = form.get("kind") === "document" ? "document" : "image";
-    if (
-      !(file instanceof File) ||
-      file.size > 3 * 1024 * 1024 ||
-      file.size === 0
-    )
+    if (!(file instanceof File) || file.size === 0)
       throw new AppError("Chọn tệp tối đa 3 MB.");
+    if (file.size > 3 * 1024 * 1024)
+      throw new AppError("Tệp tải lên quá lớn. Chọn tệp tối đa 3 MB.", 413);
     if (
       ![
         "image/jpeg",
