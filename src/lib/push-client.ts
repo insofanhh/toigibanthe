@@ -1,3 +1,5 @@
+import { readApiResponse } from "./api-response";
+
 export type PushPreferences = {
   orders: boolean;
   news: boolean;
@@ -46,10 +48,7 @@ export async function pushRequest(path: string, body?: unknown) {
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
   });
-  const data = await response.json();
-  if (!response.ok)
-    throw new Error(data.error || "Không thể cập nhật thông báo.");
-  return data;
+  return readApiResponse(response);
 }
 export function readPushIntent(): {
   userId: string;

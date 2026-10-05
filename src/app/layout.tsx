@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "@/components/providers";
 import { MobileZoomGuard } from "@/components/mobile-zoom-guard";
+import { BrandSessionProvider } from "@/components/brand-symbol";
 import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "Tôi gì, bạn đó!", template: "%s · Tôi gì, bạn đó!" },
@@ -34,7 +35,9 @@ export default function RootLayout({
     <html lang="vi" data-scroll-behavior="smooth">
       <body>
         <MobileZoomGuard />
-        <Providers>{children}</Providers>
+        <BrandSessionProvider>
+          <Providers>{children}</Providers>
+        </BrandSessionProvider>
       </body>
     </html>
   );

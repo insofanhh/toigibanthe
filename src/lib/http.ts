@@ -10,8 +10,13 @@ export class AppError extends Error {
 export function guardOrigin(request: Request) {
   if (["GET", "HEAD"].includes(request.method)) return;
   const origin = request.headers.get("origin");
+  const requestUrl = new URL(request.url);
   const allowed = new URL(process.env.SITE_URL || request.url).origin;
-  if (origin && origin !== allowed)
+  const isLocalDevelopmentOrigin =
+    process.env.NODE_ENV !== "production" &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(requestUrl.hostname) &&
+    origin === requestUrl.origin;
+  if (origin && origin !== allowed && !isLocalDevelopmentOrigin)
     throw new AppError("Nguồn yêu cầu không hợp lệ.", 403);
   if (request.headers.get("sec-fetch-site") === "cross-site")
     throw new AppError("Yêu cầu không hợp lệ.", 403);

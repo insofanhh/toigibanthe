@@ -1,5 +1,6 @@
 "use client";
 import { AnimatedValue } from "./animated-value";
+import { AppIcon, BrandSymbol } from "./brand-symbol";
 import {
   useState,
   useEffect,
@@ -513,9 +514,7 @@ function Header() {
     <header className="header">
       <div className="header-inner">
         <Link href="/" className="brand">
-          <span className="brand-symbol">
-            <ChefHat size={23} strokeWidth={1.6} />
-          </span>
+          <BrandSymbol />
           <span>Tôi gì, bạn đó!</span>
         </Link>
         <button
@@ -1969,7 +1968,7 @@ function Login() {
   return (
     <div className="auth-wrap">
       <div className="auth-icon">
-        <ChefHat size={32} strokeWidth={1.3} />
+        <AppIcon />
       </div>
       <h1>{register ? "Tạo tài khoản" : "Đăng nhập"}</h1>
       <p>Quản lý đơn hàng và các món đã lưu của bạn.</p>
@@ -2732,10 +2731,20 @@ function OrderDetail({ id }: { id: string }) {
           )}
           <div className="panel delivery-panel">
             <h2>Giao đến</h2>
-            <p>
-              <strong>{o.recipient}</strong> · {o.phone}
-            </p>
-            <p>{o.address}</p>
+            <div className="delivery-stop delivery-stop-from">
+              <small>Từ</small>
+              <p>
+                <strong>{o.chef_name}</strong>
+              </p>
+              <p>{o.chef_address || "Địa chỉ bếp chưa cập nhật"}</p>
+            </div>
+            <div className="delivery-stop delivery-stop-to">
+              <small>Đến</small>
+              <p>
+                <strong>{o.recipient}</strong> · {o.phone}
+              </p>
+              <p>{o.address}</p>
+            </div>
             <p>
               <AnimatedValue>
                 {o.route_distance_km

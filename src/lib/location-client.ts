@@ -1,4 +1,5 @@
 import type { Location } from "./domain";
+import { readApiResponse } from "./api-response";
 export type ResolvedLocation = Location & { area?: string };
 export function goongArea(place: {
   compound?: { commune?: string; province?: string };
@@ -18,9 +19,7 @@ export async function reverseLocation(
   const response = await fetch(`/api/location?lat=${lat}&lng=${lng}`, {
     cache: "no-store",
   });
-  const data = await response.json();
-  if (!response.ok)
-    throw new Error(data.error || "Không tìm được địa chỉ từ vị trí này.");
+  const data = await readApiResponse(response);
   const place = data.results?.find((r: { formatted_address?: string }) =>
     r.formatted_address?.trim(),
   );

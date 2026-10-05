@@ -40,9 +40,10 @@ export function OrderProgress({
     ...(stopped ? stages.slice(0, lastRecorded + 1) : stages),
     ...extras,
   ];
-  const latest = stageFor(events.at(-1)?.status || status);
-  const active = selected && steps.includes(selected) ? selected : latest;
-  const selectedEvents = events.filter((e) => stageFor(e.status) === active);
+  const active = selected && steps.includes(selected) ? selected : null;
+  const selectedEvents = active
+    ? events.filter((e) => stageFor(e.status) === active)
+    : [];
   const at = stages.indexOf(status);
   return (
     <section
@@ -63,10 +64,9 @@ export function OrderProgress({
                 type="button"
                 className={`progress-step ${active === s ? "selected" : ""}`}
                 aria-label={`Xem lịch sử ${label(s)}`}
-                aria-pressed={active === s}
+                aria-expanded={active === s}
                 aria-controls="order-stage-detail"
-                disabled={!done && status !== s}
-                onClick={() => setSelected(s)}
+                onClick={() => setSelected((current) => (current === s ? null : s))}
               >
                 <span>{done ? <Check size={14} /> : i + 1}</span>
                 <small>{label(s)}</small>
@@ -78,22 +78,27 @@ export function OrderProgress({
       </div>
       <div
         id="order-stage-detail"
-        className="order-stage-detail"
+        className={`order-stage-detail ${active ? "is-open" : ""}`}
+        aria-hidden={!active}
         aria-live="polite"
       >
-        <strong>{label(active)}</strong>
-        {selectedEvents.length ? (
-          selectedEvents.map((ev, i) => (
-            <div key={`${ev.created_at}-${i}`}>
-              {ev.status !== active && <strong>{label(ev.status)}</strong>}
-              <time dateTime={parseUTC(ev.created_at).toISOString()}>
-                {parseUTC(ev.created_at).toLocaleString("vi-VN")}
-              </time>
-              {ev.note && <p>{ev.note}</p>}
-            </div>
-          ))
-        ) : (
-          <p>Chưa có thời gian ghi nhận cho bước này.</p>
+        {active && (
+          <>
+            <strong>{label(active)}</strong>
+            {selectedEvents.length ? (
+              selectedEvents.map((ev, i) => (
+                <div key={`${ev.created_at}-${i}`}>
+                  {ev.status !== active && <strong>{label(ev.status)}</strong>}
+                  <time dateTime={parseUTC(ev.created_at).toISOString()}>
+                    {parseUTC(ev.created_at).toLocaleString("vi-VN")}
+                  </time>
+                  {ev.note && <p>{ev.note}</p>}
+                </div>
+              ))
+            ) : (
+              <p>Chưa có thời gian ghi nhận cho bước này.</p>
+            )}
+          </>
         )}
       </div>
     </section>

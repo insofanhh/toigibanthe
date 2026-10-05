@@ -13,6 +13,7 @@ import { ClientLoadCache } from "@/lib/client-load-cache";
 import { usePwaInstall } from "./pwa-install";
 import { trackEvent } from "@/lib/analytics-client";
 import { clearDevicePush, syncPushIdentity } from "@/lib/push-client";
+import { readApiResponse } from "@/lib/api-response";
 import {
   currentPosition,
   isUnresolvedLocation,
@@ -32,9 +33,7 @@ export async function request<T = any>(
     },
     cache: "no-store",
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Không thể xử lý yêu cầu.");
-  return data;
+  return readApiResponse<T>(response);
 }
 export const post = (path: string, body: unknown, method = "POST") =>
   request(path, { method, body: JSON.stringify(body) });

@@ -18,6 +18,19 @@ npm run realtime
 
 Mở `http://127.0.0.1:3000`. WebSocket local ở cổng 3001. Khi khởi động lại máy, chạy MySQL local trước bằng `scripts/start-local-db.ps1` hoặc dùng MySQL của bạn và cập nhật `DATABASE_URL`.
 
+### Khôi phục local khi server cũ còn giữ cổng/cache
+
+Local và production build dùng Webpack để tránh lỗi junction của `sharp` khi chạy Turbopack trên Windows. Nếu có `EADDRINUSE` hoặc không xóa được `.next`, chạy:
+
+```powershell
+npm run dev:reset
+npm run dev -- --port 3010
+```
+
+Lệnh reset chỉ dừng Next.js của repository này rồi xóa cache `.next`; các server Next.js local của repo sẽ bị dừng. MySQL và WebSocket vẫn chạy. Không chạy reset trong lúc build. Khi đổi cổng local, cập nhật `SITE_URL` và thêm origin tương ứng vào `WS_ALLOWED_ORIGINS` trong `.env.local`.
+
+Kiểm tra bản production trên máy: `npm run build` rồi `npm run start -- --port 3010`. Trên Vercel, build vẫn thông qua `npm run build`; không chạy lệnh reset local trên Vercel.
+
 Tài khoản demo:
 
 | Vai trò | Email                  | Trang  |
