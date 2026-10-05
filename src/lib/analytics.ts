@@ -690,7 +690,7 @@ export async function adminAnalytics(section: string, params: URLSearchParams) {
     throw new AppError("Báo cáo không tồn tại.", 404);
   await ensureAnalyticsSchema();
   const key = section + JSON.stringify(f),
-    refreshToken = params.get("fresh") || "";
+    refreshToken = params.get("fresh") || params.get("v") || "";
   const hit = cache.get(key);
   const fresh =
     refreshToken === "1" ||

@@ -34,12 +34,17 @@ export class ClientLoadCache {
   read<T>(key: string | null): LoadSnapshot<T> {
     if (!key) return disabledLoad as LoadSnapshot<T>;
     const entry = this.entries.get(key);
-    if (
-      !entry ||
-      (!entry.promise && Date.now() - entry.updatedAt > this.maxAge)
-    )
-      return pendingLoad as LoadSnapshot<T>;
+    if (!entry) return pendingLoad as LoadSnapshot<T>;
     return entry.snapshot as LoadSnapshot<T>;
+  }
+
+  // Expiry requests revalidation; it must never remove already-visible data.
+  isStale(key: string | null) {
+    if (!key) return false;
+    const entry = this.entries.get(key);
+    return (
+      !entry || (!entry.promise && Date.now() - entry.updatedAt > this.maxAge)
+    );
   }
 
   subscribe(key: string | null, listener: () => void) {

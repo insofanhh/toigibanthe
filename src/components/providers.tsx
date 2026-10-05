@@ -206,7 +206,15 @@ export function Providers({ children }: { children: ReactNode }) {
     let stopped = false,
       ws: WebSocket | null = null,
       retry: ReturnType<typeof setTimeout> | null = null,
+      refreshTimer: ReturnType<typeof setTimeout> | null = null,
       attempt = 0;
+    const scheduleRefresh = () => {
+      if (refreshTimer) return;
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        if (!stopped) refresh();
+      }, 100);
+    };
     const connect = async () => {
       try {
         const { ticket } = await request("realtime/ticket");
@@ -222,25 +230,32 @@ export function Providers({ children }: { children: ReactNode }) {
         ws = new WebSocket(url);
         ws.onopen = () => {
           attempt = 0;
-          refresh();
+          scheduleRefresh();
+          if (user.role === "admin")
+            window.dispatchEvent(new CustomEvent("tgbd:admin-registrations"));
         };
         ws.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data);
             if (data.type === "admin-analytics" && user.role === "admin")
-              refresh();
+              scheduleRefresh();
             if (
               data.type === "admin-user-registration" &&
               user.role === "admin"
             ) {
               toast("Có người dùng mới đăng ký.");
-              refresh();
+              window.dispatchEvent(
+                new CustomEvent("tgbd:admin-registrations", {
+                  detail: { alertId: data.alertId },
+                }),
+              );
+              scheduleRefresh();
             }
             if (data.type === "admin-users-seen" && user.role === "admin")
-              refresh();
+              window.dispatchEvent(new CustomEvent("tgbd:admin-registrations"));
             if (data.type === "notification") {
               toast(data.title);
-              refresh();
+              scheduleRefresh();
             }
           } catch {}
         };
@@ -260,6 +275,7 @@ export function Providers({ children }: { children: ReactNode }) {
       stopped = true;
       ws?.close();
       if (retry) clearTimeout(retry);
+      if (refreshTimer) clearTimeout(refreshTimer);
       window.removeEventListener("focus", focus);
     };
   }, [user, refresh, toast]);

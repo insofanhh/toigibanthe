@@ -131,6 +131,25 @@ try {
       ),
     );
     assert.ok(!outbox.some((e) => e.user_id === blockedAdmin));
+    const [alert] = await rows<{ id: string }>(
+      "SELECT id FROM admin_registration_alerts WHERE admin_id=? AND user_id=?",
+      [admin, id],
+    );
+    const registration = outbox.find(
+      (e) =>
+        e.user_id === admin &&
+        (typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload)
+          .type === "admin-user-registration",
+    )!;
+    const payload =
+      typeof registration.payload === "string"
+        ? JSON.parse(registration.payload)
+        : registration.payload;
+    assert.equal(
+      (payload as { alertId: string }).alertId,
+      alert.id,
+      "WebSocket contains durable alert ID for immediate badge update",
+    );
   }
   console.log(
     "PASS registration alerts: both account creation paths, active admins only, snapshot-safe reads, ownership, idempotency, persistence, validation and transactional rollback.",

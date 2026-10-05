@@ -15,7 +15,14 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useApp, post } from "./providers";
-import { useLoad, Button, Field, Notice, PageLoading } from "./app";
+import {
+  useLoad,
+  Button,
+  Field,
+  Notice,
+  PageLoading,
+  BackgroundRefreshNotice,
+} from "./app";
 import { Link } from "./page-motion";
 import {
   serviceDate,
@@ -280,7 +287,8 @@ function Profile({
           Đóng chi tiết
         </Button>
       </div>
-      {!result.data || result.error ? (
+      <BackgroundRefreshNotice loads={[result]} />
+      {!result.data ? (
         <Retry error={result.error} reload={result.reload} />
       ) : (
         <>
@@ -441,16 +449,16 @@ export function AdminUsers() {
     [busy, setBusy] = useState<string | null>(null),
     [today, setToday] = useState(serviceDate);
   const keys = [
-      "from",
-      "to",
-      "role",
-      "status",
-      "q",
-      "group",
-      "segment",
-      "sort",
-      "page",
-    ];
+    "from",
+    "to",
+    "role",
+    "status",
+    "q",
+    "group",
+    "segment",
+    "sort",
+    "page",
+  ];
   const q = new URLSearchParams();
   for (const key of keys) {
     const value = params.get("u" + key);
@@ -582,6 +590,7 @@ export function AdminUsers() {
   ] as const;
   return (
     <div className="admin-users analytics-overview">
+      <BackgroundRefreshNotice loads={[report, list]} />
       <div className="analytics-toolbar">
         <div className="analytics-presets">
           {[7, 30, 90].map((days) => (
@@ -693,7 +702,7 @@ export function AdminUsers() {
           </button>
         </Notice>
       )}
-      {report.error || !report.data ? (
+      {!report.data ? (
         <Retry error={report.error} reload={report.reload} />
       ) : (
         <>
@@ -862,7 +871,7 @@ export function AdminUsers() {
             Xóa bộ lọc danh sách
           </button>
         </div>
-        {list.error || !list.data ? (
+        {!list.data ? (
           <Retry error={list.error} reload={list.reload} />
         ) : (
           <>

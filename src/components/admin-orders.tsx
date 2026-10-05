@@ -16,7 +16,7 @@ import {
   CircleX,
   TimerOff,
 } from "lucide-react";
-import { Button, Field, Notice, useLoad } from "./app";
+import { Button, Field, Notice, useLoad, BackgroundRefreshNotice } from "./app";
 import { useApp, post } from "./providers";
 import {
   count,
@@ -953,6 +953,9 @@ export function AdminOrders({
   };
   return (
     <div className="admin-orders analytics-overview">
+      <BackgroundRefreshNotice
+        loads={[trends, operations, listing, payments, performance]}
+      />
       <div className="analytics-toolbar">
         <div className="analytics-presets">
           {[7, 30, 90].map((n) => (

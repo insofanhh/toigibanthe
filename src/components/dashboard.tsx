@@ -62,6 +62,7 @@ import {
   NeedLogin,
   OrderCard,
   PageLoading,
+  BackgroundRefreshNotice,
 } from "./app";
 import {
   money,
@@ -1069,14 +1070,13 @@ export function AdminDashboard() {
     [chefFilter, setChefFilter] = useState(params.get("chef") || ""),
     [form, setForm] = useState("");
   const [collapsed, setCollapsed] = useState(false);
-  const registrations = useRegistrationAlerts(tab === "users");
+  const registrations = useRegistrationAlerts();
   useEffect(() => {
     setTab(params.get("tab") || "overview");
     if (["orders", "products", "payments"].includes(params.get("tab") || ""))
       setChefFilter(params.get("chef") || "");
   }, [params]);
   function navigateAdmin(next: string, chef?: string, orderFilter?: string) {
-    if (next === "users" && tab === "users") void registrations.markSeen();
     const p = new URLSearchParams(params.toString());
     p.set("tab", next);
     if (next !== "products") p.delete("product");
@@ -1214,8 +1214,27 @@ export function AdminDashboard() {
           title={items.find(([id]) => id === tab)?.[1] || "Quản trị"}
           subtitle="Quản trị hệ thống"
         />
+        {registrations.error && (
+          <Notice error>
+            Không thể cập nhật thông báo user mới: {registrations.error}{" "}
+            <button className="text-button" onClick={registrations.reload}>
+              Thử lại
+            </button>
+          </Notice>
+        )}
+        <BackgroundRefreshNotice loads={[{ data, error, reload }]} />
+        {tab === "users" && registrations.count > 0 && (
+          <div className="admin-registration-notice" role="status">
+            <span>
+              Có <strong>{registrations.count} user</strong> mới đăng ký
+            </span>
+            <Button secondary onClick={() => void registrations.markSeen()}>
+              Đã xem
+            </Button>
+          </div>
+        )}
         {!["overview", "users", "chefs", "products", "orders"].includes(tab) &&
-        (error || !data) ? (
+        !data ? (
           error ? (
             <Notice error>{error}</Notice>
           ) : (

@@ -174,6 +174,7 @@ export function useLoad<T = any>(
     }
   }, [enabledPath, data, location, authReady, user?.role]);
   const missing = snapshot === pendingLoad;
+  const stale = loadCache.isStale(key);
   const loading = !!path && (!enabledPath || snapshot.loading);
   const reload = useCallback(() => {
     if (key && requestPath)
@@ -192,7 +193,11 @@ export function useLoad<T = any>(
       previous.current?.key === key &&
       previous.current.dependencies !== dependencyKey;
     const shouldLoad =
-      missing || !previous.current || previous.current.key !== key || force;
+      missing ||
+      stale ||
+      !previous.current ||
+      previous.current.key !== key ||
+      force;
     previous.current = { key, dependencies: dependencyKey };
     if (key && requestPath && shouldLoad)
       void loadCache.load(
@@ -200,7 +205,7 @@ export function useLoad<T = any>(
         (signal) => request<T>(requestPath, { signal }),
         force,
       );
-  }, [loadCache, key, requestPath, dependencyKey, missing]);
+  }, [loadCache, key, requestPath, dependencyKey, missing, stale]);
   useEffect(() => {
     if (!path?.startsWith("catalog")) return;
     const interval = setInterval(reload, 30000);
@@ -230,6 +235,26 @@ export function useLoad<T = any>(
     [loadCache, key],
   );
   return { data, error, loading, reload, setData };
+}
+export function BackgroundRefreshNotice({
+  loads,
+}: {
+  loads: { data: unknown; error: string; reload: () => void }[];
+}) {
+  const failed = loads.filter((load) => load.data && load.error);
+  if (!failed.length) return null;
+  return (
+    <Notice error>
+      Không thể cập nhật dữ liệu. Đang hiển thị dữ liệu đã tải.{" "}
+      {failed[0].error}{" "}
+      <button
+        className="text-button"
+        onClick={() => failed.forEach((load) => load.reload())}
+      >
+        Thử lại
+      </button>
+    </Notice>
+  );
 }
 export function Button({
   children,

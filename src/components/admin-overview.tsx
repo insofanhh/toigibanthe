@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useApp, post, request } from "./providers";
-import { useLoad, Button, Field, Notice } from "./app";
+import { useLoad, Button, Field, Notice, BackgroundRefreshNotice } from "./app";
 import { Link } from "./page-motion";
 import {
   money,
@@ -666,30 +666,38 @@ export function AdminOverview({
     () => setDraft(filter),
     [filter.from, filter.to, filter.region, filter.meal],
   );
-  const qs =
-    new URLSearchParams(filter).toString() + (manual ? "&fresh=" + manual : "");
-  const summary = useLoad<Row>("admin/analytics/summary?" + qs, [
-    revision,
-    manual,
-  ]);
-  const trends = useLoad<Row>("admin/analytics/trends?" + qs, [
-    revision,
-    manual,
-  ]);
-  const ops = useLoad<Row>("admin/analytics/operations?" + qs, [
-    revision,
-    manual,
-    tick,
-  ]);
-  const perf = useLoad<Row>("admin/analytics/performance?" + qs, [
-    revision,
-    manual,
-  ]);
-  const growth = useLoad<Row>("admin/analytics/growth?" + qs, [
-    revision,
-    manual,
-  ]);
-  const goals = useLoad<Row>("admin/analytics/goals?" + qs, [revision, manual]);
+  const qs = new URLSearchParams(filter).toString();
+  const requestVersion = `${revision}:${manual}`;
+  const summary = useLoad<Row>(
+    "admin/analytics/summary?" + qs,
+    [revision, manual],
+    requestVersion,
+  );
+  const trends = useLoad<Row>(
+    "admin/analytics/trends?" + qs,
+    [revision, manual],
+    requestVersion,
+  );
+  const ops = useLoad<Row>(
+    "admin/analytics/operations?" + qs,
+    [revision, manual, tick],
+    requestVersion,
+  );
+  const perf = useLoad<Row>(
+    "admin/analytics/performance?" + qs,
+    [revision, manual],
+    requestVersion,
+  );
+  const growth = useLoad<Row>(
+    "admin/analytics/growth?" + qs,
+    [revision, manual],
+    requestVersion,
+  );
+  const goals = useLoad<Row>(
+    "admin/analytics/goals?" + qs,
+    [revision, manual],
+    requestVersion,
+  );
   useEffect(() => {
     const timer = setInterval(() => {
       if (!document.hidden) setTick((n) => n + 1);
@@ -988,6 +996,9 @@ export function AdminOverview({
       );
   return (
     <div className="analytics-overview">
+      <BackgroundRefreshNotice
+        loads={[summary, trends, ops, perf, growth, goals]}
+      />
       <div className="analytics-toolbar">
         <div className="analytics-presets" aria-label="Khoảng thời gian">
           {[

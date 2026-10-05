@@ -85,7 +85,7 @@ test("deduplicates concurrent readers and preserves data on refresh failure", as
   assert.equal(cache.read("orders").loading, false);
 });
 
-test("evicts unused entries and stops displaying expired cached data", async () => {
+test("evicts unused entries and preserves stale data while revalidating", async () => {
   const cache = new ClientLoadCache(120_000, 2);
   const release = cache.subscribe("visible", () => {});
   for (const key of ["visible", "old", "new"]) cache.set(key, key);
@@ -94,7 +94,15 @@ test("evicts unused entries and stops displaying expired cached data", async () 
   release();
   const expired = new ClientLoadCache(-1);
   expired.set("catalog", "yesterday");
-  assert.equal(expired.read("catalog"), pendingLoad);
+  assert.equal(expired.read("catalog").data, "yesterday");
+  assert.equal(expired.isStale("catalog"), true);
+  const next = deferred<string>();
+  const loading = expired.load("catalog", () => next.promise);
+  assert.equal(expired.read("catalog").data, "yesterday");
+  assert.equal(expired.read("catalog").loading, true);
+  next.resolve("today");
+  await loading;
+  assert.equal(expired.read("catalog").data, "today");
 });
 test("invalidating a dish discards its stale response without clearing other pages", async () => {
   const cache = new ClientLoadCache();

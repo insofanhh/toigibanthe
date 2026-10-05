@@ -18,7 +18,14 @@ import {
   Settings,
 } from "lucide-react";
 import { useApp, post } from "./providers";
-import { Button, Field, Notice, PageLoading, useLoad } from "./app";
+import {
+  Button,
+  Field,
+  Notice,
+  PageLoading,
+  useLoad,
+  BackgroundRefreshNotice,
+} from "./app";
 import { Link } from "./page-motion";
 import {
   CHEF_STATUSES,
@@ -433,7 +440,8 @@ function Detail({
           </nav>
         </>
       )}
-      {!result.data || result.error || profileOnly ? (
+      <BackgroundRefreshNotice loads={[result]} />
+      {!result.data || profileOnly ? (
         <Pending error={result.error} retry={result.reload} />
       ) : (
         <>
@@ -1232,6 +1240,7 @@ export function AdminChefs({
   ] as const;
   return (
     <div className="admin-chefs analytics-overview">
+      <BackgroundRefreshNotice loads={[summary, operations, trends, list]} />
       <div className="analytics-toolbar">
         <div className="analytics-presets">
           {[7, 30, 90].map((days) => (
@@ -1371,7 +1380,7 @@ export function AdminChefs({
         />
       ) : (
         <>
-          {!summary.data || summary.error ? (
+          {!summary.data ? (
             <Pending error={summary.error} retry={summary.reload} />
           ) : (
             <>
@@ -1435,7 +1444,7 @@ export function AdminChefs({
             title="Bếp cần theo dõi"
             caption="Tồn đọng hiện tại không giới hạn ngày tạo. Bấm để mở đúng hồ sơ, đơn hoặc đối soát."
           >
-            {!operations.data || operations.error ? (
+            {!operations.data ? (
               <Pending error={operations.error} retry={operations.reload} />
             ) : operations.data.alerts.length ? (
               <>
@@ -1505,7 +1514,7 @@ export function AdminChefs({
               title="Tăng trưởng bếp"
               caption="Hồ sơ mới theo lần đăng ký đầu; hồ sơ gửi lại không cộng thành chef mới."
             >
-              {!trends.data || trends.error ? (
+              {!trends.data ? (
                 <Pending error={trends.error} retry={trends.reload} />
               ) : (
                 <GrowthChart days={trends.data.days} />
@@ -1524,7 +1533,7 @@ export function AdminChefs({
                   <option value="completed">Đơn hoàn thành</option>
                 </select>
               </Field>
-              {!trends.data || trends.error ? (
+              {!trends.data ? (
                 <Pending error={trends.error} retry={trends.reload} />
               ) : (
                 <div className="chefs-top-chart">
@@ -1662,7 +1671,7 @@ export function AdminChefs({
                 Xóa bộ lọc danh sách
               </button>
             </div>
-            {!list.data || list.error ? (
+            {!list.data ? (
               <Pending error={list.error} retry={list.reload} />
             ) : (
               <>

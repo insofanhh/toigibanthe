@@ -33,9 +33,10 @@ export async function registrationCreated(db: DB, userId: string) {
     [],
     db,
   )) {
+    const alertId = randomUUID();
     await exec(
       "INSERT INTO admin_registration_alerts VALUES (?,?,?,?,NULL)",
-      [randomUUID(), admin.id, userId, created],
+      [alertId, admin.id, userId, created],
       db,
     );
     await exec(
@@ -43,7 +44,11 @@ export async function registrationCreated(db: DB, userId: string) {
       [
         randomUUID(),
         admin.id,
-        JSON.stringify({ type: "admin-user-registration", entityId: userId }),
+        JSON.stringify({
+          type: "admin-user-registration",
+          entityId: userId,
+          alertId,
+        }),
         created,
       ],
       db,

@@ -15,7 +15,7 @@ import {
   Settings,
   ChevronRight,
 } from "lucide-react";
-import { Button, Field, Notice, useLoad } from "./app";
+import { Button, Field, Notice, useLoad, BackgroundRefreshNotice } from "./app";
 import { useApp, post } from "./providers";
 import { Link } from "./page-motion";
 import {
@@ -206,7 +206,8 @@ function ProductDetail({
           </nav>
         </>
       )}
-      {!report.data || report.error ? (
+      <BackgroundRefreshNotice loads={[report]} />
+      {!report.data ? (
         <Pending error={report.error} retry={report.reload} />
       ) : (
         p && (
@@ -927,6 +928,9 @@ export function AdminProducts({
   ] as const;
   return (
     <div className="admin-products analytics-overview">
+      <BackgroundRefreshNotice
+        loads={[summary, operations, trends, supply, list]}
+      />
       <div className="analytics-toolbar">
         <div className="analytics-presets">
           {[7, 30, 90].map((n) => (
@@ -1080,7 +1084,7 @@ export function AdminProducts({
         />
       ) : (
         <>
-          {!summary.data || summary.error ? (
+          {!summary.data ? (
             <Pending error={summary.error} retry={summary.reload} />
           ) : (
             <>
@@ -1171,7 +1175,7 @@ export function AdminProducts({
                   </select>
                 }
               >
-                {!operations.data || operations.error ? (
+                {!operations.data ? (
                   <Pending error={operations.error} retry={operations.reload} />
                 ) : (
                   <>
@@ -1254,7 +1258,7 @@ export function AdminProducts({
                       <option value="gmv">Doanh số món</option>
                     </select>
                   </Field>
-                  {!trends.data || trends.error ? (
+                  {!trends.data ? (
                     <Pending error={trends.error} retry={trends.reload} />
                   ) : (
                     <>
@@ -1295,7 +1299,7 @@ export function AdminProducts({
                       <option value="orders">Đơn hoàn thành</option>
                     </select>
                   </Field>
-                  {!trends.data || trends.error ? (
+                  {!trends.data ? (
                     <Pending error={trends.error} retry={trends.reload} />
                   ) : trends.data.tops[topMetric].length ? (
                     <div className="products-top-chart">
@@ -1354,7 +1358,7 @@ export function AdminProducts({
               title="Nguồn cung theo bữa / khu vực"
               caption="Hiện trạng ở vị trí bếp; giao được tới khách còn phụ thuộc bán kính và địa chỉ checkout."
             >
-              {!supply.data || supply.error ? (
+              {!supply.data ? (
                 <Pending error={supply.error} retry={supply.reload} />
               ) : (
                 <>
@@ -1542,7 +1546,7 @@ export function AdminProducts({
                   Hiển thị thông tin nâng cao
                 </label>
               )}
-              {!list.data || list.error ? (
+              {!list.data ? (
                 <Pending error={list.error} retry={list.reload} />
               ) : (
                 <>
