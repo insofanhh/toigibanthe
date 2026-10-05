@@ -85,9 +85,9 @@ export async function submitPaymentRequest(
         "Chỉ khách đặt đơn được gửi yêu cầu đối soát / hoàn tiền.",
         403,
       );
-    if (["PLACED", "PAID"].includes(o.status))
+    if (!["DELIVERED", "COMPLETED"].includes(o.status))
       throw new AppError(
-        "Đơn chưa được bếp nhận. Nếu cần hoàn tiền, hãy hủy và yêu cầu hoàn tiền.",
+        "Chỉ có thể gửi yêu cầu sau khi bếp đã báo đã giao đơn.",
         409,
       );
     if (

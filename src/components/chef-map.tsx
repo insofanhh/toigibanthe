@@ -6,6 +6,7 @@ import type { ChefMapFeed, Location, MapChef } from "@/lib/domain";
 import { loadGoongSDK } from "@/lib/goong-sdk";
 import { useApp } from "./providers";
 import { Link } from "./page-motion";
+import { createChefMapPin } from "./chef-map-marker";
 import { BackgroundRefreshNotice, Notice, PageTitle, useLoad } from "./app";
 
 function distance(km: number) {
@@ -28,7 +29,7 @@ function Avatar({ chef }: { chef: MapChef }) {
 
 type MarkerEntry = {
   marker: any;
-  button: HTMLButtonElement;
+  button: HTMLElement;
   signature: string;
 };
 
@@ -162,10 +163,7 @@ function ChefMap({
         entry = undefined;
       }
       if (!entry) {
-        const element = document.createElement("div");
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "chef-map-pin";
+        const button = createChefMapPin(chef.name, chef.avatar, "button");
         button.addEventListener("click", (event) => {
           event.stopPropagation();
           latest.current.onSelect(chef.id);
@@ -178,23 +176,8 @@ function ChefMap({
               : 450,
           });
         });
-        const avatar = document.createElement("span");
-        avatar.className = "chef-map-pin-avatar";
-        avatar.textContent = chef.name.trim().charAt(0).toUpperCase();
-        if (chef.avatar) {
-          const img = document.createElement("img");
-          img.src = chef.avatar;
-          img.alt = "";
-          img.addEventListener("error", () => img.remove(), { once: true });
-          avatar.appendChild(img);
-        }
-        const label = document.createElement("span");
-        label.className = "chef-map-pin-label";
-        label.textContent = chef.name;
-        button.append(avatar, label);
-        element.appendChild(button);
         entry = {
-          marker: new goong.Marker({ element, anchor: "bottom" })
+          marker: new goong.Marker({ element: button, anchor: "bottom" })
             .setLngLat([chef.lng, chef.lat])
             .addTo(map.current),
           button,

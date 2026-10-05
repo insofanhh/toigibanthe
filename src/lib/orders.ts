@@ -48,6 +48,7 @@ export type OrderRecord = {
   user_id: string;
   chef_id: string;
   chef_name: string;
+  chef_avatar: string | null;
   chef_address: string;
   chef_user_id: string;
   meal_id: string;
@@ -87,7 +88,7 @@ export type OrderRecord = {
   events?: unknown[];
 };
 const orderSQL =
-  'SELECT o.*,c.name chef_name,c.address chef_address,c.user_id chef_user_id,COALESCE(ps.automatic,0) automatic_payment,(SELECT COALESCE(SUM(t.amount),0) FROM sepay_transactions t WHERE t.order_id=o.id AND t.result IN ("PARTIAL","PAID","OVERPAID")) received_amount FROM orders o JOIN chefs c ON c.id=o.chef_id LEFT JOIN sepay_order_settings ps ON ps.order_id=o.id';
+  'SELECT o.*,c.name chef_name,c.avatar_url chef_avatar,c.address chef_address,c.user_id chef_user_id,COALESCE(ps.automatic,0) automatic_payment,(SELECT COALESCE(SUM(t.amount),0) FROM sepay_transactions t WHERE t.order_id=o.id AND t.result IN ("PARTIAL","PAID","OVERPAID")) received_amount FROM orders o JOIN chefs c ON c.id=o.chef_id LEFT JOIN sepay_order_settings ps ON ps.order_id=o.id';
 export async function getOrder(
   id: string,
   user: Actor,

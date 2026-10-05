@@ -593,7 +593,7 @@ export async function adminOrderDetail(
     ),
     [r] = await query(
       ctx,
-      `SELECT ${fields()},r.user_id,r.phone,r.address,r.lat,r.lng,r.chef_lat,r.chef_lng,r.route_duration_seconds,r.route_polyline,r.bank_bin,r.bank_name,r.account_no,r.account_name,r.transfer_content,r.note,r.payment_reported,r.cancellation_reason,COALESCE(ps.automatic,0) automatic FROM reported r LEFT JOIN sepay_order_settings ps ON ps.order_id=r.id`,
+      `SELECT ${fields()},r.user_id,r.phone,r.address,r.lat,r.lng,r.chef_lat,r.chef_lng,r.route_duration_seconds,r.route_polyline,r.bank_bin,r.bank_name,r.account_no,r.account_name,r.transfer_content,r.note,r.payment_reported,r.cancellation_reason,c2.avatar_url chef_avatar,COALESCE(ps.automatic,0) automatic FROM reported r LEFT JOIN sepay_order_settings ps ON ps.order_id=r.id LEFT JOIN chefs c2 ON c2.id=r.chef_id`,
     );
   if (!r) throw new AppError("Không tìm thấy đơn.", 404);
   const order = row(r, now),

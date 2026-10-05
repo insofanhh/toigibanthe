@@ -2710,7 +2710,7 @@ function OrderDetail({ id }: { id: string }) {
               </Button>
             )}
             {!chef &&
-              !["PLACED", "PAID"].includes(o.status) &&
+              ["DELIVERED", "COMPLETED"].includes(o.status) &&
               !data.paymentRequests?.length && (
                 <CustomerPaymentRequestForm
                   key={id}

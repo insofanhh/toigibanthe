@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { haversine } from "@/lib/domain";
+import { createChefMapPin } from "./chef-map-marker";
 function decodePolyline(encoded: string) {
   const points: [number, number][] = [];
   let index = 0,
@@ -98,7 +99,15 @@ export function DeliveryMap({ order }: { order: any }) {
               paint: { "line-color": "#206b50", "line-width": 4 },
             });
           }
-          new sdk.Marker({ color: "#206b50" }).setLngLat(start).addTo(map);
+          const chefPin = createChefMapPin(
+            order.chef_name || "Bếp",
+            order.chef_avatar,
+          );
+          chefPin.classList.add("is-nearest");
+          chefPin.setAttribute("aria-label", `Bếp ${order.chef_name || ""}`);
+          new sdk.Marker({ element: chefPin, anchor: "bottom" })
+            .setLngLat(start)
+            .addTo(map);
           new sdk.Marker({ color: "#df8453" }).setLngLat(end).addTo(map);
           if (["DELIVERING", "DELIVERED", "COMPLETED"].includes(order.status)) {
             const marker = document.createElement("div");
@@ -154,7 +163,7 @@ export function DeliveryMap({ order }: { order: any }) {
       stopped = true;
       map?.remove();
     };
-  }, [key, order.id, order.status]);
+  }, [key, order.id, order.status, order.chef_name, order.chef_avatar]);
   return (
     <div>
       {key ? (
