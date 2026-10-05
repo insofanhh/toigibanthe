@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { hash } from "bcryptjs";
 import { exec, rows, pool, sqlDate } from "../src/lib/db";
-import { updateUserProfile, softDeleteAccount } from "../src/lib/user-account";
+import {
+  updateUserProfile,
+  softDeleteAccount,
+  adminSoftDeleteAccount,
+} from "../src/lib/user-account";
+import { sessionRevocationReason } from "../src/lib/session-revocations";
 import { ensureUserAccountSchema } from "../src/lib/user-account-schema";
 import { ensurePushSchema } from "../src/lib/push-schema";
 import { ensureEmailVerificationSchema } from "../src/lib/email-verification-schema";
@@ -18,14 +23,16 @@ assert.ok(
   "Local MySQL fixtures only",
 );
 const suffix = randomUUID();
-const users: Actor[] = ["user", "chef", "admin"].map((role) => ({
-  id: randomUUID(),
-  name: "Account fixture " + suffix,
-  email: `${role}-${suffix}@example.invalid`,
-  phone: "",
-  role: role as Actor["role"],
-  active: 1,
-}));
+const users: Actor[] = ["user", "chef", "admin", "user", "user"].map(
+  (role, index) => ({
+    id: randomUUID(),
+    name: "Account fixture " + suffix,
+    email: `${role}-${index}-${suffix}@example.invalid`,
+    phone: "",
+    role: role as Actor["role"],
+    active: 1,
+  }),
+);
 const ids = users.map((user) => user.id);
 const assets = [randomUUID(), randomUUID(), randomUUID()];
 const chefId = randomUUID(),
@@ -108,6 +115,19 @@ try {
     avatarAssetId: assets[0],
   });
   await assert.rejects(() => softDeleteAccount(users[0], {}));
+  await assert.rejects(
+    () => adminSoftDeleteAccount(users[0], users[3].id, confirmation),
+    { status: 403 },
+  );
+  await assert.rejects(
+    () => adminSoftDeleteAccount(users[2], users[2].id, confirmation),
+    /đang dùng/,
+  );
+  await assert.rejects(
+    () => adminSoftDeleteAccount(users[2], randomUUID(), confirmation),
+    { status: 404 },
+  );
+  await assert.rejects(() => adminSoftDeleteAccount(users[2], users[3].id, {}));
   await exec(
     "INSERT INTO chefs (id,user_id,name,bio,address,area,lat,lng,status,created_at) VALUES (?,?,?,'Fixture','Fixture','Fixture',10,106,'approved',?)",
     [chefId, users[1].id, users[1].name, at],
@@ -139,6 +159,10 @@ try {
   await assert.rejects(() => softDeleteAccount(users[1], confirmation), {
     status: 409,
   });
+  await assert.rejects(
+    () => adminSoftDeleteAccount(users[2], users[1].id, confirmation),
+    { status: 409 },
+  );
   await exec(
     "UPDATE orders SET status='COMPLETED',payment_status='REFUND_PENDING' WHERE id=?",
     [orderId],
@@ -257,7 +281,11 @@ try {
       )
     )[0].consumed_at,
   );
-  await assert.rejects(() => signIn(users[0].email, password), { status: 401 });
+  await assert.rejects(() => signIn(users[0].email, password), {
+    status: 403,
+    code: "ACCOUNT_DELETED",
+  });
+  assert.equal(await sessionRevocationReason(sessionHash), "ACCOUNT_DELETED");
   await assert.rejects(
     () => updateUserProfile(users[0], { name: "Stale session", phone: "" }),
     { status: 401 },
@@ -276,11 +304,13 @@ try {
   assert.equal(detail.total, 1);
   assert.equal(detail.user.avatar_url, avatarUrl);
   const attempts = await Promise.allSettled([
-    softDeleteAccount(users[1], confirmation),
+    adminSoftDeleteAccount(users[2], users[1].id, confirmation),
     softDeleteAccount(users[1], confirmation),
   ]);
   assert.equal(
-    attempts.filter((result) => result.status === "fulfilled").length,
+    attempts.filter(
+      (result) => result.status === "fulfilled" && result.value.changed,
+    ).length,
     1,
   );
   assert.equal(
@@ -300,8 +330,74 @@ try {
     )[0].is_open,
     0,
   );
+  const deletedToken = randomBytes(32).toString("base64url");
+  const deletedHash = createHash("sha256").update(deletedToken).digest("hex");
+  await exec("INSERT INTO sessions VALUES (?,?,?)", [
+    deletedHash,
+    users[3].id,
+    sqlDate(new Date(Date.now() + 3600000)),
+  ]);
+  if (base) {
+    const adminToken = randomBytes(32).toString("base64url");
+    await exec("INSERT INTO sessions VALUES (?,?,?)", [
+      createHash("sha256").update(adminToken).digest("hex"),
+      users[2].id,
+      sqlDate(new Date(Date.now() + 3600000)),
+    ]);
+    const remove = (cookie: string, body: unknown) =>
+      fetch(base + "/api/admin/users/" + users[3].id, {
+        method: "DELETE",
+        headers: {
+          cookie: "tgbd_session=" + cookie,
+          origin: new URL(process.env.SITE_URL || base).origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    assert.equal((await remove(deletedToken, confirmation)).status, 403);
+    assert.equal((await remove(adminToken, {})).status, 400);
+    const response = await remove(adminToken, confirmation);
+    assert.equal(response.status, 200, await response.text());
+    const kicked = await fetch(base + "/api/auth/me", {
+      headers: { cookie: "tgbd_session=" + deletedToken },
+    });
+    const status = await kicked.json();
+    assert.equal(status.user, null);
+    assert.equal(status.accountStatus, "deleted");
+    const adminMe = await fetch(base + "/api/auth/me", {
+      headers: { cookie: "tgbd_session=" + adminToken },
+    });
+    assert.equal((await adminMe.json()).user.id, users[2].id);
+  } else await adminSoftDeleteAccount(users[2], users[3].id, confirmation);
+  assert.equal(await sessionRevocationReason(deletedHash), "ACCOUNT_DELETED");
+  assert.equal(
+    (await adminSoftDeleteAccount(users[2], users[3].id, confirmation)).changed,
+    false,
+  );
+  const audits = await rows<{ actor_id: string; data: unknown }>(
+    "SELECT actor_id,detail data FROM audit_logs WHERE entity_id=? AND action='user.delete'",
+    [users[3].id],
+  );
+  assert.equal(audits.length, 1);
+  assert.equal(audits[0].actor_id, users[2].id);
+  const auditData =
+    typeof audits[0].data === "string"
+      ? JSON.parse(audits[0].data)
+      : audits[0].data;
+  assert.equal((auditData as { initiatedBy: string }).initiatedBy, "admin");
+  await exec("UPDATE users SET active=FALSE WHERE id=?", [users[4].id]);
+  await adminSoftDeleteAccount(users[2], users[4].id, confirmation);
+  assert.ok(
+    (await adminUsersList(query)).users.find((u) => u.id === users[4].id)
+      ?.deleted_at,
+  );
+  await exec("UPDATE users SET role='user' WHERE id=?", [users[2].id]);
+  await assert.rejects(
+    () => adminSoftDeleteAccount(users[2], users[4].id, confirmation),
+    { status: 403 },
+  );
   console.log(
-    "PASS account profile/avatar ownership, removal, admin visibility, pending order/refund guards, soft delete preserving order history, session/push/token revocation, login/access rejection, concurrent deletion, chef closure" +
+    "PASS account profile/avatar ownership, removal, admin visibility, pending order/refund guards, soft delete preserving order history, session/push/token revocation, login/access rejection, concurrent deletion, chef closure, admin deletion/authorization/audit/idempotency, revocation reason and locked account deletion" +
       (base ? ", authenticated HTTP and cookie removal" : ""),
   );
 } finally {
@@ -320,6 +416,7 @@ try {
     "email_verification_tokens",
     "user_account_details",
     "user_email_status",
+    "revoked_sessions",
   ])
     await exec(`DELETE FROM ${table} WHERE user_id IN (?)`, [ids]);
   await exec("DELETE FROM assets WHERE id IN (?)", [assets]);

@@ -1,7 +1,8 @@
 import { randomUUID, createHash } from "node:crypto";
 import { googleAuth } from "@/lib/google-auth";
 import { updateAccountAccess } from "@/lib/admin-user-access";
-import { updateUserProfile, softDeleteAccount } from "@/lib/user-account";
+import { updateUserProfile, softDeleteAccount, adminSoftDeleteAccount } from "@/lib/user-account";
+import { sessionRevocationReason, ensureSessionRevocationSchema } from "@/lib/session-revocations";
 import {
   chefApplicationAlerts,
   seeChefApplications,
@@ -175,8 +176,11 @@ async function dispatch(req: Request) {
     if (action === "google" && method === "GET") return googleAuth(req, id);
     if (action === "me" && method === "GET") {
       const user = await actor(false);
+      const token = !user ? (await cookies()).get(COOKIE)?.value : null;
+      const accountStatus = token && await sessionRevocationReason(digest(token)) ? "deleted" : null;
       return {
         user,
+        accountStatus,
         chef: user
           ? (
               await rows(
@@ -854,6 +858,8 @@ async function dispatch(req: Request) {
       clearChefReports();
       return { ok: true };
     }
+    if (action === "users" && method === "DELETE")
+      return adminSoftDeleteAccount(user, id || "", await req.json());
     if (action === "users" && method === "POST") {
       const result = await updateAccountAccess(user, id || "", await req.json());
       if (result.changed) {
@@ -1217,6 +1223,8 @@ async function dispatch(req: Request) {
     await processBroadcasts();
     await processPushQueue();
     await exec("DELETE FROM sessions WHERE expires_at<?", [sqlDate()]);
+    await ensureSessionRevocationSchema();
+    await exec("DELETE FROM revoked_sessions WHERE expires_at<?", [sqlDate()]);
     await exec(
       "DELETE FROM outbox_receipts WHERE created_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY)",
     );

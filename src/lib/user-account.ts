@@ -8,6 +8,7 @@ import { ensurePushSchema } from "./push-schema";
 import { ensureEmailVerificationSchema } from "./email-verification-schema";
 import { ensurePaymentRequestSchema } from "./payment-request-store";
 import { analyticsLive } from "./admin-events";
+import { ensureSessionRevocationSchema } from "./session-revocations";
 
 const profileSchema = z
   .object({
@@ -64,6 +65,26 @@ export async function updateUserProfile(actor: Actor, input: unknown) {
 }
 
 export async function softDeleteAccount(actor: Actor, input: unknown) {
+  return deleteAccount(actor, actor.id, input, false);
+}
+
+export async function adminSoftDeleteAccount(
+  actor: Actor,
+  id: string,
+  input: unknown,
+) {
+  if (actor.role !== "admin" || !actor.active)
+    throw new AppError("Bạn không có quyền xóa tài khoản.", 403);
+  if (!id || id.length > 36) throw new AppError("Tài khoản không hợp lệ.");
+  return deleteAccount(actor, id, input, true);
+}
+
+async function deleteAccount(
+  actor: Actor,
+  id: string,
+  input: unknown,
+  byAdmin: boolean,
+) {
   z.object({ confirmation: z.literal("DELETE") })
     .strict()
     .parse(input);
@@ -71,6 +92,7 @@ export async function softDeleteAccount(actor: Actor, input: unknown) {
   await ensurePushSchema();
   await ensureEmailVerificationSchema();
   await ensurePaymentRequestSchema();
+  await ensureSessionRevocationSchema();
   return transaction(async (db) => {
     // Share the lock with admin role changes to protect the final active admin.
     await exec(
@@ -83,14 +105,37 @@ export async function softDeleteAccount(actor: Actor, input: unknown) {
       [],
       db,
     );
+    if (byAdmin) {
+      const [currentAdmin] = await rows<Actor>(
+        "SELECT id,role,active FROM users WHERE id=? FOR UPDATE",
+        [actor.id],
+        db,
+      );
+      if (!currentAdmin?.active || currentAdmin.role !== "admin")
+        throw new AppError(
+          "Quyền quản trị của bạn đã thay đổi. Hãy đăng nhập lại.",
+          403,
+        );
+      if (id === actor.id)
+        throw new AppError(
+          "Không thể xóa tài khoản quản trị đang dùng trong bảng Users.",
+        );
+    }
     const [user] = await rows<Actor>(
       "SELECT id,role,active FROM users WHERE id=? FOR UPDATE",
-      [actor.id],
+      [id],
       db,
     );
-    if (!user?.active)
+    if (!user) throw new AppError("Không tìm thấy tài khoản.", 404);
+    const [deleted] = await rows(
+      "SELECT user_id FROM user_account_details WHERE user_id=? AND deleted_at IS NOT NULL",
+      [id],
+      db,
+    );
+    if (deleted && byAdmin) return { ok: true, changed: false };
+    if ((!user.active || deleted) && !byAdmin)
       throw new AppError("Tài khoản không còn hoạt động.", 401);
-    if (user.role === "admin") {
+    if (user.role === "admin" && user.active) {
       const [{ total }] = await rows<{ total: number }>(
         "SELECT COUNT(*) total FROM users WHERE role='admin' AND active=TRUE",
         [],
@@ -118,7 +163,9 @@ export async function softDeleteAccount(actor: Actor, input: unknown) {
     );
     if (orders.length || requests.length)
       throw new AppError(
-        "Bạn còn đơn hàng hoặc yêu cầu đối soát/hoàn tiền chưa xử lý. Hãy hoàn tất trước khi xóa tài khoản.",
+        byAdmin
+          ? "Tài khoản còn đơn hàng hoặc đối soát/hoàn tiền chưa xử lý. Hãy hoàn tất trước khi xóa."
+          : "Bạn còn đơn hàng hoặc yêu cầu đối soát/hoàn tiền chưa xử lý. Hãy hoàn tất trước khi xóa tài khoản.",
         409,
       );
     const now = sqlDate();
@@ -135,11 +182,21 @@ export async function softDeleteAccount(actor: Actor, input: unknown) {
         db,
       );
       await exec(
-        "UPDATE chefs SET status='suspended',rejection_reason='Chủ bếp đã xóa tài khoản.' WHERE id=?",
-        [chef.id],
+        "UPDATE chefs SET status='suspended',rejection_reason=? WHERE id=?",
+        [
+          byAdmin
+            ? "Admin đã xóa tài khoản chủ bếp."
+            : "Chủ bếp đã xóa tài khoản.",
+          chef.id,
+        ],
         db,
       );
     }
+    await exec(
+      "INSERT INTO revoked_sessions (token_hash,user_id,reason,expires_at) SELECT token_hash,user_id,'ACCOUNT_DELETED',expires_at FROM sessions WHERE user_id=? ON DUPLICATE KEY UPDATE reason=VALUES(reason),expires_at=VALUES(expires_at)",
+      [user.id],
+      db,
+    );
     await exec("DELETE FROM sessions WHERE user_id=?", [user.id], db);
     await exec(
       "UPDATE push_subscriptions SET active=FALSE,updated_at=? WHERE user_id=?",
@@ -160,10 +217,13 @@ export async function softDeleteAccount(actor: Actor, input: unknown) {
       "INSERT INTO audit_logs VALUES (?,?,?,?,?,?)",
       [
         randomUUID(),
-        user.id,
+        actor.id,
         "user.delete",
         user.id,
-        JSON.stringify({ softDelete: true }),
+        JSON.stringify({
+          softDelete: true,
+          initiatedBy: byAdmin ? "admin" : "user",
+        }),
         now,
       ],
       db,
@@ -179,6 +239,6 @@ export async function softDeleteAccount(actor: Actor, input: unknown) {
       db,
     );
     await analyticsLive(db, user.id);
-    return { ok: true };
+    return { ok: true, changed: true };
   });
 }

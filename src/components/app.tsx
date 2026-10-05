@@ -1898,6 +1898,7 @@ function Login() {
     use_password:
       "Email này đã có tài khoản. Vui lòng đăng nhập bằng mật khẩu của tài khoản đó.",
     inactive: "Tài khoản đang bị tạm ngưng. Vui lòng liên hệ hỗ trợ.",
+    deleted: "Tài khoản đã bị xóa. Vui lòng liên hệ hỗ trợ nếu cần tra cứu đơn hàng.",
     failed:
       "Không thể đăng nhập Google. Phiên có thể đã hết hạn, vui lòng thử lại.",
   };

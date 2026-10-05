@@ -62,7 +62,7 @@ export async function updateAccountAccess(
     );
     if (deleted)
       throw new AppError(
-        "Tài khoản đã được chủ tài khoản xóa; không thể mở khóa hoặc phân quyền.",
+        "Tài khoản đã bị xóa; không thể mở khóa hoặc phân quyền.",
         409,
       );
     const role = change.role ?? target.role;

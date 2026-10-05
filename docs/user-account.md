@@ -17,6 +17,18 @@ Avatar JPG/PNG/WebP có ảnh gốc tối đa 20 MB. Trình duyệt đọc hư�
 - Không được xóa admin cuối cùng đang hoạt động. Việc xóa và phân quyền dùng chung khóa để chống thay đổi đồng thời.
 - Email của tài khoản đã xóa vẫn được giữ và không thể đăng ký lại bằng email đó.
 
+## Admin xóa tài khoản
+
+- Admin → Users → Thao tác → **Xóa**, kiểm tra tên/email trong hộp xác nhận rồi bấm **Xác nhận xóa**.
+- Dùng cùng luồng soft delete với user: giữ lịch sử, khóa tài khoản, đóng bếp nếu có, thu hồi tất cả phiên, tắt push và link xác minh. Có thể xóa tài khoản đã khóa, nhưng không xóa lại tài khoản đã xóa.
+- Chặn thao tác với chính admin đang dùng và chặn nếu còn đơn hoặc đối soát/hoàn tiền chưa xử lý. Giữ ít nhất một admin hoạt động; kiểm tra quyền admin hiện tại trong transaction.
+- Audit log ghi admin thực hiện, ID tài khoản bị xóa, thời điểm và `initiatedBy=admin`.
+- User đang mở app: WebSocket bị đóng do phiên hết hiệu lực; app kiểm tra tài khoản, hiển thị thông báo tài khoản bị xóa, xóa giỏ/cache cá nhân và trở về trang chủ. Khi WebSocket chưa kết nối, kiểm tra lại lúc focus/quay lại app và mỗi 30 giây khi trang đang hiển thị. Server từ chối các API cần đăng nhập ngay sau khi xóa.
+- User đang đóng app: không gửi thêm push sau khi xóa. Lần mở lại với cookie cũ còn hạn sẽ nhận thông báo rồi trở về Home. Nếu cookie hết hạn, app mở ở trạng thái khách.
+- Đăng nhập lại bằng mật khẩu đúng hoặc Google đều báo tài khoản đã bị xóa. User có thể liên hệ hỗ trợ để tra cứu lịch sử đơn; không có chức năng tự khôi phục.
+
+Production cần chạy `database/015_account_session_revocations.sql`. Bảng này chỉ lưu hash phiên, user ID, lý do và hạn phiên để báo đúng lý do đăng xuất. Cron xóa bản ghi hết hạn; không lưu token đăng nhập thô.
+
 ## Kiểm tra local
 
 `npm run db:migrate` rồi `npm run test:account` kiểm tra bằng fixture riêng trên MySQL local, không gửi email và không ghi Blob thật.

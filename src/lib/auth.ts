@@ -69,8 +69,22 @@ export async function signIn(email: string, password: string) {
     user?.password_hash ||
       "$2b$12$C6UzMDM.H6dfI/f/IKcEe.6VhTjQbg5oGDGGFKykDtHwVDfzMJcGW",
   );
-  if (!user || !user.active || !valid)
+  if (!user || !valid)
     throw new AppError("Email hoặc mật khẩu chưa đúng.", 401);
+  if (!user.active) {
+    await ensureUserAccountSchema();
+    const [deleted] = await rows(
+      "SELECT user_id FROM user_account_details WHERE user_id=? AND deleted_at IS NOT NULL",
+      [user.id],
+    );
+    if (deleted)
+      throw new AppError(
+        "Tài khoản đã bị xóa. Vui lòng liên hệ hỗ trợ nếu cần tra cứu đơn hàng.",
+        403,
+        "ACCOUNT_DELETED",
+      );
+    throw new AppError("Email hoặc mật khẩu chưa đúng.", 401);
+  }
   if (await emailNeedsVerification(user.id))
     throw new AppError(
       "Vui lòng xác minh email trước khi đăng nhập.",

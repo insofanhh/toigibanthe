@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ShieldCheck,
   X,
+  Trash2,
 } from "lucide-react";
 import { useApp, post } from "./providers";
 import {
@@ -48,6 +49,85 @@ import {
 } from "@/lib/admin-users-domain";
 
 const roleNames = { user: "User", chef: "Chef", admin: "Admin" } as const;
+
+function DeleteUserDialog({
+  account,
+  onClose,
+  onDeleted,
+}: {
+  account: AdminUserRow;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => element?.close();
+  }, []);
+  async function remove() {
+    if (deleting) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await post(
+        "admin/users/" + encodeURIComponent(account.id),
+        { confirmation: "DELETE" },
+        "DELETE",
+      );
+      onDeleted();
+    } catch (error) {
+      setError((error as Error).message);
+      setDeleting(false);
+    }
+  }
+  return createPortal(
+    <dialog
+      ref={dialog}
+      className="users-role-dialog"
+      aria-labelledby="users-delete-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!deleting) onClose();
+      }}
+    >
+      <h2 id="users-delete-title">Xóa tài khoản này?</h2>
+      <p>
+        <strong>{account.name}</strong>
+        <br />
+        <span className="muted">{account.email}</span>
+      </p>
+      <p className="muted small">
+        Tài khoản sẽ bị vô hiệu hóa, đăng xuất trên mọi thiết bị và không thể
+        đăng nhập lại. Lịch sử đơn hàng vẫn được giữ để tra cứu.
+      </p>
+      {account.chef_status && (
+        <p className="muted small">
+          Bếp của tài khoản này sẽ đóng và hồ sơ chuyển sang tạm ngưng.
+        </p>
+      )}
+      <p className="muted small">
+        Chỉ xóa khi không còn đơn hoặc đối soát/hoàn tiền chưa xử lý.
+      </p>
+      {error && <Notice error>{error}</Notice>}
+      <div className="account-delete-actions">
+        <Button secondary disabled={deleting} onClick={onClose}>
+          Giữ tài khoản
+        </Button>
+        <Button
+          className="account-delete-confirm"
+          disabled={deleting}
+          onClick={() => void remove()}
+        >
+          {deleting ? "Đang xóa…" : "Xác nhận xóa"}
+        </Button>
+      </div>
+    </dialog>,
+    document.body,
+  );
+}
 
 function RoleDialog({
   account,
@@ -612,6 +692,7 @@ export function AdminUsers() {
     { user, revision, refresh, toast } = useApp(),
     [busy, setBusy] = useState<string | null>(null),
     [roleAccount, setRoleAccount] = useState<AdminUserRow | null>(null),
+    [deleteAccount, setDeleteAccount] = useState<AdminUserRow | null>(null),
     [today, setToday] = useState(serviceDate);
   const keys = [
     "from",
@@ -755,6 +836,17 @@ export function AdminUsers() {
   ] as const;
   return (
     <div className="admin-users analytics-overview">
+      {deleteAccount && (
+        <DeleteUserDialog
+          account={deleteAccount}
+          onClose={() => setDeleteAccount(null)}
+          onDeleted={() => {
+            setDeleteAccount(null);
+            refresh();
+            toast("Đã xóa tài khoản. Lịch sử đơn hàng được giữ lại.");
+          }}
+        />
+      )}
       {roleAccount && (
         <RoleDialog
           account={roleAccount}
@@ -1162,6 +1254,16 @@ export function AdminUsers() {
                         <td>{stamp(u.last_purchase)}</td>
                         <td>
                           <div className="users-account-actions">
+                            <Button
+                              secondary
+                              className="account-delete-button"
+                              disabled={
+                                !!busy || u.id === user?.id || !!u.deleted_at
+                              }
+                              onClick={() => setDeleteAccount(u)}
+                            >
+                              <Trash2 size={15} /> Xóa
+                            </Button>
                             <Button
                               secondary
                               disabled={

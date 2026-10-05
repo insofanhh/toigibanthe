@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Actor, Dish, Location } from "@/lib/domain";
+import { useRouter } from "next/navigation";
 import { ClientLoadCache } from "@/lib/client-load-cache";
 import { usePwaInstall } from "./pwa-install";
 import { trackEvent } from "@/lib/analytics-client";
@@ -76,6 +77,7 @@ type Context = {
 const AppContext = createContext<Context>(null!);
 export const useApp = () => useContext(AppContext);
 export function Providers({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const pwaInstall = usePwaInstall();
   const [user, setUser] = useState<Actor | null>(null),
     [chef, setChef] = useState<Context["chef"]>(null),
@@ -151,6 +153,7 @@ export function Providers({ children }: { children: ReactNode }) {
   );
   const refreshAuth = useCallback(async () => {
     const sequence = ++authSequence.current;
+    const previousIdentity = authIdentity.current;
     try {
       const data = await request("auth/me");
       if (sequence !== authSequence.current) return;
@@ -165,13 +168,29 @@ export function Providers({ children }: { children: ReactNode }) {
       setUser(data.user);
       setChef(data.chef);
       setAuthError("");
+      if (data.accountStatus === "deleted") {
+        setCart([]);
+        void clearDevicePush().catch(() => {});
+        void post("auth/logout", {}).catch(() => {});
+        toast(
+          "Tài khoản đã bị xóa. Vui lòng liên hệ hỗ trợ nếu cần tra cứu đơn hàng.",
+          { key: "account-deleted", duration: 8000 },
+        );
+        router.replace("/", { transitionTypes: ["page-back"] });
+      } else if (
+        !data.user &&
+        previousIdentity &&
+        previousIdentity !== "guest"
+      ) {
+        toast("Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.");
+      }
     } catch (error) {
       if (sequence === authSequence.current)
         setAuthError((error as Error).message);
     } finally {
       if (sequence === authSequence.current) setAuthReady(true);
     }
-  }, [loadCache]);
+  }, [loadCache, router, toast]);
   const clearAuth = useCallback(async () => {
     authSequence.current++;
     authIdentity.current = "guest";
@@ -322,7 +341,6 @@ export function Providers({ children }: { children: ReactNode }) {
         };
         ws.onclose = (event) => {
           if (!stopped && event.code === 1008) {
-            toast("Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.");
             void refreshAuth();
             return;
           }
@@ -335,7 +353,10 @@ export function Providers({ children }: { children: ReactNode }) {
       }
     };
     void connect();
-    const focus = () => refresh();
+    const focus = () => {
+      refresh();
+      void refreshAuth();
+    };
     window.addEventListener("focus", focus);
     return () => {
       stopped = true;
@@ -344,7 +365,20 @@ export function Providers({ children }: { children: ReactNode }) {
       if (refreshTimer) clearTimeout(refreshTimer);
       window.removeEventListener("focus", focus);
     };
-  }, [user, refresh, refreshAuth, toast]);
+  }, [user?.id, user?.role, refresh, refreshAuth, toast]);
+  useEffect(() => {
+    if (!user?.id) return;
+    const check = () => {
+      if (document.visibilityState === "visible") void refreshAuth();
+    };
+    // Detect revocation when WebSocket is unavailable or the app returns from background.
+    const timer = setInterval(check, 30000);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [user?.id, refreshAuth]);
   const setLocation = useCallback(
     (value: Location) => {
       setLocationState(value);

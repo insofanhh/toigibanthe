@@ -22,6 +22,7 @@
     "test:account": "tsx --env-file=.env.local tests/user-account.integration.ts",
     "test:account:http": "tsx --env-file=.env.local tests/user-account-http.integration.ts",
     "test:avatar:browser": "node tests/avatar-upload.browser.cjs",
+    "test:account:browser": "tsx --env-file=.env.local tests/admin-user-deletion.browser.ts",
     "test:email-verification": "tsx --env-file=.env.local tests/email-verification.integration.ts",
     "test:email-verification:http": "tsx --env-file=.env.local tests/email-verification-http.integration.ts",
     "mail:check": "tsx --env-file=.env.local scripts/check-smtp.ts",

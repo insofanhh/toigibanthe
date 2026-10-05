@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 import { hash } from "bcryptjs";
 import { createSession } from "./auth";
-import { exec, rows, sqlDate, transaction } from "./db";
+import { exec, rows, sqlDate, transaction, type DB } from "./db";
 import { AppError } from "./http";
 import { googleProfile, safeLoginNext } from "./google-auth-domain";
 import type { Actor } from "./domain";
@@ -11,6 +11,18 @@ import { createAccount } from "./account-registration";
 import { ensureRegistrationAlertSchema } from "./admin-registration-alerts";
 import { ensureEmailVerificationSchema } from "./email-verification-schema";
 import { emailNeedsVerification } from "./email-verification";
+import { ensureUserAccountSchema } from "./user-account-schema";
+
+async function rejectInactiveGoogleAccount(id: string, db: DB): Promise<never> {
+  const [deleted] = await rows(
+    "SELECT user_id FROM user_account_details WHERE user_id=? AND deleted_at IS NOT NULL",
+    [id],
+    db,
+  );
+  if (deleted)
+    throw new AppError("Tài khoản đã bị xóa.", 403, "ACCOUNT_DELETED");
+  throw new AppError("Tài khoản đã bị tạm ngưng.", 403);
+}
 
 const OAUTH_COOKIE = "tgbd_google_oauth";
 const keys = createRemoteJWKSet(
@@ -73,6 +85,7 @@ async function resolveUser(
   await ensureSchema();
   await ensureEmailVerificationSchema();
   await ensureRegistrationAlertSchema();
+  await ensureUserAccountSchema();
   try {
     return await transaction(async (db) => {
       const linked = (
@@ -83,8 +96,7 @@ async function resolveUser(
         )
       )[0];
       if (linked) {
-        if (!linked.active)
-          throw new AppError("Tài khoản đã bị tạm ngưng.", 403);
+        if (!linked.active) await rejectInactiveGoogleAccount(linked.id, db);
         await exec(
           "INSERT INTO user_email_status (user_id,verification_required,verified_at) VALUES (?,FALSE,?) ON DUPLICATE KEY UPDATE verification_required=FALSE,verified_at=COALESCE(verified_at,VALUES(verified_at))",
           [linked.id, sqlDate()],
@@ -100,7 +112,7 @@ async function resolveUser(
         )
       )[0];
       if (user) {
-        if (!user.active) throw new AppError("Tài khoản đã bị tạm ngưng.", 403);
+        if (!user.active) await rejectInactiveGoogleAccount(user.id, db);
         if (!profile.authoritativeEmail)
           throw new AppError(
             "Hãy đăng nhập bằng mật khẩu của tài khoản này.",
@@ -269,9 +281,11 @@ export async function googleAuth(request: Request, action?: string) {
       ? "not_configured"
       : error instanceof AppError && error.status === 409
         ? "use_password"
-        : error instanceof AppError && error.status === 403
-          ? "inactive"
-          : "failed";
+        : error instanceof AppError && error.code === "ACCOUNT_DELETED"
+          ? "deleted"
+          : error instanceof AppError && error.status === 403
+            ? "inactive"
+            : "failed";
     // Never expose Google codes, tokens, secrets or database errors in the redirect.
     return redirect(new URL("/login?google_error=" + reason, url.origin));
   }
