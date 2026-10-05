@@ -1,6 +1,8 @@
 "use client";
 import { AnimatedValue } from "./animated-value";
+import { UserAvatar } from "./user-avatar";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users,
@@ -13,6 +15,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ShieldCheck,
+  X,
 } from "lucide-react";
 import { useApp, post } from "./providers";
 import {
@@ -40,7 +44,150 @@ import {
   type UsersReport,
   type UsersList,
   type UserDetail,
+  type AdminUserRow,
 } from "@/lib/admin-users-domain";
+
+const roleNames = { user: "User", chef: "Chef", admin: "Admin" } as const;
+
+function RoleDialog({
+  account,
+  onClose,
+  onSaved,
+}: {
+  account: AdminUserRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [role, setRole] = useState(account.role);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const element = dialog.current;
+    const scrollY = window.scrollY;
+    const styles = {
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    };
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    element?.showModal();
+    return () => {
+      element?.close();
+      Object.assign(document.body.style, styles);
+      window.scrollTo({ top: scrollY, behavior: "instant" });
+    };
+  }, []);
+  async function save() {
+    if (saving || role === account.role) return;
+    setSaving(true);
+    setError("");
+    try {
+      await post("admin/users/" + encodeURIComponent(account.id), { role });
+      onSaved();
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return createPortal(
+    <dialog
+      ref={dialog}
+      className="users-role-dialog"
+      aria-labelledby="users-role-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!saving) onClose();
+      }}
+    >
+      <div className="spread">
+        <h2 id="users-role-title">Phân quyền tài khoản</h2>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Đóng phân quyền"
+          disabled={saving}
+          onClick={onClose}
+        >
+          <X size={20} />
+        </button>
+      </div>
+      <p>
+        {account.name}
+        <br />
+        <span className="muted">{account.email}</span>
+      </p>
+      <form
+        className="form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <Field label="Vai trò">
+          <select
+            value={role}
+            disabled={saving}
+            onChange={(event) => {
+              setRole(event.target.value);
+              setError("");
+            }}
+          >
+            {Object.entries(roleNames).map(([value, name]) => (
+              <option
+                key={value}
+                value={value}
+                disabled={
+                  value === "chef" &&
+                  account.chef_status !== "approved" &&
+                  account.role !== "chef"
+                }
+              >
+                {name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <p className="users-role-description">
+          {role === "admin"
+            ? "Admin có toàn quyền quản lý hệ thống, tài khoản và phân quyền."
+            : role === "chef"
+              ? "Chef quản lý bếp, thực đơn và đơn của bếp đã được duyệt."
+              : "User đặt món và quản lý tài khoản cá nhân."}
+        </p>
+        {account.chef_status !== "approved" && account.role !== "chef" && (
+          <p className="muted small">
+            Để cấp quyền Chef, hãy duyệt hồ sơ bếp trong mục Chefs.
+          </p>
+        )}
+        {account.role === "chef" && role !== "chef" && (
+          <p className="muted small">
+            Bếp sẽ đóng. Các đơn và yêu cầu đối soát phải xử lý xong trước khi
+            đổi vai trò. Chuyển sang User sẽ tạm ngưng hồ sơ bếp.
+          </p>
+        )}
+        {role !== account.role && (
+          <p className="muted small">
+            Các phiên đăng nhập của tài khoản này sẽ kết thúc sau khi đổi quyền.
+          </p>
+        )}
+        {error && <Notice error>{error}</Notice>}
+        <div className="users-role-actions">
+          <Button secondary disabled={saving} onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" disabled={saving || role === account.role}>
+            {saving ? "Đang lưu…" : "Xác nhận đổi quyền"}
+          </Button>
+        </div>
+      </form>
+    </dialog>,
+    document.body,
+  );
+}
 
 const count = (n: number) => n.toLocaleString("vi-VN");
 const stamp = (s: string | null) =>
@@ -293,18 +440,35 @@ function Profile({
       ) : (
         <>
           <div className="users-profile-info">
-            <div>
-              <h3>{result.data.user.name}</h3>
-              <p>{result.data.user.email}</p>
-              {result.data.user.phone && (
-                <a
-                  className="text-button"
-                  href={"tel:" + result.data.user.phone}
-                >
-                  {result.data.user.phone}
-                </a>
-              )}
-              <p>Đăng ký: {stamp(result.data.user.created_at)}</p>
+            <div className="users-profile-identity">
+              <UserAvatar
+                name={result.data.user.name}
+                src={result.data.user.avatar_url}
+                className="users-detail-avatar"
+              />
+              <div>
+                <h3>{result.data.user.name}</h3>
+                <p>{result.data.user.email}</p>
+                <p>
+                  {result.data.user.email_verified_at
+                    ? `Email đã xác minh: ${stamp(result.data.user.email_verified_at)}`
+                    : result.data.user.email_verification_required
+                      ? "Email đang chờ xác minh"
+                      : "Email chưa xác minh"}
+                </p>
+                {result.data.user.phone && (
+                  <a
+                    className="text-button"
+                    href={"tel:" + result.data.user.phone}
+                  >
+                    {result.data.user.phone}
+                  </a>
+                )}
+                <p>Đăng ký: {stamp(result.data.user.created_at)}</p>
+                {result.data.user.deleted_at && (
+                  <p>Đã xóa tài khoản: {stamp(result.data.user.deleted_at)}</p>
+                )}
+              </div>
             </div>
             <div>
               <p>
@@ -447,6 +611,7 @@ export function AdminUsers() {
     router = useRouter(),
     { user, revision, refresh, toast } = useApp(),
     [busy, setBusy] = useState<string | null>(null),
+    [roleAccount, setRoleAccount] = useState<AdminUserRow | null>(null),
     [today, setToday] = useState(serviceDate);
   const keys = [
     "from",
@@ -590,6 +755,17 @@ export function AdminUsers() {
   ] as const;
   return (
     <div className="admin-users analytics-overview">
+      {roleAccount && (
+        <RoleDialog
+          account={roleAccount}
+          onClose={() => setRoleAccount(null)}
+          onSaved={() => {
+            setRoleAccount(null);
+            refresh();
+            toast("Đã cập nhật vai trò tài khoản.");
+          }}
+        />
+      )}
       <BackgroundRefreshNotice loads={[report, list]} />
       <div className="analytics-toolbar">
         <div className="analytics-presets">
@@ -915,6 +1091,11 @@ export function AdminUsers() {
                               })
                             }
                           >
+                            <UserAvatar
+                              name={u.name}
+                              src={u.avatar_url}
+                              className="users-list-avatar"
+                            />
                             {u.name}
                           </button>
                           <small>{u.email}</small>
@@ -935,7 +1116,21 @@ export function AdminUsers() {
                             className="users-account-status"
                             data-open={!!u.active}
                           >
-                            {u.active ? "Đang mở" : "Đã khóa"}
+                            {u.deleted_at
+                              ? "Đã xóa"
+                              : u.active
+                                ? "Đang mở"
+                                : "Đã khóa"}
+                          </span>
+                          <span
+                            className="users-email-status"
+                            data-verified={!!u.email_verified_at}
+                          >
+                            {u.email_verified_at
+                              ? "Đã xác minh"
+                              : u.email_verification_required
+                                ? "Chờ xác minh"
+                                : "Chưa xác minh"}
                           </span>
                         </td>
                         <td>
@@ -966,17 +1161,32 @@ export function AdminUsers() {
                         </td>
                         <td>{stamp(u.last_purchase)}</td>
                         <td>
-                          <Button
-                            secondary
-                            disabled={!!busy || u.id === user?.id}
-                            onClick={() => void toggle(u.id, !u.active)}
-                          >
-                            {busy === u.id
-                              ? "Đang lưu…"
-                              : u.active
-                                ? "Khóa"
-                                : "Mở khóa"}
-                          </Button>
+                          <div className="users-account-actions">
+                            <Button
+                              secondary
+                              disabled={
+                                !!busy || u.id === user?.id || !!u.deleted_at
+                              }
+                              onClick={() => setRoleAccount(u)}
+                            >
+                              <ShieldCheck size={15} /> Phân quyền
+                            </Button>
+                            <Button
+                              secondary
+                              disabled={
+                                !!busy || u.id === user?.id || !!u.deleted_at
+                              }
+                              onClick={() => void toggle(u.id, !u.active)}
+                            >
+                              {busy === u.id
+                                ? "Đang lưu…"
+                                : u.deleted_at
+                                  ? "Đã xóa"
+                                  : u.active
+                                    ? "Khóa"
+                                    : "Mở khóa"}
+                            </Button>
+                          </div>
                           {u.id === user?.id && (
                             <small>Tài khoản đang dùng</small>
                           )}

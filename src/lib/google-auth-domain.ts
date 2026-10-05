@@ -14,7 +14,8 @@ export function safeLoginNext(value: string | null | undefined) {
     url.origin !== "https://app.invalid" ||
     url.pathname.startsWith("//") ||
     url.pathname.startsWith("/api/") ||
-    url.pathname === "/login"
+    url.pathname === "/login" ||
+    url.pathname === "/verify-email"
   )
     return "/me";
   return url.pathname + url.search + url.hash;

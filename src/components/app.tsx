@@ -1,6 +1,8 @@
 "use client";
 import { AnimatedValue } from "./animated-value";
 import { AppIcon, BrandSymbol } from "./brand-symbol";
+import { PendingVerification } from "./email-verification";
+import { ApiResponseError } from "@/lib/api-response";
 import {
   useState,
   useEffect,
@@ -69,7 +71,8 @@ import { OrderReorder, HistoryReorder } from "./order-reorder";
 import { OrderProgress } from "./order-progress";
 import { DishReviews } from "./dish-reviews";
 import { ChefReviews } from "./chef-reviews";
-import { PushSettings } from "./push-settings";
+import { AccountSettings } from "./account-settings";
+import { UserAvatar } from "./user-avatar";
 import {
   CustomerPaymentRequestForm,
   PaymentRequestList,
@@ -1803,7 +1806,7 @@ function Profile() {
     <>
       <PageTitle title="Tôi" />
       <div className="profile-top panel">
-        <div className="profile-avatar">{user.name.slice(0, 1)}</div>
+        <UserAvatar name={user.name} src={user.avatar_url} className="profile-avatar" />
         <div>
           <h2>{user.name}</h2>
           <p>{user.email}</p>
@@ -1867,47 +1870,7 @@ function Profile() {
   );
 }
 function ProfileSettings() {
-  const { user, toast, refreshAuth } = useApp(),
-    [busy, setBusy] = useState(false);
-  if (!user) return <NeedLogin />;
-  async function save(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    setBusy(true);
-    try {
-      await post(
-        "profile",
-        { name: f.get("name"), phone: f.get("phone") },
-        "PATCH",
-      );
-      await refreshAuth();
-      toast("Đã lưu thông tin.");
-    } catch (e) {
-      toast((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <>
-      <PageTitle title="Cài đặt tài khoản" back />
-      <form className="panel form narrow" onSubmit={save}>
-        <Field label="Tên hiển thị">
-          <input name="name" defaultValue={user.name} required minLength={2} />
-        </Field>
-        <Field label="Số điện thoại">
-          <input name="phone" defaultValue={user.phone} inputMode="tel" />
-        </Field>
-        <Field label="Email">
-          <input value={user.email} disabled />
-        </Field>
-        <Button type="submit" disabled={busy}>
-          Lưu thông tin
-        </Button>
-      </form>
-      <PushSettings />
-    </>
-  );
+  return <AccountSettings />;
 }
 function Login() {
   const { refreshAuth, user } = useApp(),
@@ -1917,6 +1880,11 @@ function Login() {
     [showPassword, setShowPassword] = useState(false),
     [busy, setBusy] = useState(false),
     [navigating, setNavigating] = useState(false),
+    [verification, setVerification] = useState<{
+      email: string;
+      mailSent: boolean;
+      mailFailed?: boolean;
+    } | null>(null),
     [error, setError] = useState("");
   const { data: googleConfig } = useLoad<{ configured: boolean }>(
     "auth/google/config",
@@ -1939,11 +1907,20 @@ function Login() {
     setBusy(true);
     setError("");
     try {
-      await post("auth/" + (register ? "register" : "login"), {
+      const result = await post("auth/" + (register ? "register" : "login"), {
         name: f.get("name"),
         email: f.get("email"),
         password: f.get("password"),
+        next: safeLoginNext(params.get("next")),
       });
+      if (result.verificationRequired) {
+        setVerification({
+          email: result.email,
+          mailSent: result.mailSent,
+          mailFailed: !result.mailSent,
+        });
+        return;
+      }
       setNavigating(true);
       await refreshAuth();
       router.push(safeLoginNext(params.get("next")), {
@@ -1951,11 +1928,35 @@ function Login() {
       });
     } catch (e) {
       setNavigating(false);
+      if (
+        e instanceof ApiResponseError &&
+        e.code === "EMAIL_VERIFICATION_REQUIRED"
+      ) {
+        setVerification({
+          email: String(f.get("email")).toLowerCase(),
+          mailSent: false,
+        });
+        return;
+      }
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
+  if (verification)
+    return (
+      <PendingVerification
+        email={verification.email}
+        mailSent={verification.mailSent}
+        mailFailed={verification.mailFailed}
+        next={safeLoginNext(params.get("next"))}
+        onBack={() => {
+          setVerification(null);
+          setRegister(false);
+          setError("");
+        }}
+      />
+    );
   if (user && !navigating)
     return (
       <>

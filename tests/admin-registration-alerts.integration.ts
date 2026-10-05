@@ -58,6 +58,7 @@ try {
         "Google fixture",
         `${randomUUID()}@example.invalid`,
         "unusable",
+        "google",
       ),
     ),
   );
@@ -166,6 +167,7 @@ try {
       accounts,
     );
     await exec(`DELETE FROM users WHERE id IN (${marks})`, accounts);
+    await exec(`DELETE FROM user_email_status WHERE user_id IN (${marks})`, accounts);
   }
   await exec("DELETE FROM realtime_outbox WHERE user_id IN (?,?,?)", [
     admin,

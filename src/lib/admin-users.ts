@@ -8,6 +8,8 @@ import {
   type UsersReport,
 } from "./admin-users-domain";
 import { ensurePaymentRequestSchema } from "./payment-request-store";
+import { ensureEmailVerificationSchema } from "./email-verification-schema";
+import { ensureUserAccountSchema } from "./user-account-schema";
 
 // Completed orders are ranked by immutable completion time, then ID to break ties.
 const base = `WITH report_period AS (SELECT ? start_at,? end_at),
@@ -15,7 +17,7 @@ const base = `WITH report_period AS (SELECT ? start_at,? end_at),
  completed AS (SELECT o.id,o.user_id,o.subtotal-o.discount food_value,COALESCE(e.completed_at,o.updated_at) completed_at FROM orders o LEFT JOIN completion_times e ON e.order_id=o.id WHERE o.status='COMPLETED'),
  purchases AS (SELECT c.*,ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY completed_at,id) purchase_no,completed_at>=p.start_at AND completed_at<p.end_at in_period FROM completed c CROSS JOIN report_period p),
  purchase_totals AS (SELECT user_id,COUNT(*) completed_orders,SUM(food_value) food_value,MIN(completed_at) first_purchase,MAX(completed_at) last_purchase,SUM(in_period) period_orders,MAX(in_period) period_buyer,MAX(in_period AND purchase_no=1) period_first,MAX(in_period AND purchase_no>1) period_returning FROM purchases GROUP BY user_id),
- accounts AS (SELECT u.id,u.name,u.email,u.phone,u.role,u.active,u.created_at,COALESCE(t.completed_orders,0) completed_orders,COALESCE(t.food_value,0) food_value,t.first_purchase,t.last_purchase,COALESCE(t.period_orders,0) period_orders,COALESCE(t.period_buyer,0) period_buyer,COALESCE(t.period_first,0) period_first,COALESCE(t.period_returning,0) period_returning,u.created_at>=p.start_at AND u.created_at<p.end_at registered FROM users u LEFT JOIN purchase_totals t ON t.user_id=u.id CROSS JOIN report_period p)`;
+ accounts AS (SELECT u.id,u.name,u.email,u.phone,u.role,u.active,u.created_at,u.avatar_url,d.deleted_at,COALESCE(v.verified_at,g.created_at) email_verified_at,COALESCE(v.verification_required,0) email_verification_required,COALESCE(t.completed_orders,0) completed_orders,COALESCE(t.food_value,0) food_value,t.first_purchase,t.last_purchase,COALESCE(t.period_orders,0) period_orders,COALESCE(t.period_buyer,0) period_buyer,COALESCE(t.period_first,0) period_first,COALESCE(t.period_returning,0) period_returning,u.created_at>=p.start_at AND u.created_at<p.end_at registered FROM users u LEFT JOIN user_account_details d ON d.user_id=u.id LEFT JOIN user_email_status v ON v.user_id=u.id LEFT JOIN google_identities g ON g.user_id=u.id LEFT JOIN purchase_totals t ON t.user_id=u.id CROSS JOIN report_period p)`;
 function parse(params: URLSearchParams) {
   try {
     return usersFilter(params);
@@ -50,6 +52,7 @@ function scope(f: UsersFilter) {
 function normalize(r: AdminUserRow) {
   for (const k of [
     "active",
+    "email_verification_required",
     "completed_orders",
     "food_value",
     "period_orders",
@@ -64,6 +67,8 @@ function normalize(r: AdminUserRow) {
 export async function adminUsersReport(
   params: URLSearchParams,
 ): Promise<UsersReport> {
+  await ensureUserAccountSchema();
+  await ensureEmailVerificationSchema();
   const f = parse(params),
     s = scope(f),
     values = [...bounds(f), ...s.values];
@@ -112,6 +117,8 @@ export async function adminUsersReport(
   };
 }
 export async function adminUsersList(params: URLSearchParams) {
+  await ensureUserAccountSchema();
+  await ensureEmailVerificationSchema();
   const f = parse(params),
     s = scope(f),
     predicates = [s.sql];
@@ -152,15 +159,18 @@ export async function adminUsersList(params: URLSearchParams) {
   }[f.sort];
   const users = await rows<AdminUserRow>(
     base +
-      ` SELECT a.* FROM accounts a WHERE ${where} ORDER BY ${sort},a.id DESC LIMIT ? OFFSET ?`,
+      ` SELECT a.*,(SELECT c.status FROM chefs c WHERE c.user_id=a.id) chef_status FROM accounts a WHERE ${where} ORDER BY ${sort},a.id DESC LIMIT ? OFFSET ?`,
     [...values, pageSize, (page - 1) * pageSize],
   );
   return { users: users.map(normalize), total, page, pages, pageSize };
 }
 export async function adminUserDetail(id: string, params: URLSearchParams) {
+  await ensureUserAccountSchema();
+  await ensureEmailVerificationSchema();
   const f = parse(params);
   const [raw] = await rows<AdminUserRow>(
-    base + " SELECT a.* FROM accounts a WHERE a.id=?",
+    base +
+      " SELECT a.*,(SELECT c.status FROM chefs c WHERE c.user_id=a.id) chef_status FROM accounts a WHERE a.id=?",
     [...bounds(f), id],
   );
   if (!raw) throw new AppError("Tài khoản không tồn tại.", 404);

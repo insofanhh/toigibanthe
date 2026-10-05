@@ -78,6 +78,11 @@ export type AdminUserRow = {
   phone: string;
   role: string;
   active: number;
+  avatar_url: string | null;
+  deleted_at: string | null;
+  chef_status: string | null;
+  email_verified_at: string | null;
+  email_verification_required: number;
   created_at: string;
   completed_orders: number;
   food_value: number;

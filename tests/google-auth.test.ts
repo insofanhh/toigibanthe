@@ -13,6 +13,7 @@ test("Login return paths cannot leave the app, including normalized double slash
     "/\nevil",
     "/api/auth/google",
     "/login",
+    "/verify-email?token=example",
   ]) {
     assert.equal(safeLoginNext(value), "/me", String(value));
   }

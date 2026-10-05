@@ -4,6 +4,7 @@ import { rows, exec, pool, sqlDate } from "../src/lib/db";
 import { haversine, serviceDate } from "../src/lib/domain";
 import { createOrder } from "../src/lib/orders";
 import { AppError } from "../src/lib/http";
+import { authenticatedFixture } from "./authenticated-fixture";
 
 // Uses the existing local dev server and isolated, temporary fixtures.
 const database = new URL(process.env.DATABASE_URL!);
@@ -47,14 +48,9 @@ try {
   for (let i = 0; i < 2; i++) {
     const email = `kitchen-location-${randomUUID()}@local.test`;
     emails.push(email);
-    const r = await call("auth/register", {
-      name: "Kiểm thử vị trí",
-      email,
-      password: randomUUID(),
-    });
-    assert.equal(r.status, 200);
-    users.push(r.data.user.id);
-    cookies.push(r.headers.get("set-cookie")!.split(";")[0]);
+    const fixture = await authenticatedFixture(email, "Kiểm thử vị trí");
+    users.push(fixture.user.id);
+    cookies.push(fixture.cookie);
   }
   await exec('UPDATE users SET role="chef" WHERE id=?', [users[0]]);
   await exec(

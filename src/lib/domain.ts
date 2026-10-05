@@ -107,6 +107,8 @@ export type Actor = {
   phone: string;
   role: "user" | "chef" | "admin";
   active: number;
+  avatar_url?: string | null;
+  avatar_asset_id?: string | null;
 };
 export type Dish = {
   id: string;

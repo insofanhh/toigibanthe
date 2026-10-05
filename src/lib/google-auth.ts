@@ -9,6 +9,8 @@ import { googleProfile, safeLoginNext } from "./google-auth-domain";
 import type { Actor } from "./domain";
 import { createAccount } from "./account-registration";
 import { ensureRegistrationAlertSchema } from "./admin-registration-alerts";
+import { ensureEmailVerificationSchema } from "./email-verification-schema";
+import { emailNeedsVerification } from "./email-verification";
 
 const OAUTH_COOKIE = "tgbd_google_oauth";
 const keys = createRemoteJWKSet(
@@ -69,6 +71,7 @@ async function resolveUser(
   attempt = 0,
 ): Promise<string> {
   await ensureSchema();
+  await ensureEmailVerificationSchema();
   await ensureRegistrationAlertSchema();
   try {
     return await transaction(async (db) => {
@@ -82,6 +85,11 @@ async function resolveUser(
       if (linked) {
         if (!linked.active)
           throw new AppError("Tài khoản đã bị tạm ngưng.", 403);
+        await exec(
+          "INSERT INTO user_email_status (user_id,verification_required,verified_at) VALUES (?,FALSE,?) ON DUPLICATE KEY UPDATE verification_required=FALSE,verified_at=COALESCE(verified_at,VALUES(verified_at))",
+          [linked.id, sqlDate()],
+          db,
+        );
         return linked.id;
       }
       let user = (
@@ -110,6 +118,16 @@ async function resolveUser(
             "Email đã liên kết với tài khoản Google khác.",
             409,
           );
+        // A pending password may have been chosen by someone who does not own the email.
+        // Google ownership must not turn that unknown password into a valid login.
+        if (await emailNeedsVerification(user.id, db)) {
+          await exec(
+            "UPDATE users SET password_hash=? WHERE id=?",
+            [await hash(randomBytes(32).toString("base64url"), 12), user.id],
+            db,
+          );
+          await exec("DELETE FROM sessions WHERE user_id=?", [user.id], db);
+        }
       } else {
         // A generated, unknown password keeps password login unavailable for new Google users.
         const id = await createAccount(
@@ -117,12 +135,23 @@ async function resolveUser(
           profile.name,
           profile.email,
           await hash(randomBytes(32).toString("base64url"), 12),
+          "google",
         );
         user = { id } as Actor;
       }
       await exec(
         "INSERT INTO google_identities (subject,user_id,created_at) VALUES (?,?,?)",
         [profile.sub, user.id, sqlDate()],
+        db,
+      );
+      await exec(
+        "INSERT INTO user_email_status (user_id,verification_required,verified_at) VALUES (?,FALSE,?) ON DUPLICATE KEY UPDATE verification_required=FALSE,verified_at=COALESCE(verified_at,VALUES(verified_at))",
+        [user.id, sqlDate()],
+        db,
+      );
+      await exec(
+        "UPDATE email_verification_tokens SET consumed_at=? WHERE user_id=? AND consumed_at IS NULL",
+        [sqlDate(), user.id],
         db,
       );
       return user.id;

@@ -34,3 +34,14 @@ test("successful JSON is returned intact", async () => {
     },
   );
 });
+test("Pending email verification exposes a stable API error code", async () => {
+  await assert.rejects(
+    readApiResponse(
+      Response.json(
+        { error: "Xác minh email", code: "EMAIL_VERIFICATION_REQUIRED" },
+        { status: 403 },
+      ),
+    ),
+    { status: 403, code: "EMAIL_VERIFICATION_REQUIRED" },
+  );
+});

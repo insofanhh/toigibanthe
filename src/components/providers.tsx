@@ -65,6 +65,7 @@ type Context = {
   markNotificationRead: (id: string) => Promise<void>;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   setLocation: (value: Location) => void;
   add: (dish: Dish) => void;
   setQuantity: (id: string, n: number) => void;
@@ -109,7 +110,8 @@ export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(
-      () => setMessages((current) => current.filter((item) => item !== message)),
+      () =>
+        setMessages((current) => current.filter((item) => item !== message)),
       message.duration || 4500,
     );
     return () => clearTimeout(timer);
@@ -170,8 +172,7 @@ export function Providers({ children }: { children: ReactNode }) {
       if (sequence === authSequence.current) setAuthReady(true);
     }
   }, [loadCache]);
-  const logout = useCallback(async () => {
-    await post("auth/logout", {});
+  const clearAuth = useCallback(async () => {
     authSequence.current++;
     authIdentity.current = "guest";
     loadCache.clear();
@@ -182,6 +183,15 @@ export function Providers({ children }: { children: ReactNode }) {
     setAuthReady(true);
     await clearDevicePush().catch(() => {});
   }, [loadCache]);
+  const logout = useCallback(async () => {
+    await post("auth/logout", {});
+    await clearAuth();
+  }, [clearAuth]);
+  const deleteAccount = useCallback(async () => {
+    await post("profile", { confirmation: "DELETE" }, "DELETE");
+    setCart([]);
+    await clearAuth();
+  }, [clearAuth]);
   useEffect(() => {
     if (authReady && !authError)
       void syncPushIdentity(user?.id || null).catch(() => {});
@@ -264,6 +274,13 @@ export function Providers({ children }: { children: ReactNode }) {
         ws.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data);
+            if (data.type === "account-access-changed") {
+              toast(
+                "Quyền hoặc trạng thái tài khoản đã được cập nhật. Vui lòng đăng nhập lại nếu được yêu cầu.",
+              );
+              void refreshAuth();
+              scheduleRefresh();
+            }
             if (data.type === "admin-analytics" && user.role === "admin")
               scheduleRefresh();
             if (
@@ -303,7 +320,12 @@ export function Providers({ children }: { children: ReactNode }) {
             }
           } catch {}
         };
-        ws.onclose = () => {
+        ws.onclose = (event) => {
+          if (!stopped && event.code === 1008) {
+            toast("Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.");
+            void refreshAuth();
+            return;
+          }
           if (!stopped)
             retry = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt++));
         };
@@ -322,7 +344,7 @@ export function Providers({ children }: { children: ReactNode }) {
       if (refreshTimer) clearTimeout(refreshTimer);
       window.removeEventListener("focus", focus);
     };
-  }, [user, refresh, toast]);
+  }, [user, refresh, refreshAuth, toast]);
   const setLocation = useCallback(
     (value: Location) => {
       setLocationState(value);
@@ -455,6 +477,7 @@ export function Providers({ children }: { children: ReactNode }) {
         markNotificationRead,
         refreshAuth,
         logout,
+        deleteAccount,
         setLocation,
         add,
         setQuantity,

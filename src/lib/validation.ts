@@ -11,12 +11,13 @@ export const addressSchema = point.extend({
   isDefault: z.boolean(),
 });
 export const loginSchema = z.object({
-  email: z.email(),
+  email: z.email().max(190),
   password: z.string().min(1).max(128),
 });
 export const signupSchema = loginSchema.extend({
   name: z.string().trim().min(2).max(100),
   password: z.string().min(10, "Mật khẩu cần ít nhất 10 ký tự.").max(128),
+  next: z.string().max(1000).optional(),
 });
 export const checkoutSchema = point.extend({
   items: z

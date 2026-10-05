@@ -3,6 +3,7 @@ export class AppError extends Error {
   constructor(
     message: string,
     public status = 400,
+    public code?: string,
   ) {
     super(message);
   }
@@ -35,7 +36,7 @@ export function api(
     } catch (error) {
       if (error instanceof AppError)
         return Response.json(
-          { error: error.message },
+          { error: error.message, ...(error.code ? { code: error.code } : {}) },
           { status: error.status },
         );
       if (error instanceof ZodError)

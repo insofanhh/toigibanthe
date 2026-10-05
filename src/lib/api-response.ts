@@ -1,3 +1,12 @@
+export class ApiResponseError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string,
+  ) {
+    super(message);
+  }
+}
 /** API failures may come from the host or bundler before our JSON handler runs. */
 export async function readApiResponse<T = any>(response: Response): Promise<T> {
   let data;
@@ -9,10 +18,12 @@ export async function readApiResponse<T = any>(response: Response): Promise<T> {
     );
   }
   if (!response.ok)
-    throw new Error(
+    throw new ApiResponseError(
       typeof data?.error === "string"
         ? data.error
         : `Không thể xử lý yêu cầu (HTTP ${response.status}). Vui lòng thử lại.`,
+      response.status,
+      typeof data?.code === "string" ? data.code : undefined,
     );
   return data as T;
 }

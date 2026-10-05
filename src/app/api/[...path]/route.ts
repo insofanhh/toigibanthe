@@ -1,5 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { googleAuth } from "@/lib/google-auth";
+import { updateAccountAccess } from "@/lib/admin-user-access";
+import { updateUserProfile, softDeleteAccount } from "@/lib/user-account";
 import {
   chefApplicationAlerts,
   seeChefApplications,
@@ -34,7 +36,9 @@ import {
   signOut,
   COOKIE,
   digest,
+  createSession,
 } from "@/lib/auth";
+import { confirmEmailVerification, resendEmailVerification, verificationInfo } from "@/lib/email-verification";
 import { rows, exec, transaction, sqlDate } from "@/lib/db";
 import { feed, nearbyMapChefs } from "@/lib/catalog";
 import { getHomePopupSettings, saveHomePopupSettings } from "@/lib/home-popups";
@@ -190,8 +194,25 @@ async function dispatch(req: Request) {
     }
     if (action === "register" && method === "POST") {
       const input = signupSchema.parse(await req.json());
+      await authThrottle(req, "verification-register");
       await authThrottle(req, input.email);
-      return { user: await signUp(input.name, input.email, input.password) };
+      return signUp(input.name, input.email, input.password, input.next);
+    }
+    if (action === "verification" && method === "POST") {
+      if (id === "resend") {
+        const input = z.object({ email: z.email().max(190), next: z.string().max(1000).default("/me") }).parse(await req.json());
+        await authThrottle(req, "verification-resend");
+        await authThrottle(req, input.email);
+        return resendEmailVerification(input.email, input.next);
+      }
+      const { token } = z.object({ token: z.string().max(100) }).parse(await req.json());
+      await authThrottle(req, "verification-token");
+      if (id === "info") return verificationInfo(token);
+      if (id === "confirm") {
+        const result = await confirmEmailVerification(token);
+        await createSession(result.userId);
+        return { ok: true, next: result.next };
+      }
     }
     if (action === "logout" && method === "POST") {
       await signOut();
@@ -459,16 +480,12 @@ async function dispatch(req: Request) {
     }
   }
   if (section === "profile" && method === "PATCH") {
-    const user = (await actor())!,
-      b = z
-        .object({ name: z.string().min(2).max(100), phone: z.string().max(30) })
-        .parse(await req.json());
-    await exec("UPDATE users SET name=?,phone=? WHERE id=?", [
-      b.name,
-      b.phone,
-      user.id,
-    ]);
-    return { ok: true };
+    return updateUserProfile((await actor())!, await req.json());
+  }
+  if (section === "profile" && method === "DELETE") {
+    const result = await softDeleteAccount((await actor())!, await req.json());
+    (await cookies()).delete(COOKIE);
+    return result;
   }
   if (section === "vouchers" && method === "GET") {
     return {
@@ -838,16 +855,12 @@ async function dispatch(req: Request) {
       return { ok: true };
     }
     if (action === "users" && method === "POST") {
-      const b = z.object({ active: z.boolean() }).parse(await req.json());
-      if (id === user.id)
-        throw new AppError("Không thể khóa tài khoản quản trị đang dùng.");
-      await transaction(async (db) => {
-        await exec("UPDATE users SET active=? WHERE id=?", [b.active, id], db);
-        if (!b.active)
-          await exec("DELETE FROM sessions WHERE user_id=?", [id], db);
-        await audit(db, user, "user.active", id!, b);
-      });
-      return { ok: true };
+      const result = await updateAccountAccess(user, id || "", await req.json());
+      if (result.changed) {
+        clearChefReports();
+        clearProductReports();
+      }
+      return result;
     }
     if (action === "products" && method === "POST") {
       const b = z
@@ -1111,8 +1124,10 @@ async function dispatch(req: Request) {
         file.type === "application/pdf" ? "pdf" : file.type.split("/")[1];
     if (isImage) {
       try {
-        storedBytes = await sharp(bytes)
-          .rotate()
+        const image = sharp(bytes).rotate();
+        if (kind === "image" && form.get("purpose") === "avatar")
+          image.resize(512, 512, { fit: "cover", withoutEnlargement: true });
+        storedBytes = await image
           .webp({ quality: 82, effort: 4 })
           .toBuffer();
       } catch {

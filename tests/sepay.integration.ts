@@ -6,6 +6,7 @@ import { ensureDeliveryReminderSchema } from "../src/lib/delivery-reminders";
 import { sepayBankBin, sepayOrderCode, sepayQR } from "../src/lib/sepay-qr";
 import { createOrder, expirePendingOrder, getOrder } from "../src/lib/orders";
 import { serviceDate, type Actor } from "../src/lib/domain";
+import { authenticatedFixture } from "./authenticated-fixture";
 import {
   ensurePaymentRequestSchema,
   backfillPaymentRequests,
@@ -150,15 +151,10 @@ try {
   await ensureSePaySchema();
   await ensureDeliveryReminderSchema();
   for (let i = 0; i < 4; i++) {
-    const email = `sepay-${randomUUID()}@local.test`,
-      r = await api("auth/register", {
-        name: "SePay fixture",
-        email,
-        password: randomUUID(),
-      });
-    assert.equal(r.status, 200);
-    users.push({ ...r.data.user, email });
-    cookies.push(r.headers.get("set-cookie")!.split(";")[0]);
+    const email = `sepay-${randomUUID()}@local.test`;
+    const fixture = await authenticatedFixture(email, "SePay fixture");
+    users.push(fixture.user);
+    cookies.push(fixture.cookie);
   }
   await exec('UPDATE users SET role="chef" WHERE id IN (?,?)', [
     users[0].id,
