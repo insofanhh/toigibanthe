@@ -2,6 +2,7 @@
 import { AnimatedValue } from "./animated-value";
 import { useRef, useState } from "react";
 import { Phone, LoaderCircle } from "lucide-react";
+import { FilePicker } from "./file-picker";
 import { post, request, useApp } from "./providers";
 import {
   money,
@@ -235,8 +236,10 @@ function ResolutionForm({
       </label>
       <label className="field">
         <span>Bằng chứng (ảnh hoặc PDF, tối đa 3 MB)</span>
-        <input
-          type="file"
+        <FilePicker
+          aria-label="Bằng chứng (ảnh hoặc PDF, tối đa 3 MB)"
+          buttonLabel="Chọn bằng chứng"
+          busy={busy}
           name="evidence"
           accept="image/jpeg,image/png,image/webp,application/pdf"
           required={!asset}

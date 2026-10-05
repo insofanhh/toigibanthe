@@ -47,6 +47,7 @@ export async function notify(
   title: string,
   body: string,
   href: string,
+  adminAlert?: { type: "chef-application"; alertId: string },
 ) {
   const id = randomUUID(),
     created = sqlDate();
@@ -68,6 +69,7 @@ export async function notify(
         body,
         href,
         created_at: created,
+        ...(adminAlert ? { adminAlert } : {}),
       }),
       created,
     ],

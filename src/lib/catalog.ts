@@ -6,7 +6,60 @@ import {
   type Feed,
   type Location,
   type MealId,
+  type ChefMapFeed,
 } from "./domain";
+
+export async function nearbyMapChefs(location: Location): Promise<ChefMapFeed> {
+  const date = serviceDate();
+  const prev = new Date(`${date}T12:00:00+07:00`);
+  prev.setUTCDate(prev.getUTCDate() - 1);
+  const chefs = await rows<{
+    id: string;
+    name: string;
+    bio: string;
+    area: string;
+    avatar: string;
+    rating: number;
+    ratingCount: number;
+    completedOrders: number;
+    lat: number;
+    lng: number;
+    radiusKm: number;
+    distance: number;
+  }>(
+    `SELECT c.id,c.name,c.bio,c.area,c.avatar_url avatar,c.rating,c.rating_count ratingCount,
+      c.completed_orders completedOrders,c.lat,c.lng,c.radius_km radiusKm,
+      6371*ACOS(LEAST(1,GREATEST(-1,COS(RADIANS(?))*COS(RADIANS(c.lat))*COS(RADIANS(c.lng)-RADIANS(?))+SIN(RADIANS(?))*SIN(RADIANS(c.lat))))) distance
+      FROM chefs c JOIN users u ON u.id=c.user_id
+      WHERE c.status='approved' AND u.active=TRUE
+      AND EXISTS (
+        SELECT 1 FROM kitchen_sessions k JOIN daily_menu m ON m.session_id=k.id
+        JOIN products p ON p.id=m.product_id JOIN meal_settings ms ON ms.id=m.meal_id
+        WHERE k.chef_id=c.id AND p.chef_id=c.id AND p.active=TRUE AND k.is_open=TRUE
+        AND m.enabled=TRUE AND m.stock>0 AND m.cutoff_at>?
+        AND (k.service_date=? OR (k.service_date=? AND ms.day_offset=1))
+      )
+      HAVING distance<=radiusKm ORDER BY distance,c.id`,
+    [
+      location.lat,
+      location.lng,
+      location.lat,
+      sqlDate(),
+      date,
+      serviceDate(prev),
+    ],
+  );
+  return {
+    chefs: chefs.map((c) => ({
+      ...c,
+      lat: Number(c.lat),
+      lng: Number(c.lng),
+      radiusKm: Number(c.radiusKm),
+      distance: Number(c.distance),
+    })),
+    serverNow: new Date().toISOString(),
+  };
+}
 type CatalogRow = {
   id: string;
   menu_id: string;

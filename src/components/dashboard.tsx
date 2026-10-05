@@ -1,6 +1,9 @@
 "use client";
 import { AnimatedValue } from "./animated-value";
-import { useRegistrationAlerts } from "./admin-registration-alerts";
+import {
+  useRegistrationAlerts,
+  useChefApplicationAlerts,
+} from "./admin-registration-alerts";
 import { useEffect, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { Link } from "./page-motion";
@@ -30,6 +33,7 @@ import {
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
 import { KitchenLocationPicker } from "./kitchen-location-picker";
+import { FilePicker } from "./file-picker";
 import { SePaySettings } from "./sepay-settings";
 import {
   PaymentRequestEvidence,
@@ -77,6 +81,8 @@ type UploadProps = {
   onUploaded?: (url: string) => void;
 };
 function FileUpload({ kind = "image", onUploaded }: UploadProps) {
+  const label =
+    kind === "image" ? "Ảnh món / banner" : "Tài liệu xác minh (riêng tư)";
   const { toast } = useApp(),
     [busy, setBusy] = useState(false),
     [name, setName] = useState("");
@@ -99,14 +105,11 @@ function FileUpload({ kind = "image", onUploaded }: UploadProps) {
   return (
     <div>
       <label className="field">
-        <span>
-          {kind === "image"
-            ? "Ảnh món / banner"
-            : "Tài liệu xác minh (riêng tư)"}
-        </span>
-        <input
-          className="file-input"
-          type="file"
+        <span>{label}</span>
+        <FilePicker
+          aria-label={label}
+          buttonLabel={kind === "image" ? "Chọn ảnh" : "Chọn tài liệu"}
+          busy={busy}
           accept={
             kind === "document"
               ? "image/jpeg,image/png,image/webp,application/pdf"
@@ -118,8 +121,14 @@ function FileUpload({ kind = "image", onUploaded }: UploadProps) {
           }}
         />
       </label>
-      <p className="muted small">
-        {busy ? "Đang tải…" : name || "Tệp tối đa 3 MB."}
+      <p className="muted small file-upload-hint" aria-live="polite">
+        {busy
+          ? "Đang tải tệp lên…"
+          : name
+            ? "Đã tải tệp lên."
+            : kind === "document"
+              ? "JPG, PNG, WebP hoặc PDF · Tối đa 3 MB."
+              : "JPG, PNG hoặc WebP · Tối đa 3 MB."}
       </p>
     </div>
   );
@@ -1070,13 +1079,17 @@ export function AdminDashboard() {
     [chefFilter, setChefFilter] = useState(params.get("chef") || ""),
     [form, setForm] = useState("");
   const [collapsed, setCollapsed] = useState(false);
-  const registrations = useRegistrationAlerts();
+  const registrations = useRegistrationAlerts(tab === "users");
+  const applications = useChefApplicationAlerts(tab === "chefs");
   useEffect(() => {
     setTab(params.get("tab") || "overview");
     if (["orders", "products", "payments"].includes(params.get("tab") || ""))
       setChefFilter(params.get("chef") || "");
   }, [params]);
   function navigateAdmin(next: string, chef?: string, orderFilter?: string) {
+    if (next === "users" && tab === "users")
+      void registrations.showNotice(true);
+    if (next === "chefs" && tab === "chefs") void applications.showNotice(true);
     const p = new URLSearchParams(params.toString());
     p.set("tab", next);
     if (next !== "products") p.delete("product");
@@ -1178,12 +1191,16 @@ export function AdminDashboard() {
               aria-label={
                 id === "users" && registrations.count
                   ? `${label}, ${registrations.count} người dùng mới đăng ký`
-                  : label
+                  : id === "chefs" && applications.count
+                    ? `${label}, ${applications.count} yêu cầu mở bếp mới`
+                    : label
               }
               title={
                 id === "users" && registrations.count
                   ? `${label}: +${registrations.count} user mới`
-                  : label
+                  : id === "chefs" && applications.count
+                    ? `${label}: +${applications.count} yêu cầu mở bếp mới`
+                    : label
               }
               aria-current={tab === id ? "page" : undefined}
               onClick={() => navigateAdmin(id)}
@@ -1194,6 +1211,12 @@ export function AdminDashboard() {
                 <small className="admin-registration-badge" aria-hidden="true">
                   <AnimatedValue>{`+${registrations.count}`}</AnimatedValue>
                   <b>user</b>
+                </small>
+              )}
+              {id === "chefs" && applications.count > 0 && (
+                <small className="admin-registration-badge" aria-hidden="true">
+                  <AnimatedValue>{`+${applications.count}`}</AnimatedValue>
+                  <b>yêu cầu</b>
                 </small>
               )}
             </button>
@@ -1222,17 +1245,15 @@ export function AdminDashboard() {
             </button>
           </Notice>
         )}
-        <BackgroundRefreshNotice loads={[{ data, error, reload }]} />
-        {tab === "users" && registrations.count > 0 && (
-          <div className="admin-registration-notice" role="status">
-            <span>
-              Có <strong>{registrations.count} user</strong> mới đăng ký
-            </span>
-            <Button secondary onClick={() => void registrations.markSeen()}>
-              Đã xem
-            </Button>
-          </div>
+        {applications.error && (
+          <Notice error>
+            Không thể cập nhật thông báo mở bếp: {applications.error}{" "}
+            <button className="text-button" onClick={applications.reload}>
+              Thử lại
+            </button>
+          </Notice>
         )}
+        <BackgroundRefreshNotice loads={[{ data, error, reload }]} />
         {!["overview", "users", "chefs", "products", "orders"].includes(tab) &&
         !data ? (
           error ? (

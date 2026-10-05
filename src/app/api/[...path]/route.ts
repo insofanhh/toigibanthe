@@ -1,6 +1,12 @@
 import { randomUUID, createHash } from "node:crypto";
 import { googleAuth } from "@/lib/google-auth";
 import {
+  chefApplicationAlerts,
+  seeChefApplications,
+  ensureChefApplicationAlertSchema,
+  seeApprovedChefApplications,
+} from "@/lib/admin-chef-application-alerts";
+import {
   registrationAlerts,
   seeRegistrations,
 } from "@/lib/admin-registration-alerts";
@@ -30,7 +36,7 @@ import {
   digest,
 } from "@/lib/auth";
 import { rows, exec, transaction, sqlDate } from "@/lib/db";
-import { feed } from "@/lib/catalog";
+import { feed, nearbyMapChefs } from "@/lib/catalog";
 import {
   checkoutSchema,
   loginSchema,
@@ -212,6 +218,18 @@ async function dispatch(req: Request) {
     }
   }
   if (section === "catalog" && method === "GET") {
+    if (action === "chefs-map") {
+      if (
+        !url.searchParams.get("lat")?.trim() ||
+        !url.searchParams.get("lng")?.trim()
+      )
+        throw new AppError("Chọn vị trí giao hàng để xem bếp trên bản đồ.");
+      const location = point.parse({
+        lat: Number(url.searchParams.get("lat")),
+        lng: Number(url.searchParams.get("lng")),
+      });
+      return nearbyMapChefs({ ...location, address: "" });
+    }
     const user = await actor(false),
       lat = Number(url.searchParams.get("lat") || 10.7817),
       lng = Number(url.searchParams.get("lng") || 106.6809);
@@ -581,8 +599,11 @@ async function dispatch(req: Request) {
   }
   if (section === "chef") {
     const user = (await actor())!;
-    if (action === "application" && method === "POST")
-      return applyChef(user, await req.json());
+    if (action === "application" && method === "POST") {
+      const result = await applyChef(user, await req.json());
+      clearChefReports();
+      return result;
+    }
     if (action === "application" && method === "GET")
       return {
         chef:
@@ -659,6 +680,11 @@ async function dispatch(req: Request) {
   }
   if (section === "admin") {
     const user = await requireRole("admin");
+    if (action === "chefs" && id === "applications") {
+      if (method === "GET") return chefApplicationAlerts(user.id);
+      if (method === "POST")
+        return seeChefApplications(user.id, await req.json());
+    }
     if (action === "users" && id === "registrations") {
       if (method === "GET") return registrationAlerts(user.id);
       if (method === "POST") return seeRegistrations(user.id, await req.json());
@@ -751,6 +777,7 @@ async function dispatch(req: Request) {
         .parse(await req.json());
       if (b.status !== "approved" && b.reason.length < 3)
         throw new AppError("Nhập lý do ít nhất 3 ký tự.");
+      if (b.status === "approved") await ensureChefApplicationAlertSchema();
       await transaction(async (db) => {
         const c = (
           await rows<{ id: string; user_id: string; name: string }>(
@@ -765,12 +792,14 @@ async function dispatch(req: Request) {
           [b.status, b.reason, id],
           db,
         );
-        if (b.status === "approved")
+        if (b.status === "approved") {
           await exec(
             'UPDATE users SET role="chef" WHERE id=? AND role<>"admin"',
             [c.user_id],
             db,
           );
+          await seeApprovedChefApplications(db, c.id);
+        }
         if (b.status === "suspended")
           await exec(
             "UPDATE kitchen_sessions SET is_open=FALSE WHERE chef_id=?",

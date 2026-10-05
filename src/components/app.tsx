@@ -34,7 +34,6 @@ import {
   Sunrise,
   Moon,
   Sunset,
-  SlidersHorizontal,
   X,
   Check,
   Settings,
@@ -94,6 +93,13 @@ const AdminDashboard = dynamic(
 );
 const ChefApplication = dynamic(() =>
   import("./dashboard").then((m) => m.ChefApplication),
+);
+const ChefMapPage = dynamic(
+  () => import("./chef-map").then((m) => m.ChefMapPage),
+  {
+    ssr: false,
+    loading: () => <div className="loading">Đang tải bản đồ bếp…</div>,
+  },
 );
 const DeliveryMap = dynamic(
   () => import("./delivery-map").then((m) => m.DeliveryMap),
@@ -388,7 +394,8 @@ function Nav({ path }: { path: string }) {
   const params = useSearchParams();
   const chefMode =
     user?.role === "chef" &&
-    (path.startsWith("/chef") ||
+    (path === "/chef" ||
+      path.startsWith("/chef/") ||
       path.startsWith("/orders/") ||
       path === "/notifications");
   const requestedMode: NavMode = chefMode ? "chef" : "user";
@@ -458,7 +465,7 @@ function Nav({ path }: { path: string }) {
           const active =
             navMode === "chef"
               ? (baseHref === "/chef" &&
-                  path.startsWith("/chef") &&
+                  (path === "/chef" || path.startsWith("/chef/")) &&
                   chefTab === href.split("tab=")[1]) ||
                 (baseHref === "/notifications" && path === "/notifications")
               : href === "/"
@@ -533,7 +540,8 @@ function CartDock({ path }: { path: string }) {
     ["/cart", "/checkout"].includes(path) ||
     path.startsWith("/orders/") ||
     path.startsWith("/admin") ||
-    path.startsWith("/chef")
+    path === "/chef" ||
+    path.startsWith("/chef/")
   )
     return null;
   const count = cart.reduce((a, x) => a + x.quantity, 0),
@@ -564,6 +572,7 @@ export function App({ pathname: path }: { pathname: string }) {
     content = <DishList path={path} />;
   else if (path.startsWith("/dishes/"))
     content = <DishDetail id={path.split("/")[2]} />;
+  else if (path === "/chefs/map") content = <ChefMapPage />;
   else if (path === "/chefs" || path.startsWith("/chefs/"))
     content = <Chefs id={path.split("/")[2]} />;
   else if (path === "/orders") content = <Orders />;
@@ -904,8 +913,33 @@ function Home() {
     <>
       <div className="home-search">
         <SearchBox />
-        <Link href="/search" className="filter-button" aria-label="Bộ lọc món">
-          <SlidersHorizontal size={19} />
+        <Link
+          href="/chefs/map"
+          className="filter-button"
+          aria-label="Bếp gần bạn trên bản đồ"
+          title="Bếp gần bạn trên bản đồ"
+        >
+          <svg
+            width="25"
+            height="25"
+            viewBox="0 0 34 34"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 7c0 4-5 9-5 9S2 11 2 7a5 5 0 0 1 10 0Z" />
+            <circle cx="7" cy="7" r="2" />
+            <path d="M30 23c0 4-5 9-5 9s-5-5-5-9a5 5 0 0 1 10 0Z" />
+            <circle cx="25" cy="23" r="2" />
+            <path d="M14 7h12v10H5v10h12" />
+            <circle cx="26" cy="7" r="2" fill="var(--mint)" />
+            <circle cx="15" cy="17" r="2" fill="var(--mint)" />
+            <circle cx="5" cy="17" r="2" fill="var(--mint)" />
+            <circle cx="11" cy="27" r="2" fill="var(--mint)" />
+          </svg>
         </Link>
       </div>
       {storageReady && !location && (

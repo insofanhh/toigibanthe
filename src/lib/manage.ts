@@ -12,6 +12,10 @@ import { chefSchema, productSchema, bankSchema } from "./validation";
 import { listAdminPaymentExceptions } from "./payment-requests";
 import { attachPaymentRequestSummaries } from "./payment-request-store";
 import { analyticsLive } from "./analytics";
+import {
+  ensureChefApplicationAlertSchema,
+  chefApplicationCreated,
+} from "./admin-chef-application-alerts";
 export async function ownedChef(user: Actor, db?: DB) {
   const c = (
     await rows<Record<string, unknown>>(
@@ -108,6 +112,7 @@ export async function chefOverview(user: Actor) {
 }
 export async function applyChef(user: Actor, input: unknown) {
   const data = chefSchema.parse(input);
+  await ensureChefApplicationAlertSchema();
   return transaction(async (db) => {
     const old = (
       await rows<Record<string, unknown>>(
@@ -151,19 +156,7 @@ export async function applyChef(user: Actor, input: unknown) {
         ],
         db,
       );
-    for (const admin of await rows<{ id: string }>(
-      'SELECT id FROM users WHERE role="admin" AND active=TRUE',
-      [],
-      db,
-    ))
-      await notify(
-        db,
-        admin.id,
-        "system",
-        "Yêu cầu mở bếp",
-        `${data.name} đang chờ duyệt.`,
-        "/admin?tab=chefs",
-      );
+    await chefApplicationCreated(db, String(id), data.name);
     await audit(db, user, "chef.application", String(id), {
       resubmitted: !!old,
     });

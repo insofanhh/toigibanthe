@@ -1170,6 +1170,8 @@ export function AdminChefs({
         status: action.status,
         reason,
       });
+      if (action.status === "approved")
+        window.dispatchEvent(new CustomEvent("tgbd:admin-chef-applications"));
       setAction(null);
       setManual(Date.now());
       refresh();

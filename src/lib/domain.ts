@@ -141,6 +141,8 @@ export type ChefCard = {
   distance: number;
 };
 export type Location = { address: string; lat: number; lng: number };
+export type MapChef = ChefCard & { lat: number; lng: number; radiusKm: number };
+export type ChefMapFeed = { chefs: MapChef[]; serverNow: string };
 export type Feed = {
   dishes: Dish[];
   chefs: ChefCard[];

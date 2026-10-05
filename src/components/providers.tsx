@@ -38,6 +38,10 @@ export async function request<T = any>(
 export const post = (path: string, body: unknown, method = "POST") =>
   request(path, { method, body: JSON.stringify(body) });
 export type CartLine = { dish: Dish; quantity: number };
+type ToastOptions = {
+  key?: string;
+  duration?: number;
+};
 type Context = {
   user: Actor | null;
   chef: {
@@ -54,7 +58,8 @@ type Context = {
   cart: CartLine[];
   unread: number;
   revision: number;
-  toast: (message: string) => void;
+  toast: (message: string, options?: ToastOptions) => void;
+  dismissToast: (key: string) => void;
   refresh: () => void;
   markNotificationRead: (id: string) => Promise<void>;
   refreshAuth: () => Promise<void>;
@@ -77,7 +82,9 @@ export function Providers({ children }: { children: ReactNode }) {
     [cart, setCart] = useState<CartLine[]>([]),
     [unread, setUnread] = useState(0),
     [revision, setRevision] = useState(0),
-    [message, setMessage] = useState(""),
+    [message, setMessage] = useState<({ text: string } & ToastOptions) | null>(
+      null,
+    ),
     [locationOpen, setLocationOpen] = useState(false),
     [ready, setReady] = useState(false);
   const [loadCache] = useState(() => new ClientLoadCache());
@@ -86,10 +93,16 @@ export function Providers({ children }: { children: ReactNode }) {
   const notificationSequence = useRef(0);
   const notificationReadQueue = useRef<Promise<void>>(Promise.resolve());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toast = useCallback((text: string) => {
-    setMessage(text);
+  const toast = useCallback((text: string, options: ToastOptions = {}) => {
+    setMessage({ text, ...options });
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setMessage(""), 4500);
+    timer.current = setTimeout(
+      () => setMessage(null),
+      options.duration || 4500,
+    );
+  }, []);
+  const dismissToast = useCallback((key: string) => {
+    setMessage((current) => (current?.key === key ? null : current));
   }, []);
   const refresh = useCallback(() => setRevision((x) => x + 1), []);
   const markNotificationRead = useCallback(
@@ -231,8 +244,12 @@ export function Providers({ children }: { children: ReactNode }) {
         ws.onopen = () => {
           attempt = 0;
           scheduleRefresh();
-          if (user.role === "admin")
+          if (user.role === "admin") {
             window.dispatchEvent(new CustomEvent("tgbd:admin-registrations"));
+            window.dispatchEvent(
+              new CustomEvent("tgbd:admin-chef-applications"),
+            );
+          }
         };
         ws.onmessage = (e) => {
           try {
@@ -243,7 +260,12 @@ export function Providers({ children }: { children: ReactNode }) {
               data.type === "admin-user-registration" &&
               user.role === "admin"
             ) {
-              toast("Có người dùng mới đăng ký.");
+              if (
+                window.location.pathname !== "/admin" ||
+                new URLSearchParams(window.location.search).get("tab") !==
+                  "users"
+              )
+                toast("Có người dùng mới đăng ký.");
               window.dispatchEvent(
                 new CustomEvent("tgbd:admin-registrations", {
                   detail: { alertId: data.alertId },
@@ -253,8 +275,27 @@ export function Providers({ children }: { children: ReactNode }) {
             }
             if (data.type === "admin-users-seen" && user.role === "admin")
               window.dispatchEvent(new CustomEvent("tgbd:admin-registrations"));
+            if (data.type === "admin-chefs-seen" && user.role === "admin")
+              window.dispatchEvent(
+                new CustomEvent("tgbd:admin-chef-applications"),
+              );
             if (data.type === "notification") {
-              toast(data.title);
+              if (
+                user.role === "admin" &&
+                data.adminAlert?.type === "chef-application"
+              ) {
+                if (
+                  window.location.pathname !== "/admin" ||
+                  new URLSearchParams(window.location.search).get("tab") !==
+                    "chefs"
+                )
+                  toast("Có yêu cầu mở bếp mới.");
+                window.dispatchEvent(
+                  new CustomEvent("tgbd:admin-chef-applications", {
+                    detail: { alertId: data.adminAlert.alertId },
+                  }),
+                );
+              } else toast(data.title);
               scheduleRefresh();
             }
           } catch {}
@@ -405,6 +446,7 @@ export function Providers({ children }: { children: ReactNode }) {
         unread,
         revision,
         toast,
+        dismissToast,
         refresh,
         markNotificationRead,
         refreshAuth,
@@ -420,7 +462,7 @@ export function Providers({ children }: { children: ReactNode }) {
       {children}
       {message && (
         <div className="toast" role="status">
-          {message}
+          <span>{message.text}</span>
         </div>
       )}
     </AppContext.Provider>
