@@ -2,8 +2,22 @@ import { randomUUID, createHash } from "node:crypto";
 import { googleAuth } from "@/lib/google-auth";
 import { updateAccountAccess } from "@/lib/admin-user-access";
 import { ensureUserAccountSchema } from "@/lib/user-account-schema";
-import { updateUserProfile, softDeleteAccount, adminSoftDeleteAccount, adminRestoreAccount } from "@/lib/user-account";
-import { sessionRevocationReason, ensureSessionRevocationSchema } from "@/lib/session-revocations";
+import {
+  updateUserProfile,
+  softDeleteAccount,
+  adminSoftDeleteAccount,
+  adminRestoreAccount,
+} from "@/lib/user-account";
+import {
+  sessionRevocationReason,
+  ensureSessionRevocationSchema,
+} from "@/lib/session-revocations";
+import {
+  changePassword,
+  requestPasswordReset,
+  resetPassword,
+} from "@/lib/password-reset";
+import { ensurePasswordResetSchema } from "@/lib/password-reset-schema";
 import {
   chefApplicationAlerts,
   seeChefApplications,
@@ -40,7 +54,11 @@ import {
   digest,
   createSession,
 } from "@/lib/auth";
-import { confirmEmailVerification, resendEmailVerification, verificationInfo } from "@/lib/email-verification";
+import {
+  confirmEmailVerification,
+  resendEmailVerification,
+  verificationInfo,
+} from "@/lib/email-verification";
 import { rows, exec, transaction, sqlDate } from "@/lib/db";
 import { feed, nearbyMapChefs } from "@/lib/catalog";
 import { getHomePopupSettings, saveHomePopupSettings } from "@/lib/home-popups";
@@ -178,7 +196,10 @@ async function dispatch(req: Request) {
     if (action === "me" && method === "GET") {
       const user = await actor(false);
       const token = !user ? (await cookies()).get(COOKIE)?.value : null;
-      const accountStatus = token && await sessionRevocationReason(digest(token)) ? "deleted" : null;
+      const accountStatus =
+        token && (await sessionRevocationReason(digest(token)))
+          ? "deleted"
+          : null;
       return {
         user,
         accountStatus,
@@ -197,6 +218,31 @@ async function dispatch(req: Request) {
       await authThrottle(req, input.email);
       return { user: await signIn(input.email, input.password) };
     }
+    if (action === "password-reset" && method === "POST") {
+      if (id === "request") {
+        const { email } = z
+          .object({ email: z.email().max(190) })
+          .parse(await req.json());
+        await authThrottle(req, "password-reset");
+        await authThrottle(req, email);
+        return requestPasswordReset(email);
+      }
+      if (id === "confirm") {
+        const input = z
+          .object({
+            token: z.string().max(100),
+            newPassword: z.string().max(128),
+            confirmPassword: z.string().max(128),
+          })
+          .parse(await req.json());
+        await authThrottle(req, "password-reset-token");
+        return resetPassword(
+          input.token,
+          input.newPassword,
+          input.confirmPassword,
+        );
+      }
+    }
     if (action === "register" && method === "POST") {
       const input = signupSchema.parse(await req.json());
       await authThrottle(req, "verification-register");
@@ -205,12 +251,19 @@ async function dispatch(req: Request) {
     }
     if (action === "verification" && method === "POST") {
       if (id === "resend") {
-        const input = z.object({ email: z.email().max(190), next: z.string().max(1000).default("/me") }).parse(await req.json());
+        const input = z
+          .object({
+            email: z.email().max(190),
+            next: z.string().max(1000).default("/me"),
+          })
+          .parse(await req.json());
         await authThrottle(req, "verification-resend");
         await authThrottle(req, input.email);
         return resendEmailVerification(input.email, input.next);
       }
-      const { token } = z.object({ token: z.string().max(100) }).parse(await req.json());
+      const { token } = z
+        .object({ token: z.string().max(100) })
+        .parse(await req.json());
       await authThrottle(req, "verification-token");
       if (id === "info") return verificationInfo(token);
       if (id === "confirm") {
@@ -485,6 +538,12 @@ async function dispatch(req: Request) {
     }
   }
   if (section === "profile" && method === "PATCH") {
+    if (action === "password")
+      return changePassword(
+        (await actor())!,
+        await req.json(),
+        digest((await cookies()).get(COOKIE)!.value),
+      );
     return updateUserProfile((await actor())!, await req.json());
   }
   if (section === "profile" && method === "DELETE") {
@@ -906,7 +965,11 @@ async function dispatch(req: Request) {
     if (action === "users" && method === "DELETE")
       return adminSoftDeleteAccount(user, id || "", await req.json());
     if (action === "users" && path[3] === "restore" && method === "POST") {
-      const result = await adminRestoreAccount(user, id || "", await req.json());
+      const result = await adminRestoreAccount(
+        user,
+        id || "",
+        await req.json(),
+      );
       if (result.changed) {
         clearChefReports();
         clearProductReports();
@@ -914,7 +977,11 @@ async function dispatch(req: Request) {
       return result;
     }
     if (action === "users" && method === "POST") {
-      const result = await updateAccountAccess(user, id || "", await req.json());
+      const result = await updateAccountAccess(
+        user,
+        id || "",
+        await req.json(),
+      );
       if (result.changed) {
         clearChefReports();
         clearProductReports();
@@ -1189,9 +1256,7 @@ async function dispatch(req: Request) {
         const image = sharp(bytes).rotate();
         if (kind === "image" && form.get("purpose") === "avatar")
           image.resize(512, 512, { fit: "cover", withoutEnlargement: true });
-        storedBytes = await image
-          .webp({ quality: 82, effort: 4 })
-          .toBuffer();
+        storedBytes = await image.webp({ quality: 82, effort: 4 }).toBuffer();
       } catch {
         throw new AppError("Không thể chuyển đổi ảnh đã tải lên.");
       }
@@ -1278,6 +1343,10 @@ async function dispatch(req: Request) {
     await exec("DELETE FROM sessions WHERE expires_at<?", [sqlDate()]);
     await ensureSessionRevocationSchema();
     await exec("DELETE FROM revoked_sessions WHERE expires_at<?", [sqlDate()]);
+    await ensurePasswordResetSchema();
+    await exec("DELETE FROM password_reset_tokens WHERE expires_at<?", [
+      sqlDate(),
+    ]);
     await exec(
       "DELETE FROM outbox_receipts WHERE created_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY)",
     );

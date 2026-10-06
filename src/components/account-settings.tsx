@@ -8,6 +8,7 @@ import { FilePicker } from "./file-picker";
 import { PushSettings } from "./push-settings";
 import { UserAvatar } from "./user-avatar";
 import { prepareAvatarUpload } from "@/lib/avatar-upload";
+import { ChangePassword } from "./password-reset";
 
 export function AccountSettings() {
   const { user, refreshAuth, deleteAccount, toast } = useApp();
@@ -169,6 +170,7 @@ export function AccountSettings() {
           {saving ? "Đang lưu…" : "Lưu thông tin"}
         </Button>
       </form>
+      <ChangePassword />
       <PushSettings />
       <section className="panel account-delete-section narrow">
         <h2>Xóa tài khoản</h2>

@@ -46,6 +46,15 @@ Production cần chạy `database/015_account_session_revocations.sql`. Bảng n
 - Dùng cùng khóa transaction với xóa, phân quyền và duyệt bếp. Gọi lại API khôi phục không tạo audit trùng và không mở khóa tài khoản đang bị khóa riêng.
 - Không cần migration hoặc biến môi trường mới.
 
+## Đổi và lấy lại mật khẩu
+
+- Trong **Tôi → Cài đặt**, mục **Đổi mật khẩu** yêu cầu mật khẩu hiện tại, mật khẩu mới tối thiểu 10 ký tự và xác nhận lại. Các phiên đăng nhập khác bị đăng xuất; phiên hiện tại tiếp tục hoạt động.
+- Ở form **Đăng nhập**, bấm **Quên mật khẩu?**, nhập email rồi kiểm tra email và thư rác. Hệ thống dùng cùng SMTP hiện có (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SITE_URL`).
+- Liên kết đặt lại có hiệu lực 1 giờ, chỉ dùng một lần và chỉ lưu hash token trong MySQL. Yêu cầu mới sẽ vô hiệu hóa link cũ; phản hồi không tiết lộ email có tồn tại hay không.
+- Sau khi đặt lại thành công, mọi phiên cũ bị đăng xuất. Người dùng cần đăng nhập bằng mật khẩu mới; tài khoản bị khóa hoặc đã xóa không thể đặt lại.
+
+Production chạy thêm `database/016_password_reset.sql` (hoặc `npm run db:migrate`). Không cần biến môi trường mới.
+
 ## Kiểm tra local
 
 `npm run db:migrate` rồi `npm run test:account` kiểm tra bằng fixture riêng trên MySQL local, không gửi email và không ghi Blob thật.

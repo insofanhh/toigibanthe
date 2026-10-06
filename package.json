@@ -21,6 +21,7 @@
     "test:access": "tsx --env-file=.env.local tests/admin-user-access.integration.ts",
     "test:account": "tsx --env-file=.env.local tests/user-account.integration.ts",
     "test:account:http": "tsx --env-file=.env.local tests/user-account-http.integration.ts",
+    "test:password-reset": "tsx --env-file=.env.local tests/password-reset.integration.ts",
     "test:avatar:browser": "node tests/avatar-upload.browser.cjs",
     "test:account:browser": "tsx --env-file=.env.local tests/admin-user-deletion.browser.ts",
     "test:email-verification": "tsx --env-file=.env.local tests/email-verification.integration.ts",

@@ -72,3 +72,35 @@ export async function sendVerificationMail(email: string, token: string) {
     transport.close();
   }
 }
+
+export async function sendPasswordResetMail(email: string, token: string) {
+  const cfg = verificationMailConfig();
+  const link = new URL("/reset-password", cfg.origin);
+  link.searchParams.set("token", token);
+  const url = link.toString();
+  const transport = nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure,
+    requireTLS: !cfg.secure,
+    auth: { user: cfg.user, pass: cfg.pass },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+    disableFileAccess: true,
+    disableUrlAccess: true,
+  });
+  try {
+    const result = await transport.sendMail({
+      from: cfg.from,
+      to: email,
+      subject: "Đặt lại mật khẩu · Tôi gì, bạn đó!",
+      text: `Đặt lại mật khẩu tài khoản Tôi gì, bạn đó!\n\nMở liên kết sau để tạo mật khẩu mới:\n${url}\n\nLiên kết có hiệu lực 1 giờ và chỉ dùng một lần. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;color:#243d32"><h2 style="font-weight:500">Đặt lại mật khẩu</h2><p>Bạn vừa yêu cầu đặt lại mật khẩu tài khoản Tôi gì, bạn đó!</p><p style="margin:24px 0"><a href="${url}" style="display:inline-block;padding:12px 20px;background:#206b50;color:white;border-radius:10px;text-decoration:none">Tạo mật khẩu mới</a></p><p>Liên kết có hiệu lực 1 giờ và chỉ dùng một lần.</p><p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p></div>`,
+    });
+    if (!result.accepted.length)
+      throw new Error("SMTP did not accept recipient");
+  } finally {
+    transport.close();
+  }
+}

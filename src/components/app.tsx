@@ -72,6 +72,10 @@ import { OrderProgress } from "./order-progress";
 import { DishReviews } from "./dish-reviews";
 import { ChefReviews } from "./chef-reviews";
 import { AccountSettings } from "./account-settings";
+import {
+  PasswordResetPage,
+  PasswordResetRequest,
+} from "./password-reset";
 import { UserAvatar } from "./user-avatar";
 import {
   CustomerPaymentRequestForm,
@@ -593,6 +597,7 @@ export function App({ pathname: path }: { pathname: string }) {
   else if (path === "/cart") content = <Cart />;
   else if (path === "/checkout") content = <Checkout />;
   else if (path === "/login") content = <Login />;
+  else if (path === "/reset-password") content = <PasswordResetPage />;
   else if (path === "/chef/apply") content = <ChefApplication />;
   else if (path === "/chef") content = <ChefDashboard />;
   else if (path === "/admin") content = <AdminDashboard />;
@@ -1806,7 +1811,11 @@ function Profile() {
     <>
       <PageTitle title="Tôi" />
       <div className="profile-top panel">
-        <UserAvatar name={user.name} src={user.avatar_url} className="profile-avatar" />
+        <UserAvatar
+          name={user.name}
+          src={user.avatar_url}
+          className="profile-avatar"
+        />
         <div>
           <h2>{user.name}</h2>
           <p>{user.email}</p>
@@ -1877,6 +1886,7 @@ function Login() {
     router = useRouter(),
     params = useSearchParams(),
     [register, setRegister] = useState(false),
+    [forgot, setForgot] = useState(false),
     [showPassword, setShowPassword] = useState(false),
     [busy, setBusy] = useState(false),
     [navigating, setNavigating] = useState(false),
@@ -1898,7 +1908,8 @@ function Login() {
     use_password:
       "Email này đã có tài khoản. Vui lòng đăng nhập bằng mật khẩu của tài khoản đó.",
     inactive: "Tài khoản đang bị tạm ngưng. Vui lòng liên hệ hỗ trợ.",
-    deleted: "Tài khoản đã bị xóa. Vui lòng liên hệ hỗ trợ nếu cần tra cứu đơn hàng.",
+    deleted:
+      "Tài khoản đã bị xóa. Vui lòng liên hệ hỗ trợ nếu cần tra cứu đơn hàng.",
     failed:
       "Không thể đăng nhập Google. Phiên có thể đã hết hạn, vui lòng thử lại.",
   };
@@ -1966,6 +1977,15 @@ function Login() {
           Vào tài khoản
         </Link>
       </>
+    );
+  if (forgot)
+    return (
+      <PasswordResetRequest
+        onBack={() => {
+          setForgot(false);
+          setError("");
+        }}
+      />
     );
   return (
     <div className="auth-wrap">
@@ -2066,6 +2086,17 @@ function Login() {
           )}
         </Button>
       </form>
+      {!register && (
+        <button
+          className="text-button"
+          onClick={() => {
+            setForgot(true);
+            setError("");
+          }}
+        >
+          Quên mật khẩu?
+        </button>
+      )}
       <button
         className="text-button"
         onClick={() => {
