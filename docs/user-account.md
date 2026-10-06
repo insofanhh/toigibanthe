@@ -11,6 +11,7 @@ Avatar JPG/PNG/WebP có ảnh gốc tối đa 20 MB. Trình duyệt đọc hư�
 ## Xóa tài khoản
 
 - Bấm **Xóa tài khoản → Xác nhận xóa** trong Cài đặt.
+- Tài khoản Admin bị vô hiệu hóa nút Xóa tài khoản trong Cài đặt, kèm lý do. API cũng chặn tự xóa theo vai trò hiện tại trong database (403), kể cả khi có nhiều Admin. Một Admin khác có thể quản lý/xóa tài khoản qua Users, theo các điều kiện bảo vệ hiện có.
 - Hệ thống đặt `users.active=FALSE`, ghi `deleted_at`, thu hồi tất cả phiên, tắt push và vô hiệu hóa các link xác minh đang chờ. Client xóa giỏ hàng và chuyển về Home.
 - User vẫn tồn tại trong Admin → Users với nhãn **Đã xóa**; thuộc bộ lọc tài khoản đã khóa. Giữ lại lịch sử đơn, ảnh và dữ liệu đối soát. Nút mở khóa/phân quyền bị vô hiệu hóa với tài khoản đã xóa.
 - Tài khoản có đơn chưa kết thúc hoặc đối soát/hoàn tiền chưa xử lý cần hoàn tất trước khi xóa. Bếp bị đóng và hồ sơ chuyển tạm ngưng khi chủ bếp xóa tài khoản.

@@ -30,6 +30,9 @@ export function AccountSettings() {
       url: user?.avatar_url || null,
     });
   }, [user?.id, user?.avatar_asset_id, user?.avatar_url]);
+  useEffect(() => {
+    if (user?.role === "admin") dialog.current?.close();
+  }, [user?.role]);
   if (!user)
     return deleting ? (
       <div className="loading" role="status">
@@ -83,7 +86,7 @@ export function AccountSettings() {
     }
   }
   async function remove() {
-    if (deleting) return;
+    if (deleting || user?.role === "admin") return;
     setDeleting(true);
     setDeleteError("");
     try {
@@ -170,14 +173,16 @@ export function AccountSettings() {
       <section className="panel account-delete-section narrow">
         <h2>Xóa tài khoản</h2>
         <p>
-          Tài khoản sẽ ngừng hoạt động và bạn sẽ được đăng xuất. Lịch sử đơn
-          hàng được giữ lại để đối soát.
+          {user.role === "admin"
+            ? "Tài khoản Admin không được tự xóa trong Cài đặt. Việc quản lý tài khoản Admin cần được thực hiện bởi một Admin khác trong mục Users."
+            : "Tài khoản sẽ ngừng hoạt động và bạn sẽ được đăng xuất. Lịch sử đơn hàng được giữ lại để đối soát."}
         </p>
         <Button
           secondary
           className="account-delete-button"
-          disabled={saving || uploading || deleting}
+          disabled={user.role === "admin" || saving || uploading || deleting}
           onClick={() => {
+            if (user.role === "admin") return;
             setDeleteError("");
             dialog.current?.showModal();
           }}
@@ -209,7 +214,7 @@ export function AccountSettings() {
           </Button>
           <Button
             className="account-delete-confirm"
-            disabled={deleting}
+            disabled={user.role === "admin" || deleting}
             onClick={() => void remove()}
           >
             {deleting ? "Đang xóa…" : "Xác nhận xóa"}

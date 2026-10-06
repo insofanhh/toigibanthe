@@ -115,6 +115,38 @@ try {
     avatarAssetId: assets[0],
   });
   await assert.rejects(() => softDeleteAccount(users[0], {}));
+  const adminBefore = await rows("SELECT role,active FROM users WHERE id=?", [
+    users[2].id,
+  ]);
+  for (const role of ["admin", "user"] as const) {
+    // Current database role must block self deletion even with a stale user actor.
+    await assert.rejects(
+      () => softDeleteAccount({ ...users[2], role }, confirmation),
+      { status: 403 },
+    );
+  }
+  assert.deepEqual(
+    await rows("SELECT role,active FROM users WHERE id=?", [users[2].id]),
+    adminBefore,
+  );
+  assert.equal(
+    (
+      await rows(
+        "SELECT user_id FROM user_account_details WHERE user_id=? AND deleted_at IS NOT NULL",
+        [users[2].id],
+      )
+    ).length,
+    0,
+  );
+  assert.equal(
+    (
+      await rows(
+        "SELECT id FROM audit_logs WHERE entity_id=? AND action='user.delete'",
+        [users[2].id],
+      )
+    ).length,
+    0,
+  );
   await assert.rejects(
     () => adminSoftDeleteAccount(users[0], users[3].id, confirmation),
     { status: 403 },
@@ -344,6 +376,17 @@ try {
       users[2].id,
       sqlDate(new Date(Date.now() + 3600000)),
     ]);
+    const adminSelfDelete = await fetch(base + "/api/profile", {
+      method: "DELETE",
+      headers: {
+        cookie: "tgbd_session=" + adminToken,
+        origin: new URL(process.env.SITE_URL || base).origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(confirmation),
+    });
+    assert.equal(adminSelfDelete.status, 403);
+    assert.match((await adminSelfDelete.json()).error, /Admin không được tự xóa/);
     const remove = (cookie: string, body: unknown) =>
       fetch(base + "/api/admin/users/" + users[3].id, {
         method: "DELETE",

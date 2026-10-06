@@ -226,6 +226,11 @@ async function deleteAccount(
     if (deleted && byAdmin) return { ok: true, changed: false };
     if ((!user.active || deleted) && !byAdmin)
       throw new AppError("Tài khoản không còn hoạt động.", 401);
+    if (!byAdmin && user.role === "admin")
+      throw new AppError(
+        "Tài khoản Admin không được tự xóa trong Cài đặt. Hãy liên hệ Admin khác để quản lý tài khoản trong mục Users.",
+        403,
+      );
     if (user.role === "admin" && user.active) {
       const [{ total }] = await rows<{ total: number }>(
         "SELECT COUNT(*) total FROM users WHERE role='admin' AND active=TRUE",
