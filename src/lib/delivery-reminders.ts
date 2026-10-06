@@ -89,7 +89,7 @@ export async function processDeliveryReminders(now = new Date()) {
         order.user_id,
         "order",
         "Xác nhận đã nhận món",
-        `Bếp đã báo giao đơn ${order.code} hơn 1 giờ trước. Nếu đã nhận đủ món, hãy mở đơn và bấm “Tôi đã nhận món” để hoàn thành. Nếu chưa nhận được, hãy liên hệ bếp.`,
+        `Bếp đã báo giao đơn ${order.code} hơn 1 giờ trước. Nếu đã nhận đủ món, hãy mở đơn và bấm “Đã nhận món” để hoàn thành. Nếu chưa nhận được, hãy liên hệ bếp.`,
         `/orders/${order.id}`,
       );
       await exec(

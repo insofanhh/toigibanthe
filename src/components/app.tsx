@@ -1526,6 +1526,23 @@ export function OrderCard({
   chef?: boolean;
   reorder?: boolean;
 }) {
+  const { user, toast, refresh } = useApp();
+  const [receiving, setReceiving] = useState(false);
+  const canConfirmReceipt =
+    !chef && user?.id === o.user_id && o.status === "DELIVERED";
+  async function confirmReceipt() {
+    if (receiving) return;
+    setReceiving(true);
+    try {
+      await post("orders/" + o.id + "/action", { action: "COMPLETED" });
+      refresh();
+      toast("Đã xác nhận nhận món.");
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setReceiving(false);
+    }
+  }
   return (
     <article className="panel order-card-container">
       <Link className="order-card" href={"/orders/" + o.id}>
@@ -1585,6 +1602,17 @@ export function OrderCard({
             </span>
           )}
         </div>
+        {canConfirmReceipt && (
+          <button
+            type="button"
+            className="status order-receive-button"
+            data-status="COMPLETED"
+            disabled={receiving}
+            onClick={() => void confirmReceipt()}
+          >
+            {receiving ? "Đang cập nhật…" : "Đã nhận món"}
+          </button>
+        )}
         {reorder && !chef && <HistoryReorder orderId={o.id} />}
       </div>
     </article>
@@ -2741,7 +2769,7 @@ function OrderDetail({ id }: { id: string }) {
             )}
             {!chef && o.status === "DELIVERED" && (
               <Button disabled={busy} onClick={() => void act("COMPLETED")}>
-                Tôi đã nhận món
+                Đã nhận món
               </Button>
             )}
             {!chef &&
