@@ -57,6 +57,7 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  Phone,
 } from "lucide-react";
 import { useApp, request, post } from "./providers";
 import { analyticsContext, trackEvent } from "@/lib/analytics-client";
@@ -2773,7 +2774,19 @@ function OrderDetail({ id }: { id: string }) {
               <p>{o.chef_address || "Địa chỉ bếp chưa cập nhật"}</p>
             </div>
             <div className="delivery-stop delivery-stop-to">
-              <small>Đến</small>
+              <div className="delivery-stop-heading">
+                <small>Đến</small>
+                {o.chef_user_id === user.id && o.phone?.trim() && (
+                  <a
+                    className="delivery-call-button"
+                    href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}
+                    aria-label={`Gọi ${o.recipient} qua số ${o.phone}`}
+                    title="Gọi người nhận"
+                  >
+                    <Phone size={18} strokeWidth={1.6} aria-hidden="true" />
+                  </a>
+                )}
+              </div>
               <p>
                 <strong>{o.recipient}</strong> · {o.phone}
               </p>

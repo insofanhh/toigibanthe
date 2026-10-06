@@ -3155,6 +3155,34 @@ hr {
 .delivery-stop p:last-child {
   overflow-wrap: anywhere;
 }
+.delivery-stop-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.delivery-stop-heading small {
+  margin-bottom: 0;
+}
+.delivery-call-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface, #fff);
+  color: var(--green);
+}
+.delivery-call-button:hover {
+  background: var(--mint);
+}
+.delivery-call-button:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
 .delivery-map {
   height: 270px;
   border-radius: 10px;
