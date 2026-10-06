@@ -2505,6 +2505,7 @@ hr {
   font: inherit;
   cursor: pointer;
   flex-shrink: 0;
+  gap: 5px;
 }
 .order-receive-button:hover:not(:disabled) {
   filter: brightness(0.97);

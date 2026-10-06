@@ -1610,7 +1610,14 @@ export function OrderCard({
             disabled={receiving}
             onClick={() => void confirmReceipt()}
           >
-            {receiving ? "Đang cập nhật…" : "Đã nhận món"}
+            {receiving ? (
+              "Đang cập nhật…"
+            ) : (
+              <>
+                <CheckCircle2 size={14} aria-hidden="true" />
+                Đã nhận món
+              </>
+            )}
           </button>
         )}
         {reorder && !chef && <HistoryReorder orderId={o.id} />}
@@ -2769,6 +2776,7 @@ function OrderDetail({ id }: { id: string }) {
             )}
             {!chef && o.status === "DELIVERED" && (
               <Button disabled={busy} onClick={() => void act("COMPLETED")}>
+                <CheckCircle2 size={16} aria-hidden="true" />
                 Đã nhận món
               </Button>
             )}
