@@ -2075,6 +2075,18 @@ function Login() {
             </button>
           </div>
         </Field>
+        {!register && (
+          <button
+            type="button"
+            className="text-button auth-forgot-password"
+            onClick={() => {
+              setForgot(true);
+              setError("");
+            }}
+          >
+            Quên mật khẩu?
+          </button>
+        )}
         {error && <Notice error>{error}</Notice>}
         <Button type="submit" disabled={busy || navigating}>
           {busy ? (
@@ -2086,17 +2098,6 @@ function Login() {
           )}
         </Button>
       </form>
-      {!register && (
-        <button
-          className="text-button"
-          onClick={() => {
-            setForgot(true);
-            setError("");
-          }}
-        >
-          Quên mật khẩu?
-        </button>
-      )}
       <button
         className="text-button"
         onClick={() => {

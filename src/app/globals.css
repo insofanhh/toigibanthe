@@ -2813,6 +2813,11 @@ hr {
 .auth-wrap .field {
   text-align: left;
 }
+.auth-forgot-password {
+  align-self: flex-start;
+  margin-top: -8px;
+  margin-bottom: -5px;
+}
 .auth-wrap > .text-button {
   margin-top: 20px;
 }
